@@ -1,0 +1,15 @@
+:root {
+  color-scheme: light;
+  --color-ink: #17201d;
+  --color-muted: #66726d;
+  --color-surface: #ffffff;
+  --color-canvas: #f3f5f4;
+  --color-border: #cfd7d3;
+  --color-accent: #146b4f;
+  --color-good: #26734d;
+  --color-reminder: #a16400;
+  --color-assessment: #a33131;
+  --radius-control: 6px;
+  --tap-size: 44px;
+  font-family: "Microsoft YaHei", Arial, sans-serif;
+}

@@ -1,0 +1,27 @@
+# Project-local tooling
+tmp/
+.tools/
+.superpowers/
+.sdd-baselines/
+__pycache__/
+
+# Local release packages and internal project context
+output/
+AGENTS.md
+.github/workflows/
+
+# Application dependencies and generated output
+app/node_modules/
+app/dist/
+app/coverage/
+app/playwright-report/
+app/test-results/
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# Original working materials
+*.doc
+*.docx

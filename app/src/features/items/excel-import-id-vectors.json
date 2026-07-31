@@ -1,0 +1,18 @@
+[
+  {
+    "routeName": "焊机间",
+    "area": "二线焊机",
+    "device": "",
+    "part": "检查标准第1项（原编号1）",
+    "standard": "表面无积灰、油泥",
+    "id": "aacf6be2588a5180"
+  },
+  {
+    "routeName": "  A　 B\n",
+    "area": " C\tD ",
+    "device": "  ",
+    "part": " Part  1 ",
+    "standard": " Standard　 A\n",
+    "id": "7d9e72384318a3ea"
+  }
+]

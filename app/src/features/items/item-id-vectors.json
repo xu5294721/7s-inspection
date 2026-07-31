@@ -1,0 +1,16 @@
+[
+  {
+    "routeName": "焊机间",
+    "area": "二线焊机",
+    "device": "",
+    "part": "检查标准第1项（原编号1）",
+    "id": "5e4e18f84b6e9b1f"
+  },
+  {
+    "routeName": "  A　 B\n",
+    "area": " C\tD ",
+    "device": "  ",
+    "part": " Part  1 ",
+    "id": "51ecefcd9f8edca7"
+  }
+]
