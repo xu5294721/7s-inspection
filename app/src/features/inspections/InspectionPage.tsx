@@ -15,12 +15,14 @@ import type {
 import { splitPhotoIntoGroup } from "../../domain/inspection";
 import { createBrowserUuid } from "../../lib/ids";
 import { processImage } from "../../lib/images/compressImage";
+import { saveCapturedPhotoToGallery } from "../../platform/nativeFile";
 import {
   beginPhotoProcessing,
   type PhotoProcessingActivity,
 } from "../../app/photoProcessingSignal";
 import { CustomRouteDialog } from "./CustomRouteDialog";
 import { InspectionEntryEditor } from "./InspectionEntryEditor";
+import type { PhotoInputSource } from "../photos/PhotoCaptureButtons";
 import {
   formatInspectionCheckSummary,
 } from "../../domain/inspectionCheckContents";
@@ -52,6 +54,7 @@ interface FailedPhoto {
   id: string;
   entryId: string;
   file: File;
+  source: PhotoInputSource;
   message: string;
 }
 
@@ -270,6 +273,7 @@ export function InspectionPage() {
     operation: PhotoOperation,
     entryId: string,
     file: File,
+    source: PhotoInputSource,
     highQuality = false,
   ) {
     const processed = await processImage(file, {
@@ -293,12 +297,19 @@ export function InspectionPage() {
     const result = await inspectionRepository.addPhotoToGoodGroup(entryId, photo, groupId);
     requireCurrent(operation);
     sourceFiles.current.set(result.photo.id, file);
+    if (source === "camera") {
+      try {
+        await saveCapturedPhotoToGallery(file);
+      } catch {
+        setPhotoError("巡检照片已保存，但未能同步到手机相册，请确认手机存储空间后重拍。");
+      }
+    }
     setGraph((current) => current && current.inspection.id === operation.inspectionId
       ? appendPhotoToGraph(current, result)
       : current);
   }
 
-  async function processFiles(entryId: string, files: File[]) {
+  async function processFiles(entryId: string, files: File[], source: PhotoInputSource) {
     const operation = beginOperation();
     setPhotoError("");
     setProgress({ done: 0, total: files.length });
@@ -306,13 +317,13 @@ export function InspectionPage() {
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
         try {
-          await saveNewPhoto(operation, entryId, file);
+          await saveNewPhoto(operation, entryId, file, source);
         } catch (error) {
           if (!isCurrent(operation)) break;
           const message = error instanceof Error ? error.message : "照片处理失败";
           setFailedPhotos((current) => [
             ...current,
-            { id: createBrowserUuid(), entryId, file, message },
+            { id: createBrowserUuid(), entryId, file, source, message },
           ]);
         }
         if (!isCurrent(operation)) break;
@@ -329,7 +340,7 @@ export function InspectionPage() {
     setProgress({ done: 0, total: 1 });
     try {
       try {
-        await saveNewPhoto(operation, failed.entryId, failed.file);
+        await saveNewPhoto(operation, failed.entryId, failed.file, failed.source);
         requireCurrent(operation);
         setFailedPhotos((current) => current.filter((item) => item.id !== failed.id));
       } catch (error) {
@@ -346,7 +357,12 @@ export function InspectionPage() {
     }
   }
 
-  async function replacePhoto(photo: PhotoAsset, file: File, highQuality = photo.highQuality) {
+  async function replacePhoto(
+    photo: PhotoAsset,
+    file: File,
+    highQuality = photo.highQuality,
+    copyToGallery = false,
+  ) {
     const operation = beginOperation();
     setPhotoError("");
     try {
@@ -359,6 +375,13 @@ export function InspectionPage() {
       await inspectionRepository.replacePhoto(replacement);
       requireCurrent(operation);
       sourceFiles.current.set(photo.id, file);
+      if (copyToGallery) {
+        try {
+          await saveCapturedPhotoToGallery(file);
+        } catch {
+          setPhotoError("巡检照片已保存，但未能同步到手机相册，请确认手机存储空间后重拍。");
+        }
+      }
       setGraph((current) => current && current.inspection.id === operation.inspectionId
         ? replacePhotoInGraph(current, replacement)
         : current);
@@ -648,14 +671,14 @@ export function InspectionPage() {
                             photos={graph.photos}
                             checklistItem={checklistItem}
                             disabled={processing || savingEntryIds.has(entry.id)}
-                            onFilesSelected={(files) => void processFiles(entry.id, files)}
+                            onFilesSelected={(files, source) => void processFiles(entry.id, files, source)}
                             onSaveCheckSelections={(selections) => saveEntryCheckSelections(entry.id, selections)}
                             onSavePhotoGroup={savePhotoGroup}
                             onSplit={(group, photoId, category) =>
                               splitGroupPhoto(group, checklistItem, photoId, category)}
                             onPhotoSave={savePhotoAnnotation}
                             onDeletePhoto={(photoId) => void deletePhoto(photoId)}
-                            onReplacePhoto={(photo, file) => void replacePhoto(photo, file)}
+                            onReplacePhoto={(photo, file, source) => void replacePhoto(photo, file, photo.highQuality, source === "camera")}
                             onHighQualityChange={(photo, highQuality) =>
                               void changeHighQuality(photo, highQuality)}
                           />

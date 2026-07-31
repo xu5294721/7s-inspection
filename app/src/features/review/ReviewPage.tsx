@@ -12,7 +12,9 @@ import { splitPhotoIntoGroup } from "../../domain/inspection";
 import { sortRouteNamesForReview, sortRouteNamesForReviewByCategory } from "../../domain/reviewRouteOrder";
 import { createBrowserUuid } from "../../lib/ids";
 import { processImage } from "../../lib/images/compressImage";
+import { saveCapturedPhotoToGallery } from "../../platform/nativeFile";
 import { InspectionEntryEditor } from "../inspections/InspectionEntryEditor";
+import type { PhotoInputSource } from "../photos/PhotoCaptureButtons";
 import { validateReportReadiness } from "../../domain/reportValidation";
 import type { ReportProgress } from "../reports/generateDocx";
 import { ReviewGroupList } from "./ReviewGroupList";
@@ -199,7 +201,7 @@ export function ReviewPage() {
     if (routeName) window.setTimeout(() => routeEditElements.current.get(routeName)?.focus(), 0);
   }
 
-  async function saveNewEditPhoto(entryId: string, file: File) {
+  async function saveNewEditPhoto(entryId: string, file: File, source: PhotoInputSource) {
     const processed = await processImage(file, { highQuality: false });
     const photoId = createBrowserUuid();
     const groupId = createBrowserUuid();
@@ -215,15 +217,22 @@ export function ReviewPage() {
     await backupRepository.assertCanPersistNewPhoto();
     const result = await inspectionRepository.addPhotoToGoodGroup(entryId, photo, groupId);
     sourceFiles.current.set(result.photo.id, file);
+    if (source === "camera") {
+      try {
+        await saveCapturedPhotoToGallery(file);
+      } catch {
+        setEditError("巡检照片已保存，但未能同步到手机相册，请确认手机存储空间后重拍。");
+      }
+    }
     await refreshGraph();
   }
 
-  async function processEditFiles(entryId: string, files: File[]) {
+  async function processEditFiles(entryId: string, files: File[], source: PhotoInputSource) {
     if (editProcessing) return;
     setEditProcessing(true);
     setEditError("");
     try {
-      for (const file of files) await saveNewEditPhoto(entryId, file);
+      for (const file of files) await saveNewEditPhoto(entryId, file, source);
     } catch (error) {
       setEditError(error instanceof Error ? error.message : "照片处理失败");
     } finally {
@@ -291,13 +300,25 @@ export function ReviewPage() {
     }
   }
 
-  async function replaceEditPhoto(photo: PhotoAsset, file: File, highQuality = photo.highQuality) {
+  async function replaceEditPhoto(
+    photo: PhotoAsset,
+    file: File,
+    highQuality = photo.highQuality,
+    copyToGallery = false,
+  ) {
     setEditError("");
     setEditProcessing(true);
     try {
       const processed = await processImage(file, { highQuality });
       await inspectionRepository.replacePhoto({ ...photo, ...processed });
       sourceFiles.current.set(photo.id, file);
+      if (copyToGallery) {
+        try {
+          await saveCapturedPhotoToGallery(file);
+        } catch {
+          setEditError("巡检照片已保存，但未能同步到手机相册，请确认手机存储空间后重拍。");
+        }
+      }
       await refreshGraph();
     } catch (error) {
       setEditError(error instanceof Error ? error.message : "照片处理失败");
@@ -628,13 +649,13 @@ export function ReviewPage() {
                   photos={graph.photos}
                   checklistItem={checklistItem}
                   disabled={editProcessing}
-                  onFilesSelected={(files) => void processEditFiles(entry.id, files)}
+                  onFilesSelected={(files, source) => void processEditFiles(entry.id, files, source)}
                   onSaveCheckSelections={(selections) => saveEditCheckSelections(entry.id, selections)}
                   onSavePhotoGroup={saveEditPhotoGroup}
                   onSplit={(group, photoId, category) => splitEditPhoto(group, checklistItem, photoId, category)}
                   onPhotoSave={saveEditPhotoAnnotation}
                   onDeletePhoto={(photoId) => void deleteEditPhoto(photoId)}
-                  onReplacePhoto={(photo, file) => void replaceEditPhoto(photo, file)}
+                  onReplacePhoto={(photo, file, source) => void replaceEditPhoto(photo, file, photo.highQuality, source === "camera")}
                   onHighQualityChange={(photo, highQuality) => void changeEditPhotoHighQuality(photo, highQuality)}
                 />
               );

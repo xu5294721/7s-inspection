@@ -12,11 +12,18 @@ const globalCss = readFileSync(resolve("src/styles/global.css"), "utf8");
 const EIGHTY_PHOTO_IMPORT_COMPLETION_TIMEOUT_MS = 30_000;
 const EIGHTY_PHOTO_IMPORT_TEST_TIMEOUT_MS = 35_000;
 
-const { mockProcessImage } = vi.hoisted(() => ({ mockProcessImage: vi.fn() }));
+const { mockProcessImage, mockSaveCapturedPhotoToGallery } = vi.hoisted(() => ({
+  mockProcessImage: vi.fn(),
+  mockSaveCapturedPhotoToGallery: vi.fn(),
+}));
 
 vi.mock("../../lib/images/compressImage", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/images/compressImage")>()),
   processImage: mockProcessImage,
+}));
+
+vi.mock("../../platform/nativeFile", () => ({
+  saveCapturedPhotoToGallery: mockSaveCapturedPhotoToGallery,
 }));
 
 function processed(label: string) {
@@ -68,6 +75,8 @@ async function expandInspectionEntry(
 
 beforeEach(() => {
   mockProcessImage.mockReset();
+  mockSaveCapturedPhotoToGallery.mockReset();
+  mockSaveCapturedPhotoToGallery.mockResolvedValue(undefined);
   Object.defineProperty(URL, "createObjectURL", {
     configurable: true,
     value: vi.fn((blob: Blob) => `blob:${blob.size}`),
@@ -76,6 +85,48 @@ beforeEach(() => {
     configurable: true,
     value: vi.fn(),
   });
+});
+
+test("copies a newly captured photo to the Android gallery after saving the inspection record", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`photo-camera-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  const inspection = makeInspection({
+    entries: [{ ...makeInspection().entries[0], groupIds: [] }],
+  });
+  await repository.saveGraph({ inspection, groups: [], photos: [] });
+  mockProcessImage.mockResolvedValueOnce(processed("camera"));
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+
+  const entry = await expandInspectionEntry(user, inspection.entries[0].itemSnapshot.routeName);
+  const file = new File(["camera"], "camera.jpg", { type: "image/jpeg" });
+  await user.upload(within(entry).getByLabelText("拍照文件"), file);
+
+  await waitFor(async () => {
+    expect((await repository.getGraph("inspection-1"))?.photos).toHaveLength(1);
+  });
+  expect(mockSaveCapturedPhotoToGallery).toHaveBeenCalledWith(file);
+});
+
+test("does not duplicate a photo selected from the gallery", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`photo-gallery-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  const inspection = makeInspection({
+    entries: [{ ...makeInspection().entries[0], groupIds: [] }],
+  });
+  await repository.saveGraph({ inspection, groups: [], photos: [] });
+  mockProcessImage.mockResolvedValueOnce(processed("gallery"));
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+
+  const entry = await expandInspectionEntry(user, inspection.entries[0].itemSnapshot.routeName);
+  const file = new File(["gallery"], "gallery.jpg", { type: "image/jpeg" });
+  await user.upload(within(entry).getByLabelText("相册文件"), file);
+
+  await waitFor(async () => {
+    expect((await repository.getGraph("inspection-1"))?.photos).toHaveLength(1);
+  });
+  expect(mockSaveCapturedPhotoToGallery).not.toHaveBeenCalled();
 });
 
 test("saves files sequentially, keeps successes, and retries the failed file", async () => {

@@ -9,7 +9,7 @@ import type {
   PhotoCategory,
   PhotoGroup,
 } from "../../domain/models";
-import { PhotoCaptureButtons } from "../photos/PhotoCaptureButtons";
+import { PhotoCaptureButtons, type PhotoInputSource } from "../photos/PhotoCaptureButtons";
 import { PhotoGroupEditor } from "../photos/PhotoGroupEditor";
 import { InspectionCheckContentEditor } from "./InspectionCheckContentEditor";
 
@@ -25,13 +25,13 @@ export interface InspectionEntryEditorProps {
   photos: PhotoAsset[];
   checklistItem: ChecklistItem;
   disabled: boolean;
-  onFilesSelected(files: File[]): void;
+  onFilesSelected(files: File[], source: PhotoInputSource): void;
   onSaveCheckSelections(selections: InspectionCheckSelection[]): Promise<void>;
   onSavePhotoGroup(group: PhotoGroup): Promise<void>;
   onSplit(group: PhotoGroup, photoId: string, category: PhotoCategory): Promise<void>;
   onPhotoSave(photo: PhotoAsset): Promise<void>;
   onDeletePhoto(photoId: string): void;
-  onReplacePhoto(photo: PhotoAsset, file: File): void;
+  onReplacePhoto(photo: PhotoAsset, file: File, source: PhotoInputSource): void;
   onHighQualityChange(photo: PhotoAsset, highQuality: boolean): void;
 }
 
@@ -57,8 +57,8 @@ interface PhotoActionsProps {
   index: number;
   disabled: boolean;
   onDelete(): void;
-  onReplace(file: File): void;
-  onRetake(file: File): void;
+  onReplace(file: File, source: PhotoInputSource): void;
+  onRetake(file: File, source: PhotoInputSource): void;
   onHighQualityChange(highQuality: boolean): void;
 }
 
@@ -99,7 +99,7 @@ function PhotoActions({
         type="file"
         accept="image/*"
         aria-label={`替换照片 ${index + 1}`}
-        onChange={chooseOne(onReplace)}
+        onChange={chooseOne((file) => onReplace(file, "gallery"))}
       />
       <button type="button" disabled={disabled} onClick={() => retakeInput.current?.click()}>
         重拍
@@ -111,7 +111,7 @@ function PhotoActions({
         accept="image/*"
         capture="environment"
         aria-label={`重拍照片 ${index + 1}`}
-        onChange={chooseOne(onRetake)}
+        onChange={chooseOne((file) => onRetake(file, "camera"))}
       />
       <button type="button" disabled={disabled} aria-label={`删除照片 ${index + 1}`} onClick={onDelete}>
         <Trash2 aria-hidden="true" size={17} />
@@ -198,8 +198,8 @@ export function InspectionEntryEditor({
                 index={index}
                 disabled={disabled}
                 onDelete={() => onDeletePhoto(photo.id)}
-                onReplace={(file) => onReplacePhoto(photo, file)}
-                onRetake={(file) => onReplacePhoto(photo, file)}
+                onReplace={(file, source) => onReplacePhoto(photo, file, source)}
+                onRetake={(file, source) => onReplacePhoto(photo, file, source)}
                 onHighQualityChange={(value) => onHighQualityChange(photo, value)}
               />
             </li>

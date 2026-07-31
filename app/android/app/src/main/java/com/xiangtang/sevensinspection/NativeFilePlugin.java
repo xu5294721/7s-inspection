@@ -19,6 +19,50 @@ import java.io.OutputStream;
 @CapacitorPlugin(name = "NativeFile")
 public class NativeFilePlugin extends Plugin {
     @PluginMethod
+    public void saveImage(PluginCall call) {
+        String data = call.getString("data");
+        String filename = call.getString("filename");
+        String mimeType = call.getString("mimeType", "image/jpeg");
+        if (data == null || data.isEmpty() || filename == null || filename.isEmpty()) {
+            call.reject("图片内容或文件名为空");
+            return;
+        }
+
+        Uri uri = null;
+        try {
+            byte[] bytes = Base64.decode(data, Base64.DEFAULT);
+            ContentResolver resolver = getContext().getContentResolver();
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, filename);
+            values.put(MediaStore.Images.Media.MIME_TYPE, mimeType);
+            values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/7S巡检");
+            values.put(MediaStore.Images.Media.IS_PENDING, 1);
+            uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) {
+                call.reject("无法创建相册图片");
+                return;
+            }
+
+            try (OutputStream output = resolver.openOutputStream(uri)) {
+                if (output == null) throw new IllegalStateException("无法打开相册图片");
+                output.write(bytes);
+                output.flush();
+            }
+
+            ContentValues completed = new ContentValues();
+            completed.put(MediaStore.Images.Media.IS_PENDING, 0);
+            resolver.update(uri, completed, null, null);
+
+            JSObject result = new JSObject();
+            result.put("uri", uri.toString());
+            call.resolve(result);
+        } catch (Exception error) {
+            if (uri != null) getContext().getContentResolver().delete(uri, null, null);
+            call.reject("相册图片保存失败", error);
+        }
+    }
+
+    @PluginMethod
     public void saveFile(PluginCall call) {
         String data = call.getString("data");
         String filename = call.getString("filename");

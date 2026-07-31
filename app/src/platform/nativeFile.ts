@@ -6,6 +6,11 @@ interface NativeFilePlugin {
     filename: string;
     mimeType: string;
   }): Promise<{ uri: string }>;
+  saveImage(options: {
+    data: string;
+    filename: string;
+    mimeType: string;
+  }): Promise<{ uri: string }>;
 }
 
 const nativeFile = registerPlugin<NativeFilePlugin>("NativeFile");
@@ -46,4 +51,27 @@ export async function saveBlobToDownloads(blob: Blob, filename: string): Promise
     anchor.remove();
     setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
   }
+}
+
+function imageExtension(file: File): string {
+  const fromName = file.name.match(/\.([a-zA-Z0-9]{1,10})$/)?.[1]?.toLowerCase();
+  if (fromName) return fromName;
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+  return "jpg";
+}
+
+function galleryFilename(file: File): string {
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
+  return `7S巡检_${timestamp}.${imageExtension(file)}`;
+}
+
+export async function saveCapturedPhotoToGallery(file: File): Promise<void> {
+  if (!isNativeAndroid()) return;
+  if (!file.type.startsWith("image/")) throw new Error("只能保存图片到相册。");
+  await nativeFile.saveImage({
+    data: await blobToBase64(file),
+    filename: galleryFilename(file),
+    mimeType: file.type || "image/jpeg",
+  });
 }

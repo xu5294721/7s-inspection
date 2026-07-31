@@ -15,7 +15,7 @@ test("opens the rear camera with an image-only input", async () => {
   expect(input).toHaveAttribute("capture", "environment");
   expect(input).not.toHaveAttribute("multiple");
   await user.upload(input, new File(["photo"], "camera.jpg", { type: "image/jpeg" }));
-  expect(onFilesSelected).toHaveBeenCalledWith([expect.any(File)]);
+  expect(onFilesSelected).toHaveBeenCalledWith([expect.any(File)], "camera");
   expect(button).toBeVisible();
 });
 
@@ -35,6 +35,6 @@ test("selects multiple gallery images without a capture attribute", async () => 
   expect(input).toHaveAttribute("multiple");
   expect(input).not.toHaveAttribute("capture");
   await user.upload(input, files);
-  expect(onFilesSelected).toHaveBeenCalledWith(files);
+  expect(onFilesSelected).toHaveBeenCalledWith(files, "gallery");
   expect(button).toBeVisible();
 });
