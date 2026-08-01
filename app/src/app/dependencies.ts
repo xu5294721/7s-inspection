@@ -23,7 +23,9 @@ import type {
   InspectionCheckSelection,
   InspectionRouteTemplate,
   PhotoAsset,
+  PhotoLayoutMode,
   PhotoGroup,
+  PhotosPerRow,
   ReportTemplate,
 } from "../domain/models";
 import type { ReportProgress } from "../features/reports/generateDocx";
@@ -77,7 +79,13 @@ export interface InspectionRepositoryPort {
   reorderPhotos(groupId: string, orderedPhotoIds: string[]): Promise<void>;
   markReviewedIfReady(id: string): Promise<InspectionGraph>;
   setInspectionStatus(id: string, status: import("../domain/models").InspectionStatus): Promise<void>;
-  updateReviewSettings(id: string, templateId: string, templateVersion: number, photosPerRowOverride: 2 | 3 | null): Promise<void>;
+  updateReviewSettings(
+    id: string,
+    templateId: string,
+    templateVersion: number,
+    photoLayoutModeOverride: PhotoLayoutMode | null,
+    photosPerRowOverride: PhotosPerRow | null,
+  ): Promise<void>;
   updateReviewRouteOrder(id: string, routeNames: string[]): Promise<Inspection>;
   updateReviewRouteOrderByCategory(
     id: string,
@@ -161,6 +169,7 @@ const defaultReportTemplate: ReportTemplate = {
   lineSpacing: 1.5,
   firstLineIndentChars: 2,
   marginMm: { top: 20, right: 20, bottom: 20, left: 20 },
+  photoLayoutMode: "fixed",
   photosPerRow: 3,
   sections: [
     { category: "good", title: "好的方面", order: 0 },
@@ -201,6 +210,7 @@ const formalReportTemplate: ReportTemplate = {
   lineSpacing: defaultReportTemplate.lineSpacing,
   firstLineIndentChars: 2,
   marginMm: { top: 20, right: 22, bottom: 20, left: 22 },
+  photoLayoutMode: "fixed",
   photosPerRow: 3,
   sections: [
     { category: "good", title: "好的方面", order: 0 },
@@ -239,8 +249,14 @@ export function createAppDependencies(
     reorderPhotos: (groupId, orderedPhotoIds) => repository.reorderPhotos(groupId, orderedPhotoIds),
     markReviewedIfReady: (id) => repository.markReviewedIfReady(id),
     setInspectionStatus: (id, status) => repository.setInspectionStatus(id, status),
-    updateReviewSettings: (id, templateId, templateVersion, photosPerRowOverride) =>
-      repository.updateReviewSettings(id, templateId, templateVersion, photosPerRowOverride),
+    updateReviewSettings: (id, templateId, templateVersion, photoLayoutModeOverride, photosPerRowOverride) =>
+      repository.updateReviewSettings(
+        id,
+        templateId,
+        templateVersion,
+        photoLayoutModeOverride,
+        photosPerRowOverride,
+      ),
     updateReviewRouteOrder: (id, routeNames) => repository.updateReviewRouteOrder(id, routeNames),
     updateReviewRouteOrderByCategory: (id, routeOrderByCategory) =>
       repository.updateReviewRouteOrderByCategory(id, routeOrderByCategory),

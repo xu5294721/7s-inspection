@@ -24,25 +24,29 @@ test("defines the inspection check categories and options in the fixed order", (
       label: "\u8bbe\u5907\u6e05\u6d01\u4fdd\u517b",
       options: ["\u6e05\u6d01\u4fdd\u517b\u826f\u597d", "\u8868\u9762\u65e0\u79ef\u7070\u6cb9\u6c61", "\u6e05\u6d01\u4fdd\u517b\u4e0d\u5230\u4f4d", "\u5b58\u5728\u79ef\u7070\u6cb9\u6c61"],
     },
-    {
-      category: "safety",
-      label: "\u5b89\u5168\u9632\u62a4",
-      options: ["\u9632\u62a4\u63aa\u65bd\u9f50\u5168", "\u6d88\u9632\u8bbe\u65bd\u72b6\u6001\u826f\u597d", "\u5b89\u5168\u901a\u9053\u7545\u901a", "\u5b58\u5728\u5b89\u5168\u9690\u60a3"],
-    },
   ]);
 });
 
 test("normalizes fixed and custom selections, trims values, and sorts categories", () => {
   const selections: InspectionCheckSelection[] = [
-    { category: "safety", value: "  \u5b89\u5168\u901a\u9053\u7545\u901a  ", isCustom: false },
     { category: "environment", value: "  \u81ea\u5b9a\u4e49\u6e05\u6d01\u8981\u6c42  ", isCustom: true },
   ];
 
   expect(normalizeInspectionCheckSelections(selections)).toEqual([
     { category: "environment", value: "\u81ea\u5b9a\u4e49\u6e05\u6d01\u8981\u6c42", isCustom: true },
-    { category: "safety", value: "\u5b89\u5168\u901a\u9053\u7545\u901a", isCustom: false },
   ]);
-  expect(selections[0]?.value).toBe("  \u5b89\u5168\u901a\u9053\u7545\u901a  ");
+  expect(selections[0]?.value).toBe("  \u81ea\u5b9a\u4e49\u6e05\u6d01\u8981\u6c42  ");
+});
+
+test("ignores legacy safety selections while loading old inspection data", () => {
+  const legacySelections = [
+    { category: "safety", value: "安全通道畅通", isCustom: false },
+    { category: "environment", value: "干净整洁", isCustom: false },
+  ] as unknown as InspectionCheckSelection[];
+
+  expect(normalizeInspectionCheckSelections(legacySelections)).toEqual([
+    { category: "environment", value: "干净整洁", isCustom: false },
+  ]);
 });
 
 test("formats normalized selections with labels and the requested separator", () => {

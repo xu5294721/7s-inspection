@@ -22,11 +22,6 @@ export const INSPECTION_CHECK_DEFINITIONS = [
     label: "\u8bbe\u5907\u6e05\u6d01\u4fdd\u517b",
     options: ["\u6e05\u6d01\u4fdd\u517b\u826f\u597d", "\u8868\u9762\u65e0\u79ef\u7070\u6cb9\u6c61", "\u6e05\u6d01\u4fdd\u517b\u4e0d\u5230\u4f4d", "\u5b58\u5728\u79ef\u7070\u6cb9\u6c61"],
   },
-  {
-    category: "safety",
-    label: "\u5b89\u5168\u9632\u62a4",
-    options: ["\u9632\u62a4\u63aa\u65bd\u9f50\u5168", "\u6d88\u9632\u8bbe\u65bd\u72b6\u6001\u826f\u597d", "\u5b89\u5168\u901a\u9053\u7545\u901a", "\u5b58\u5728\u5b89\u5168\u9690\u60a3"],
-  },
 ] as const satisfies readonly InspectionCheckDefinition[];
 
 export class InspectionCheckSelectionValidationError extends Error {
@@ -36,7 +31,7 @@ export class InspectionCheckSelectionValidationError extends Error {
   }
 }
 
-const definitionsByCategory = new Map(
+const definitionsByCategory = new Map<InspectionCheckCategory, InspectionCheckDefinition>(
   INSPECTION_CHECK_DEFINITIONS.map((definition) => [definition.category, definition]),
 );
 
@@ -54,6 +49,8 @@ export function normalizeInspectionCheckSelections(
   const selectionsByCategory = new Map<InspectionCheckCategory, InspectionCheckSelection>();
 
   for (const selection of selections) {
+    // Legacy backups may still contain the removed safety category.
+    if (selection.category === "safety") continue;
     const definition = requireDefinition(selection.category);
     if (selectionsByCategory.has(definition.category)) {
       throw new InspectionCheckSelectionValidationError("\u68c0\u67e5\u5185\u5bb9\u7c7b\u522b\u4e0d\u80fd\u91cd\u590d\u3002");

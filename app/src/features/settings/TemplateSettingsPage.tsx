@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppDependencies } from "../../app/useAppDependencies";
-import type { ReportSection, ReportTemplate } from "../../domain/models";
+import type { PhotoLayoutMode, PhotosPerRow, ReportSection, ReportTemplate } from "../../domain/models";
+import { PHOTO_ROW_COUNTS } from "../../domain/photoLayout";
 import { reportTemplateSchema } from "../../domain/schemas";
 import { parseBodyFontSizeInput, parseFirstLineIndentInput } from "./reportTemplateInputs";
 
@@ -54,6 +55,7 @@ export function TemplateSettingsPage() {
           graph.inspection.id,
           result.data.id,
           result.data.version,
+          graph.inspection.photoLayoutModeOverride,
           graph.inspection.photosPerRowOverride,
         )));
       setDraft(cloneTemplate(result.data));
@@ -85,7 +87,8 @@ export function TemplateSettingsPage() {
       <label>行距<input aria-label="行距" type="number" min="0.1" step="0.1" value={draft.lineSpacing} onChange={(event) => set("lineSpacing", Number(event.currentTarget.value))} /></label>
       {(["top", "right", "bottom", "left"] as const).map((side) => <label key={side}>{({ top: "上边距", right: "右边距", bottom: "下边距", left: "左边距" }[side])}<input aria-label={({ top: "上边距", right: "右边距", bottom: "下边距", left: "左边距" }[side])} type="number" min="0" value={draft.marginMm[side]} onChange={(event) => setMargin(side, Number(event.currentTarget.value))} /></label>)}
       <label>照片间距<input aria-label="照片间距" type="number" min="0" value={draft.photoGapPt} onChange={(event) => set("photoGapPt", Number(event.currentTarget.value))} /></label>
-      <label>每行照片数<select aria-label="每行照片数" value={draft.photosPerRow} onChange={(event) => set("photosPerRow", Number(event.currentTarget.value) as 2 | 3)}><option value="2">2张</option><option value="3">3张</option></select></label>
+      <label>照片排版模式<select aria-label="照片排版模式" value={draft.photoLayoutMode} onChange={(event) => set("photoLayoutMode", event.currentTarget.value as PhotoLayoutMode)}><option value="adaptive">自适应</option><option value="fixed">固定</option></select></label>
+      <label>每行照片数<select aria-label="每行照片数" value={draft.photosPerRow} onChange={(event) => set("photosPerRow", Number(event.currentTarget.value) as PhotosPerRow)}>{PHOTO_ROW_COUNTS.map((count) => <option key={count} value={count}>{count}张</option>)}</select></label>
       <label>落款日期格式<input aria-label="落款日期格式" value={draft.signatureDatePattern} onChange={(event) => set("signatureDatePattern", event.currentTarget.value)} /></label>
     </div>
     <section className="template-sections"><h3>照片章节</h3>{draft.sections.map((section, index) => <div key={section.category} className="template-section"><strong>{section.category === "good" ? "好的方面" : section.category === "reminder" ? "提醒事项" : "考核问题"}</strong><label>章节名称<input aria-label={`${section.category}章节名称`} value={section.title} onChange={(event) => setSection(index, { title: event.currentTarget.value })} /></label><label>章节顺序<input aria-label={`${section.category}章节顺序`} type="number" min="0" value={section.order} onChange={(event) => setSection(index, { order: Number(event.currentTarget.value) })} /></label></div>)}</section>

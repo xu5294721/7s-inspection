@@ -7,8 +7,9 @@ import { useAppDependencies } from "../../app/useAppDependencies";
 import {
   beginPhotoProcessing,
 } from "../../app/photoProcessingSignal";
-import type { ChecklistItem, InspectionCheckSelection, InspectionEntry, InspectionGraph, PhotoAsset, PhotoCategory, PhotoGroup, ReportTemplate, ReportValidationError, ReviewRouteOrderByCategory } from "../../domain/models";
+import type { ChecklistItem, InspectionCheckSelection, InspectionEntry, InspectionGraph, PhotoAsset, PhotoCategory, PhotoGroup, PhotoLayoutMode, PhotosPerRow, ReportTemplate, ReportValidationError, ReviewRouteOrderByCategory } from "../../domain/models";
 import { splitPhotoIntoGroup } from "../../domain/inspection";
+import { PHOTO_ROW_COUNTS } from "../../domain/photoLayout";
 import { sortRouteNamesForReview, sortRouteNamesForReviewByCategory } from "../../domain/reviewRouteOrder";
 import { createBrowserUuid } from "../../lib/ids";
 import { processImage } from "../../lib/images/compressImage";
@@ -448,7 +449,30 @@ export function ReviewPage() {
         id,
         template.id,
         template.version,
+        graph.inspection.photoLayoutModeOverride,
         graph.inspection.photosPerRowOverride,
+      ),
+      next,
+    );
+  }
+
+  function savePhotoLayout(mode: PhotoLayoutMode, photosPerRow: PhotosPerRow) {
+    if (!graph) return;
+    const next: InspectionGraph = {
+      ...graph,
+      inspection: {
+        ...graph.inspection,
+        photoLayoutModeOverride: mode,
+        photosPerRowOverride: photosPerRow,
+      },
+    };
+    void persist(
+      () => inspectionRepository.updateReviewSettings(
+        id,
+        graph.inspection.templateId,
+        graph.inspection.templateVersion,
+        mode,
+        photosPerRow,
       ),
       next,
     );
@@ -575,6 +599,7 @@ export function ReviewPage() {
   if (graph === null) return <p className="status-message" role="alert">未找到巡检记录。</p>;
 
   const activeGroups = visibleGroups.filter((group) => group.category === activeCategory).sort((a, b) => a.order - b.order);
+  const effectiveMode = graph.inspection.photoLayoutModeOverride ?? graph.template?.photoLayoutMode ?? "fixed";
   const effectiveRows = graph.inspection.photosPerRowOverride ?? graph.template?.photosPerRow ?? 3;
   const routeNames = sortRouteNamesForReview(graph);
   const routeNamesByCategory = sortRouteNamesForReviewByCategory(graph);
@@ -594,7 +619,8 @@ export function ReviewPage() {
             {templateVersions.length === 0 && !graph.template ? <option value={graph.inspection.templateVersion}>模板 v{graph.inspection.templateVersion}</option> : null}
           </select>
         </label>
-        <label>每行照片数<select disabled={isGenerating} aria-label="每行照片数" value={effectiveRows} onChange={(event) => { const value = Number(event.currentTarget.value) as 2 | 3; const next = { ...graph, inspection: { ...graph.inspection, photosPerRowOverride: value } }; void persist(() => inspectionRepository.updateReviewSettings(id, graph.inspection.templateId, graph.inspection.templateVersion, value), next); }}><option value="3">3张</option><option value="2">2张</option></select></label>
+        <label>照片排版模式<select disabled={isGenerating} aria-label="照片排版模式" value={effectiveMode} onChange={(event) => savePhotoLayout(event.currentTarget.value as PhotoLayoutMode, effectiveRows)}><option value="adaptive">自适应</option><option value="fixed">固定</option></select></label>
+        <label>每行照片数<select disabled={isGenerating} aria-label="每行照片数" value={effectiveRows} onChange={(event) => savePhotoLayout(effectiveMode, Number(event.currentTarget.value) as PhotosPerRow)}>{PHOTO_ROW_COUNTS.map((count) => <option key={count} value={count}>{count}张</option>)}</select></label>
       </div>
       <section className="review-route-summary" aria-label="已拍照项点">
         <div className="review-route-summary__header">

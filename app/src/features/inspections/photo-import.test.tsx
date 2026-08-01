@@ -66,11 +66,9 @@ async function expandInspectionEntry(
   user: ReturnType<typeof userEvent.setup>,
   routeName: string,
 ) {
-  const toggle = await screen.findByRole("button", { name: routeName });
-  const entry = toggle.closest(".inspection-route");
-  if (!(entry instanceof HTMLElement)) throw new Error("inspection entry not found");
-  await user.click(toggle);
-  return entry;
+  const opener = await screen.findByRole("button", { name: new RegExp(routeName) });
+  await user.click(opener);
+  return screen.findByRole("dialog", { name: new RegExp(`检查项：${routeName}`) });
 }
 
 beforeEach(() => {

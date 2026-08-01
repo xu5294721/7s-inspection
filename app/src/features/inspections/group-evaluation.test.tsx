@@ -8,7 +8,8 @@ import { makeInspection, makePhoto, makePhotoGroup } from "../../test/fixtures";
 import { renderWithRouter } from "../../test/renderWithRouter";
 
 async function expandInspectionRoute() {
-  fireEvent.click(await screen.findByRole("button", { name: "焊机间" }));
+  fireEvent.click(await screen.findByRole("button", { name: /焊机间/ }));
+  await screen.findByRole("dialog", { name: "检查项：焊机间" });
 }
 
 beforeEach(() => {

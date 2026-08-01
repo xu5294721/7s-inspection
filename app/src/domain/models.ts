@@ -4,6 +4,10 @@ export type ReviewRouteOrderByCategory = Partial<Record<PhotoCategory, string[]>
 
 export type InspectionStatus = "draft" | "reviewed" | "generated";
 
+export type PhotoLayoutMode = "adaptive" | "fixed";
+
+export type PhotosPerRow = 1 | 2 | 3 | 4;
+
 export type InspectionCheckCategory = "environment" | "placement" | "equipment" | "safety";
 
 export interface InspectionCheckSelection {
@@ -92,7 +96,8 @@ export interface Inspection {
   title: string;
   templateId: string;
   templateVersion: number;
-  photosPerRowOverride: 2 | 3 | null;
+  photoLayoutModeOverride: PhotoLayoutMode | null;
+  photosPerRowOverride: PhotosPerRow | null;
   reviewRouteOrder?: string[];
   reviewRouteOrderByCategory?: ReviewRouteOrderByCategory;
   status: InspectionStatus;
@@ -129,7 +134,8 @@ export interface ReportTemplate {
   lineSpacing: number;
   firstLineIndentChars: number;
   marginMm: { top: number; right: number; bottom: number; left: number };
-  photosPerRow: 2 | 3;
+  photoLayoutMode: PhotoLayoutMode;
+  photosPerRow: PhotosPerRow;
   sections: ReportSection[];
   photoGapPt: number;
   signatureDatePattern: string;

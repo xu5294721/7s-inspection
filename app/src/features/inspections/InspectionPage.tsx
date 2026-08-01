@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, ClipboardCheck, Plus, Search } from "lucide-react";
+import { ClipboardCheck, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppDependencies } from "../../app/useAppDependencies";
@@ -21,7 +21,8 @@ import {
   type PhotoProcessingActivity,
 } from "../../app/photoProcessingSignal";
 import { CustomRouteDialog } from "./CustomRouteDialog";
-import { InspectionEntryEditor } from "./InspectionEntryEditor";
+import { InspectionEntrySummary } from "./InspectionEntrySummary";
+import { InspectionItemSheet } from "./InspectionItemSheet";
 import type { PhotoInputSource } from "../photos/PhotoCaptureButtons";
 import {
   formatInspectionCheckSummary,
@@ -194,11 +195,12 @@ export function InspectionPage() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [failedPhotos, setFailedPhotos] = useState<FailedPhoto[]>([]);
   const [photoError, setPhotoError] = useState("");
-  const [expandedRouteName, setExpandedRouteName] = useState<string | null>(null);
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [temporaryDialogOpen, setTemporaryDialogOpen] = useState(false);
   const [temporarySaving, setTemporarySaving] = useState(false);
   const [savingEntryIds, setSavingEntryIds] = useState<Set<string>>(() => new Set());
   const temporaryOpenerRef = useRef<HTMLButtonElement>(null);
+  const activeEntryTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sourceFiles = useRef(new Map<string, File>());
   const inspectionGeneration = useRef(0);
   const activeOperation = useRef<PhotoOperation | null>(null);
@@ -216,7 +218,8 @@ export function InspectionPage() {
     setProgress(null);
     setFailedPhotos([]);
     setPhotoError("");
-    setExpandedRouteName(null);
+    setActiveEntryId(null);
+    activeEntryTriggerRef.current = null;
     setTemporaryDialogOpen(false);
     setTemporarySaving(false);
     setSavingEntryIds(new Set());
@@ -502,7 +505,7 @@ export function InspectionPage() {
           },
         };
       });
-      setExpandedRouteName(result.entry.itemSnapshot.routeName);
+      setActiveEntryId(null);
       setQuery("");
       setTemporaryDialogOpen(false);
     } finally {
@@ -577,6 +580,24 @@ export function InspectionPage() {
     return grouped;
   }, [graph, query]);
 
+  function completeActiveEntry() {
+    if (!graph || !activeEntryId) return;
+    closeActiveEntry();
+  }
+
+  function openActiveEntry(entryId: string) {
+    const activeElement = document.activeElement;
+    activeEntryTriggerRef.current = activeElement instanceof HTMLButtonElement ? activeElement : null;
+    setActiveEntryId(entryId);
+  }
+
+  function closeActiveEntry() {
+    const trigger = activeEntryTriggerRef.current;
+    activeEntryTriggerRef.current = null;
+    setActiveEntryId(null);
+    if (trigger && document.contains(trigger)) trigger.focus();
+  }
+
   if (graph === undefined) return <p className="status-message" role="status">正在读取巡检草稿...</p>;
   if (graph === null) return <p className="status-message" role="alert">未找到巡检记录。</p>;
 
@@ -631,64 +652,30 @@ export function InspectionPage() {
       {routes.size === 0 ? <p className="empty-state">没有匹配的巡检项点。</p> : null}
       {Array.from(routes, ([routeName, areas]) => {
         const entries = Array.from(areas.values()).flat();
-        const isExpanded = expandedRouteName === routeName;
         const isComplete = routeIsComplete(entries, graph.groups);
-        const panelId = `inspection-route-panel-${entries[0]?.id ?? routeName}`;
         return (
           <section
-            className={`inspection-route${isExpanded ? " is-expanded" : ""}${isComplete ? " is-complete" : ""}`}
+            className={`inspection-route${isComplete ? " is-complete" : ""}`}
             key={routeName}
             data-route-name={routeName}
           >
-            <h3>
-              <button
-                type="button"
-                className="inspection-route__toggle"
-                aria-expanded={isExpanded}
-                aria-controls={panelId}
-                data-complete={isComplete}
-                onClick={() => setExpandedRouteName((current) => current === routeName ? null : routeName)}
-              >
-                <span>{routeName}</span>
-                <span className="inspection-route__status" aria-hidden="true">{isComplete ? "已检查" : "未完成"}</span>
-                {isExpanded ? <ChevronUp aria-hidden="true" size={19} /> : <ChevronDown aria-hidden="true" size={19} />}
-              </button>
-            </h3>
-            {isExpanded ? (
-              <div id={panelId} className="inspection-route__panel">
-                {Array.from(areas, ([area, areaEntries]) => (
-                  <div className="inspection-area" key={area}>
-                    <h4>{area}</h4>
-                    <ul className="inspection-entry-list">
-                      {areaEntries.map((entry) => {
-                        const groups = graph.groups.filter((group) => group.entryId === entry.id);
-                        const checklistItem = checklistItemForEntry(entry, graph);
-                        return (
-                          <InspectionEntryEditor
-                            key={entry.id}
-                            entry={entry}
-                            groups={groups}
-                            photos={graph.photos}
-                            checklistItem={checklistItem}
-                            disabled={processing || savingEntryIds.has(entry.id)}
-                            onFilesSelected={(files, source) => void processFiles(entry.id, files, source)}
-                            onSaveCheckSelections={(selections) => saveEntryCheckSelections(entry.id, selections)}
-                            onSavePhotoGroup={savePhotoGroup}
-                            onSplit={(group, photoId, category) =>
-                              splitGroupPhoto(group, checklistItem, photoId, category)}
-                            onPhotoSave={savePhotoAnnotation}
-                            onDeletePhoto={(photoId) => void deletePhoto(photoId)}
-                            onReplacePhoto={(photo, file, source) => void replacePhoto(photo, file, photo.highQuality, source === "camera")}
-                            onHighQualityChange={(photo, highQuality) =>
-                              void changeHighQuality(photo, highQuality)}
-                          />
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
+            {entries.length > 1 ? (
+              <div className="inspection-route__heading">
+                <h3>{routeName}</h3>
+                <span className="inspection-route__status" data-complete={isComplete}>{isComplete ? "已检查" : "未完成"}</span>
               </div>
             ) : null}
+            <ul className="inspection-entry-list">
+              {entries.map((entry) => (
+                <InspectionEntrySummary
+                  key={entry.id}
+                  entry={entry}
+                  groups={graph.groups.filter((group) => group.entryId === entry.id)}
+                  onOpen={openActiveEntry}
+                  showContext={entries.length > 1}
+                />
+              ))}
+            </ul>
           </section>
         );
       })}
@@ -714,6 +701,30 @@ export function InspectionPage() {
           onSave={addTemporaryEntry}
         />
       ) : null}
+      {activeEntryId ? (() => {
+        const entry = graph.inspection.entries.find((item) => item.id === activeEntryId);
+        if (!entry) return null;
+        const checklistItem = checklistItemForEntry(entry, graph);
+        return (
+          <InspectionItemSheet
+            entry={entry}
+            groups={graph.groups.filter((group) => group.entryId === entry.id)}
+            photos={graph.photos}
+            checklistItem={checklistItem}
+            disabled={processing || savingEntryIds.has(entry.id)}
+            onClose={closeActiveEntry}
+            onComplete={completeActiveEntry}
+            onFilesSelected={(files, source) => void processFiles(entry.id, files, source)}
+            onSaveCheckSelections={(selections) => saveEntryCheckSelections(entry.id, selections)}
+            onSavePhotoGroup={savePhotoGroup}
+            onSplit={(group, photoId, category) => splitGroupPhoto(group, checklistItem, photoId, category)}
+            onPhotoSave={savePhotoAnnotation}
+            onDeletePhoto={(photoId) => void deletePhoto(photoId)}
+            onReplacePhoto={(photo, file, source) => void replacePhoto(photo, file, photo.highQuality, source === "camera")}
+            onHighQualityChange={(photo, highQuality) => void changeHighQuality(photo, highQuality)}
+          />
+        );
+      })() : null}
     </section>
   );
 }

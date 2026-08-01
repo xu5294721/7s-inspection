@@ -8,6 +8,8 @@ const reviewRouteOrderByCategorySchema = z.object({
   assessment: z.array(z.string().trim().min(1)).optional(),
 });
 export const inspectionStatusSchema = z.enum(["draft", "reviewed", "generated"]);
+export const photoLayoutModeSchema = z.enum(["adaptive", "fixed"]);
+const photosPerRowSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
 export const inspectionCheckCategorySchema = z.enum(["environment", "placement", "equipment", "safety"]);
 export const inspectionCheckSelectionSchema = z.object({
   category: inspectionCheckCategorySchema,
@@ -83,7 +85,8 @@ export const inspectionRecordSchema = z.object({
   title: z.string().min(1),
   templateId: z.string().min(1),
   templateVersion: z.number().int().positive(),
-  photosPerRowOverride: z.union([z.literal(2), z.literal(3), z.null()]),
+  photoLayoutModeOverride: photoLayoutModeSchema.nullable().default(null),
+  photosPerRowOverride: photosPerRowSchema.nullable(),
   reviewRouteOrder: z.array(z.string().trim().min(1)).optional(),
   reviewRouteOrderByCategory: reviewRouteOrderByCategorySchema.optional(),
   status: inspectionStatusSchema,
@@ -181,7 +184,8 @@ export const reportTemplateSchema = z
       bottom: z.number().nonnegative(),
       left: z.number().nonnegative(),
     }),
-    photosPerRow: z.union([z.literal(2), z.literal(3)]),
+    photoLayoutMode: photoLayoutModeSchema.default("fixed"),
+    photosPerRow: photosPerRowSchema,
     sections: z.array(reportSectionSchema),
     photoGapPt: z.number().nonnegative(),
     signatureDatePattern: z.string().trim().min(1),

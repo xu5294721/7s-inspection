@@ -293,7 +293,6 @@ describe("InspectionRepository", () => {
         groupIds: ["group-1", "group-2"],
         checkSelections: [
           { category: "environment", value: "\u672c\u6b21\u5df2\u6e05\u626b", isCustom: true },
-          { category: "safety", value: "\u5b89\u5168\u901a\u9053\u7545\u901a", isCustom: false },
         ],
       }),
       updatedAt: "2026-07-30T13:00:00.000Z",
@@ -368,7 +367,7 @@ describe("InspectionRepository", () => {
 
     await Promise.all([
       repository.updateEntryCheckSelections("inspection-1", "entry-1", [
-        { category: "safety", value: "\u5b89\u5168\u901a\u9053\u7545\u901a", isCustom: false },
+        { category: "environment", value: "\u5e72\u51c0\u6574\u6d01", isCustom: false },
       ]),
       repository.addPhotoToGoodGroup(
         "entry-1",
@@ -379,7 +378,7 @@ describe("InspectionRepository", () => {
 
     const graph = await repository.getGraph("inspection-1");
     expect(graph?.inspection.entries[0]).toMatchObject({
-      checkSelections: [{ category: "safety", value: "\u5b89\u5168\u901a\u9053\u7545\u901a", isCustom: false }],
+      checkSelections: [{ category: "environment", value: "\u5e72\u51c0\u6574\u6d01", isCustom: false }],
       groupIds: ["group-concurrent-selection"],
     });
     expect(graph?.groups).toMatchObject([{ id: "group-concurrent-selection", photoIds: ["photo-concurrent-selection"] }]);
@@ -1311,7 +1310,7 @@ describe("InspectionRepository", () => {
     }],
     ["template version", async (repository: InspectionRepository, db: SevenSDb) => {
       await new TemplateRepository(db).save(makeTemplate({ version: 2, name: "新版本模板" }));
-      await repository.updateReviewSettings("inspection-1", "template-default", 2, null);
+      await repository.updateReviewSettings("inspection-1", "template-default", 2, "fixed", null);
     }],
   ] as const)("refuses generated when stale %s changed during packaging", async (_case, mutate) => {
     const db = testDb(`packaged-stale-${_case}`);
@@ -1387,12 +1386,14 @@ describe("InspectionRepository", () => {
       "inspection-1",
       "template-missing",
       9,
+      "fixed",
       2,
     )).rejects.toThrow("模板 template-missing 版本 9 不存在。");
 
     expect((await repository.getGraph("inspection-1"))?.inspection).toMatchObject({
       templateId: "template-default",
       templateVersion: 1,
+      photoLayoutModeOverride: null,
       photosPerRowOverride: null,
     });
   });
