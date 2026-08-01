@@ -17,6 +17,7 @@ import {
   convertMillimetersToTwip,
 } from "docx";
 import JSZip from "jszip";
+import { columnsForPhotoCount } from "../../domain/photoLayout";
 import { renderAnnotation } from "../../lib/images/renderAnnotation";
 import type { ReportModel, ReportPhoto } from "./reportModel";
 import { replaceZipMediaSequentially } from "./sequentialZip";
@@ -181,23 +182,24 @@ function chunks<T>(values: T[], size: number): T[][] {
 }
 
 function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
+  const columns = columnsForPhotoCount(model.photoLayoutMode, model.photosPerRow, photos.length);
   const contentWidthMm = a4WidthMm - model.marginMm.left - model.marginMm.right;
   const contentWidthTwips = convertMillimetersToTwip(contentWidthMm);
-  const baseCellWidth = Math.floor(contentWidthTwips / model.photosPerRow);
-  const remainder = contentWidthTwips - baseCellWidth * model.photosPerRow;
+  const baseCellWidth = Math.floor(contentWidthTwips / columns);
+  const remainder = contentWidthTwips - baseCellWidth * columns;
   const columnWidths = Array.from(
-    { length: model.photosPerRow },
+    { length: columns },
     (_, index) => baseCellWidth + (index < remainder ? 1 : 0),
   );
-  const cellWidthMm = contentWidthMm / model.photosPerRow;
+  const cellWidthMm = contentWidthMm / columns;
   const gapTwips = Math.round(model.photoGapPt * 20 / 2);
   const imageWidthPx = Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm));
   const imageHeightPx = Math.max(
     1,
     Math.floor((a4HeightMm - model.marginMm.top - model.marginMm.bottom) * pxPerMm),
   );
-  const rows = chunks(photos, model.photosPerRow).map((row) => {
-    const cells = Array.from({ length: model.photosPerRow }, (_, index) => {
+  const rows = chunks(photos, columns).map((row) => {
+    const cells = Array.from({ length: columns }, (_, index) => {
       const photo = row[index];
       const cellWidthTwips = columnWidths[index];
       if (!photo) {

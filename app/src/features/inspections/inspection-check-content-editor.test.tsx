@@ -22,20 +22,20 @@ function renderEditor(
   return { onSave, ...render(<InspectionCheckContentEditor entry={entry} disabled={false} onSave={onSave} />) };
 }
 
-test("shows the empty summary and four independent check-content comboboxes", async () => {
+test("shows the empty summary and three independent check-content comboboxes", async () => {
   const user = userEvent.setup();
   renderEditor();
 
   await user.click(screen.getByRole("button", { name: "检查内容：请选择检查内容" }));
 
   const comboboxes = screen.getAllByRole("combobox");
-  expect(comboboxes).toHaveLength(4);
-  for (const [index, label] of ["环境卫生", "物品定置", "设备清洁保养", "安全防护"].entries()) {
+  expect(comboboxes).toHaveLength(3);
+  for (const [index, label] of ["环境卫生", "物品定置", "设备清洁保养"].entries()) {
     expect(comboboxes[index]).toHaveAccessibleName(label);
   }
 });
 
-test("offers unselected, the four fixed values, and custom for every category", async () => {
+test("offers unselected, the fixed values, and custom for every category", async () => {
   const user = userEvent.setup();
   renderEditor();
 
@@ -58,15 +58,13 @@ test("saves fixed selections in the definition order and displays the enumeratio
   renderEditor(onSave);
 
   await user.click(screen.getByRole("button", { name: "检查内容：请选择检查内容" }));
-  await user.selectOptions(screen.getByRole("combobox", { name: "安全防护" }), "安全通道畅通");
   await user.selectOptions(screen.getByRole("combobox", { name: "环境卫生" }), "干净整洁");
   await user.click(screen.getByRole("button", { name: "确认" }));
 
   expect(onSave).toHaveBeenCalledWith([
     { category: "environment", value: "干净整洁", isCustom: false },
-    { category: "safety", value: "安全通道畅通", isCustom: false },
   ]);
-  expect(await screen.findByRole("button", { name: "检查内容：环境卫生干净整洁、安全防护安全通道畅通" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "检查内容：环境卫生干净整洁" })).toBeVisible();
 });
 
 test("uses explicit select labels without wrapping the separately named custom input", async () => {
@@ -74,7 +72,7 @@ test("uses explicit select labels without wrapping the separately named custom i
   renderEditor();
 
   await user.click(screen.getByRole("button", { name: "检查内容：请选择检查内容" }));
-  for (const label of ["环境卫生", "物品定置", "设备清洁保养", "安全防护"]) {
+  for (const label of ["环境卫生", "物品定置", "设备清洁保养"]) {
     const select = screen.getByRole("combobox", { name: label });
     const explicitLabel = screen.getByText(label, { selector: "label" });
     expect(select).toHaveAttribute("id");
@@ -92,7 +90,7 @@ test("shows the exact category-specific description hint for every custom input"
   renderEditor();
 
   await user.click(screen.getByRole("button", { name: "检查内容：请选择检查内容" }));
-  for (const label of ["环境卫生", "物品定置", "设备清洁保养", "安全防护"]) {
+  for (const label of ["环境卫生", "物品定置", "设备清洁保养"]) {
     const select = screen.getByRole("combobox", { name: label });
     await user.selectOptions(select, "__custom__");
     expect(screen.getByRole("textbox", { name: `${label}自定义内容` })).toHaveAttribute(

@@ -2,6 +2,8 @@ import type {
   InspectionGraph,
   PhotoAsset,
   PhotoCategory,
+  PhotoLayoutMode,
+  PhotosPerRow,
   ReportTemplate,
 } from "../../domain/models";
 import { formatInspectionEvaluationDescription } from "../../domain/inspectionCheckContents";
@@ -60,7 +62,8 @@ export interface ReportModel {
   titleFontSizePt: number;
   lineSpacing: number;
   marginMm: { top: number; right: number; bottom: number; left: number };
-  photosPerRow: 2 | 3;
+  photoLayoutMode: PhotoLayoutMode;
+  photosPerRow: PhotosPerRow;
   photoGapPt: number;
 }
 
@@ -178,6 +181,7 @@ export function buildReportModel(graph: InspectionGraph, template: ReportTemplat
     titleFontSizePt: template.titleFontSizePt,
     lineSpacing: template.lineSpacing,
     marginMm: { ...template.marginMm },
+    photoLayoutMode: graph.inspection.photoLayoutModeOverride ?? template.photoLayoutMode ?? "fixed",
     photosPerRow: graph.inspection.photosPerRowOverride ?? template.photosPerRow,
     photoGapPt: template.photoGapPt,
   };

@@ -8,7 +8,9 @@ import type {
   InspectionStatus,
   PhotoAsset,
   PhotoCategory,
+  PhotoLayoutMode,
   PhotoGroup,
+  PhotosPerRow,
   ReviewRouteOrderByCategory,
 } from "../domain/models";
 import type { SevenSDb } from "./database";
@@ -90,6 +92,7 @@ async function reportSnapshotFingerprint(graph: InspectionGraph): Promise<string
       title: graph.inspection.title,
       templateId: graph.inspection.templateId,
       templateVersion: graph.inspection.templateVersion,
+      photoLayoutModeOverride: graph.inspection.photoLayoutModeOverride,
       photosPerRowOverride: graph.inspection.photosPerRowOverride,
       updatedAt: graph.inspection.updatedAt,
       deletedAt: graph.inspection.deletedAt,
@@ -389,7 +392,11 @@ async function readGraphFromDb(db: SevenSDb, id: string): Promise<InspectionGrap
   const template = parsedTemplate?.success ? parsedTemplate.data : storedTemplate;
 
   return {
-    inspection: { ...inspection, entries },
+    inspection: {
+      ...inspection,
+      photoLayoutModeOverride: inspection.photoLayoutModeOverride ?? null,
+      entries,
+    },
     groups,
     photos,
     ...(template ? { template } : {}),
@@ -925,13 +932,27 @@ export class InspectionRepository {
     id: string,
     templateId: string,
     templateVersion: number,
-    photosPerRowOverride: 2 | 3 | null,
+    photoLayoutModeOverride: PhotoLayoutMode | null,
+    photosPerRowOverride: PhotosPerRow | null,
   ): Promise<void> {
     if (!templateId.trim() || !Number.isSafeInteger(templateVersion) || templateVersion <= 0) {
       throw new GraphIntegrityError("模板版本无效。");
     }
-    if (photosPerRowOverride !== null && photosPerRowOverride !== 2 && photosPerRowOverride !== 3) {
-      throw new GraphIntegrityError("每行照片数只能为2或3。");
+    if (
+      photoLayoutModeOverride !== null &&
+      photoLayoutModeOverride !== "adaptive" &&
+      photoLayoutModeOverride !== "fixed"
+    ) {
+      throw new GraphIntegrityError("照片排版模式无效。");
+    }
+    if (
+      photosPerRowOverride !== null &&
+      photosPerRowOverride !== 1 &&
+      photosPerRowOverride !== 2 &&
+      photosPerRowOverride !== 3 &&
+      photosPerRowOverride !== 4
+    ) {
+      throw new GraphIntegrityError("每行照片数只能为1到4张。");
     }
     await this.db.transaction(
       "rw",
@@ -952,6 +973,7 @@ export class InspectionRepository {
         ...inspection,
         templateId,
         templateVersion,
+        photoLayoutModeOverride,
         photosPerRowOverride,
         updatedAt: new Date().toISOString(),
       });

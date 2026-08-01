@@ -397,7 +397,6 @@ test.each(["replace", "merge"] as const)(
 
     expect((await target.entries.get("entry-1"))?.checkSelections).toEqual([
       { category: "environment", value: "\u5df2\u6e05\u626b", isCustom: true },
-      { category: "safety", value: "\u5b89\u5168\u901a\u9053\u7545\u901a", isCustom: false },
     ]);
   },
 );
@@ -418,7 +417,6 @@ test("writes raw local check selections in normalized fixed category order", asy
 
   expect(JSON.parse(await file.async("string"))[0].checkSelections).toEqual([
     { category: "environment", value: "\u5df2\u6e05\u626b", isCustom: true },
-    { category: "safety", value: "\u5b89\u5168\u901a\u9053\u7545\u901a", isCustom: false },
   ]);
 });
 

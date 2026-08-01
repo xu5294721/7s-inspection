@@ -453,6 +453,7 @@ test("seeds immutable formal template v2 and binds new inspections without repla
     lineSpacing: 1.5,
     firstLineIndentChars: 2,
     marginMm: { top: 20, right: 22, bottom: 20, left: 22 },
+    photoLayoutMode: "fixed",
     photosPerRow: 3,
     sections: [
       { category: "good", title: "好的方面", order: 0 },

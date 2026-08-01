@@ -9,6 +9,7 @@ const inspection = {
   title: "7S巡检通报",
   templateId: "template-1",
   templateVersion: 1,
+  photoLayoutModeOverride: null,
   photosPerRowOverride: null,
   status: "draft" as const,
   entries: [
@@ -83,6 +84,7 @@ const template: ReportTemplate = {
   lineSpacing: 1.5,
   firstLineIndentChars: 2,
   marginMm: { top: 20, right: 20, bottom: 20, left: 20 },
+  photoLayoutMode: "fixed",
   photosPerRow: 3,
   sections: [
     { category: "good", title: "好的方面", order: 0 },

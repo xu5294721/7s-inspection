@@ -20,6 +20,19 @@ test("copies the selected template first-line indentation into the report model"
   expect(model.firstLineIndentChars).toBe(3);
 });
 
+test("copies the selected photo layout mode and row limit into the report model", () => {
+  const template = makeTemplate({ photoLayoutMode: "adaptive", photosPerRow: 4 });
+  const model = buildReportModel({
+    inspection: makeInspection(),
+    groups: [makePhotoGroup({ photoIds: ["photo-1"] })],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  expect(model.photoLayoutMode).toBe("adaptive");
+  expect(model.photosPerRow).toBe(4);
+});
+
 test("keeps only photographed categories and distinguishes cleared from missing headings", () => {
   const template = makeTemplate({ generalHeading: "", situationHeading: "" });
   const inspection = makeInspection();
@@ -217,7 +230,7 @@ test("uses selected check text verbatim across photo categories and omits annex 
     template,
   }, template);
 
-  const baseText = "卷扬机间：环境卫生干净整洁，物品定置规范有序，安全防护消防器材缺失。";
+  const baseText = "卷扬机间：环境卫生干净整洁，物品定置规范有序。";
   expect(model.sections.map((section) => section.groups.map((group) => group.text))).toEqual([
     [`${baseText}（奖励：张三，50元）`],
     [baseText],

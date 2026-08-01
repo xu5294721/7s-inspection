@@ -47,7 +47,7 @@ test("creates a draft from selected routes without requiring every item", async 
   await user.click(screen.getByRole("button", { name: "开始检查" }));
 
   expect(await screen.findByRole("heading", { name: /7S巡检通报/ })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "一线焊机", level: 3 })).toBeVisible();
+  expect(screen.getByRole("button", { name: /一线焊机未完成/ })).toBeVisible();
   expect(screen.queryByText("二线焊机")).not.toBeInTheDocument();
   expect(await view.database.inspections.count()).toBe(1);
   const [stored] = await view.database.inspections.toArray();
@@ -63,7 +63,7 @@ test("creates a draft from selected routes without requiring every item", async 
   expect(graph?.photos).toEqual([]);
 });
 
-test("expands one route at a time and marks it complete only after a photo and saved check content", async () => {
+test("opens one inspection item in a bottom sheet and closes it after completion", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`inspection-route-accordion-${Date.now()}`);
   const inspection = makeInspection();
@@ -95,28 +95,28 @@ test("expands one route at a time and marks it complete only after a photo and s
   });
   const view = renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
 
-  const firstToggle = await screen.findByRole("button", { name: "焊机间" });
-  const secondToggle = screen.getByRole("button", { name: "探伤间" });
-  const firstRoute = firstToggle.closest(".inspection-route");
-  expect(firstRoute).not.toBeNull();
-  expect(firstToggle).toHaveAttribute("aria-expanded", "false");
-  expect(firstToggle).toHaveAttribute("data-complete", "false");
-  expect(within(firstRoute as HTMLElement).queryByRole("button", { name: "检查内容：请选择检查内容" })).not.toBeInTheDocument();
+  const firstSummary = await screen.findByRole("button", { name: /焊机间/ });
+  expect(firstSummary).toHaveAttribute("data-complete", "false");
+  expect(screen.queryByRole("button", { name: "检查内容：请选择检查内容" })).not.toBeInTheDocument();
 
-  await user.click(firstToggle);
-  expect(firstToggle).toHaveAttribute("aria-expanded", "true");
-  expect(within(firstRoute as HTMLElement).getByRole("button", { name: "检查内容：请选择检查内容" })).toBeVisible();
+  await user.click(firstSummary);
+  const firstSheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
+  expect(within(firstSheet).getByRole("button", { name: "检查内容：请选择检查内容" })).toBeVisible();
+  expect(within(firstSheet).getByRole("button", { name: "关闭项点卡片" })).toHaveFocus();
+  await user.tab({ shift: true });
+  expect(within(firstSheet).getByRole("button", { name: "完成本项" })).toHaveFocus();
 
-  await user.click(secondToggle);
-  expect(firstToggle).toHaveAttribute("aria-expanded", "false");
-  expect(within(firstRoute as HTMLElement).queryByRole("button", { name: "检查内容：请选择检查内容" })).not.toBeInTheDocument();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog", { name: "检查项：焊机间" })).not.toBeInTheDocument();
+  expect(firstSummary).toHaveFocus();
 
-  await user.click(firstToggle);
-  await user.click(within(firstRoute as HTMLElement).getByRole("button", { name: "检查内容：请选择检查内容" }));
-  await user.selectOptions(screen.getByRole("combobox", { name: "环境卫生" }), "干净整洁");
-  await user.click(screen.getByRole("button", { name: "确认" }));
+  await user.click(firstSummary);
+  const reopenedSheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
 
-  await waitFor(() => expect(screen.getByRole("button", { name: "焊机间" })).toHaveAttribute("data-complete", "true"));
+  await user.click(within(reopenedSheet).getByRole("button", { name: "完成本项" }));
+  expect(screen.queryByRole("dialog", { name: "检查项：焊机间" })).not.toBeInTheDocument();
+  expect(firstSummary).toHaveFocus();
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "检查项：探伤间" })).not.toBeInTheDocument());
   view.unmount();
 });
 
@@ -129,13 +129,13 @@ test("restores selected draft entries after a hash-route reload", async () => {
   await user.click(screen.getByRole("button", { name: "全不选" }));
   await user.click(await screen.findByRole("checkbox", { name: "一线焊机" }));
   await user.click(screen.getByRole("button", { name: "开始检查" }));
-  await screen.findByRole("heading", { name: "一线焊机", level: 3 });
+  await screen.findByRole("button", { name: /一线焊机未完成/ });
   const inspectionId = window.location.hash.replace("#/inspections/", "");
   firstView.unmount();
 
   renderWithRouter({ database, initialPath: `/inspections/${inspectionId}` });
   expect(
-    await screen.findByRole("heading", { name: "一线焊机", level: 3 }),
+    await screen.findByRole("button", { name: /一线焊机未完成/ }),
   ).toBeVisible();
 });
 
@@ -153,7 +153,7 @@ test("filters inspection entries by route, area, device, part, and standard", as
   await user.clear(search);
   await user.type(search, "一线焊机");
   expect(
-    await screen.findByRole("heading", { name: "一线焊机", level: 3 }),
+    await screen.findByRole("button", { name: /一线焊机未完成/ }),
   ).toBeVisible();
   view.unmount();
 });
@@ -169,39 +169,36 @@ test("persists check content, shows its summary immediately, restores it after r
   });
   const firstView = renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
 
-  await user.click(await screen.findByRole("button", { name: "焊机间" }));
+  await user.click(await screen.findByRole("button", { name: /焊机间/ }));
   await user.click(await screen.findByRole("button", { name: "检查内容：请选择检查内容" }));
   await user.selectOptions(screen.getByRole("combobox", { name: "环境卫生" }), "干净整洁");
-  await user.selectOptions(screen.getByRole("combobox", { name: "安全防护" }), "__custom__");
-  await user.type(screen.getByRole("textbox", { name: "安全防护自定义内容" }), "  电缆归置清楚  ");
   await user.click(screen.getByRole("button", { name: "确认" }));
 
-  const summary = "检查内容：环境卫生干净整洁、安全防护电缆归置清楚";
+  const summary = "检查内容：环境卫生干净整洁";
   expect(await screen.findByRole("button", { name: summary })).toBeVisible();
   expect((await new InspectionRepository(database).getGraph("inspection-1"))?.inspection).toMatchObject({
     status: "draft",
     entries: [{
       checkSelections: [
         { category: "environment", value: "干净整洁", isCustom: false },
-        { category: "safety", value: "电缆归置清楚", isCustom: true },
       ],
     }],
   });
 
   const search = screen.getByRole("searchbox", { name: "搜索巡检项点" });
-  await user.type(search, "电缆归置");
+  await user.type(search, "干净整洁");
   expect(screen.queryByText("没有匹配的巡检项点。")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: summary })).toBeVisible();
   firstView.unmount();
 
   renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
-  await user.click(await screen.findByRole("button", { name: "焊机间" }));
+  await user.click(await screen.findByRole("button", { name: /焊机间/ }));
   expect(await screen.findByRole("button", { name: summary })).toBeVisible();
 });
 
 test.each([
-  ["category name", "安全防护"],
-  ["full displayed summary", "环境卫生干净整洁、安全防护电缆归置清楚"],
+  ["category name", "环境卫生"],
+  ["full displayed summary", "环境卫生干净整洁"],
 ] as const)("searches persisted check content by %s after a route reload", async (_case, query) => {
   const user = userEvent.setup();
   const database = createTestDb(`check-content-search-${_case}-${Date.now()}`);
@@ -213,7 +210,6 @@ test.each([
         ...entry,
         checkSelections: [
           { category: "environment", value: "干净整洁", isCustom: false },
-          { category: "safety", value: "电缆归置清楚", isCustom: true },
         ],
         groupIds: [],
       })),
@@ -222,7 +218,7 @@ test.each([
     photos: [],
   });
   const firstView = renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
-  const summary = "检查内容：环境卫生干净整洁、安全防护电缆归置清楚";
+  const summary = "检查内容：环境卫生干净整洁";
   await screen.findByRole("searchbox", { name: "搜索巡检项点" });
   firstView.unmount();
 
@@ -231,7 +227,7 @@ test.each([
   await user.type(search, query);
 
   expect(screen.queryByText("没有匹配的巡检项点。")).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "焊机间" }));
+  await user.click(screen.getByRole("button", { name: /焊机间/ }));
   expect(screen.getByRole("button", { name: summary })).toBeVisible();
 });
 
@@ -248,7 +244,7 @@ test("keeps the check-content draft open after repository rejection", async () =
     .mockRejectedValueOnce(new Error("检查内容保存被拒绝"));
   renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
 
-  await user.click(await screen.findByRole("button", { name: "焊机间" }));
+  await user.click(await screen.findByRole("button", { name: /焊机间/ }));
   await user.click(await screen.findByRole("button", { name: "检查内容：请选择检查内容" }));
   const environment = screen.getByRole("combobox", { name: "环境卫生" });
   await user.selectOptions(environment, "干净整洁");
@@ -293,7 +289,7 @@ test("ignores a delayed check-content save after navigating to another inspectio
     .mockReturnValueOnce(pending);
   renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
 
-  await user.click(await screen.findByRole("button", { name: "焊机间" }));
+  await user.click(await screen.findByRole("button", { name: /焊机间/ }));
   await user.click(await screen.findByRole("button", { name: "检查内容：请选择检查内容" }));
   await user.selectOptions(screen.getByRole("combobox", { name: "环境卫生" }), "干净整洁");
   await user.click(screen.getByRole("button", { name: "确认" }));
@@ -308,7 +304,7 @@ test("ignores a delayed check-content save after navigating to another inspectio
   });
 
   expect(await screen.findByRole("heading", { name: "第二份巡检", level: 2 })).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "焊机间" }));
+  await user.click(screen.getByRole("button", { name: /焊机间/ }));
   expect(screen.getByRole("button", { name: "检查内容：请选择检查内容" })).toBeVisible();
   save.mockRestore();
 });
@@ -340,8 +336,8 @@ test("adds a one-field temporary item, clears search, and restores it after relo
 
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(search).toHaveValue("");
-  const temporaryHeading = await screen.findByRole("heading", { name: "临时配电间", level: 3 });
-  expect(temporaryHeading).toBeVisible();
+  const temporaryItem = await screen.findByRole("button", { name: /临时配电间未完成/ });
+  expect(temporaryItem).toBeVisible();
   const stored = await new InspectionRepository(database).getGraph("inspection-1");
   expect(stored?.inspection.entries.at(-1)?.itemSnapshot.routeName).toBe("临时配电间");
   expect(await database.checklistItems.count()).toBe(itemCountBefore);
@@ -349,7 +345,7 @@ test("adds a one-field temporary item, clears search, and restores it after relo
   firstView.unmount();
 
   renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
-  expect(await screen.findByRole("heading", { name: "临时配电间", level: 3 })).toBeVisible();
+  expect(await screen.findByRole("button", { name: /临时配电间未完成/ })).toBeVisible();
 });
 
 test("keeps the temporary-item dialog and typed name after save rejection", async () => {

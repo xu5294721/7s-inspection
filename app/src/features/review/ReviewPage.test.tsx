@@ -371,6 +371,33 @@ test("lists immutable template versions and persists the selected inspection sna
   expect((await templates.get("template-default", 1))?.name).toBe("默认模板");
 });
 
+test("supports adaptive photo layout and persists the selected mode and four-photo limit", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`review-photo-layout-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  await repository.saveGraph({
+    inspection: makeInspection(),
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
+
+  const mode = await screen.findByRole("combobox", { name: "照片排版模式" });
+  const rows = screen.getByRole("combobox", { name: "每行照片数" });
+  expect(Array.from((rows as HTMLSelectElement).options).map((option) => option.value)).toEqual(["1", "2", "3", "4"]);
+
+  await user.selectOptions(mode, "adaptive");
+  await user.selectOptions(rows, "4");
+
+  await waitFor(async () => expect((await repository.getGraph("inspection-1"))?.inspection).toMatchObject({
+    photoLayoutModeOverride: "adaptive",
+    photosPerRowOverride: 4,
+  }));
+  expect(mode).toHaveValue("adaptive");
+  expect(rows).toHaveValue("4");
+});
+
 test("generates through repository atomic readiness and packaged snapshot transitions", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`review-atomic-completion-${Date.now()}`);

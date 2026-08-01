@@ -120,7 +120,7 @@ test("packages complete five-photo document content and image references", async
   expect(documentXml).toContain("好的方面");
   expect(documentXml).not.toContain("提醒事项");
   expect(documentXml).not.toContain("考核问题");
-  expect(documentXml).toContain("卷扬机间：环境卫生干净整洁，物品定置规范有序，安全防护消防器材缺失。");
+  expect(documentXml).toContain("卷扬机间：环境卫生干净整洁，物品定置规范有序。");
   expect(documentXml).toContain("向塘钢轨焊接整修车间");
   expect(documentXml).toContain("2026年7月28日");
   for (const annexText of ["附件：巡检照片明细表", "责任工班", "区域设备"]) {
@@ -284,6 +284,52 @@ test.each([2, 3] as const)(
     });
   },
 );
+
+test("adapts each photo group independently up to the configured limit", async () => {
+  const baseInspection = makeInspection();
+  const firstEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-one-photo",
+    itemId: "item-one-photo",
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-one-photo", routeName: "一个照片项点" },
+    groupIds: ["group-one-photo"],
+  };
+  const secondEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-five-photos",
+    itemId: "item-five-photos",
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-five-photos", routeName: "五个照片项点" },
+    groupIds: ["group-five-photos"],
+  };
+  const singlePhotoId = "adaptive-single-photo";
+  const photoIds = Array.from({ length: 5 }, (_, index) => `adaptive-group-photo-${index + 1}`);
+  const template = makeTemplate({ photoLayoutMode: "adaptive", photosPerRow: 4 });
+  const model = buildReportModel({
+    inspection: {
+      ...baseInspection,
+      entries: [firstEntry, secondEntry],
+      reviewRouteOrder: ["一个照片项点", "五个照片项点"],
+    },
+    groups: [
+      makePhotoGroup({ id: "group-one-photo", entryId: firstEntry.id, photoIds: [singlePhotoId] }),
+      makePhotoGroup({ id: "group-five-photos", entryId: secondEntry.id, photoIds, order: 1 }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: singlePhotoId, groupId: "group-one-photo" }),
+      ...photoIds.map((id) => makePhoto(undefined, { id, groupId: "group-five-photos" })),
+    ],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const photoTables = [...documentXml.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g)]
+    .map((match) => match[0])
+    .filter((table) => table.includes("<w:drawing>"));
+  const columnCounts = photoTables.map((table) => [...table.matchAll(/<w:gridCol w:w="(\d+)"\/>/g)].length);
+
+  expect(columnCounts).toEqual([1, 4]);
+});
 
 test("fits extreme portrait and landscape images within usable cell width and page height", async () => {
   const { model } = layoutModel(2);

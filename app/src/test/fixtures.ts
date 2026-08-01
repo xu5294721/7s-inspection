@@ -38,6 +38,7 @@ export function makeInspection(overrides: Partial<Inspection> = {}): Inspection 
     title: "向塘钢轨焊接整修车间7月28日7S巡检通报",
     templateId: "template-default",
     templateVersion: 1,
+    photoLayoutModeOverride: null,
     photosPerRowOverride: null,
     status: "draft",
     entries: [
@@ -110,6 +111,7 @@ export function makeTemplate(overrides: Partial<ReportTemplate> = {}): ReportTem
     lineSpacing: 1.5,
     firstLineIndentChars: 2,
     marginMm: { top: 20, right: 20, bottom: 20, left: 20 },
+    photoLayoutMode: "fixed",
     photosPerRow: 3,
     sections: [
       { category: "good", title: "好的方面", order: 0 },

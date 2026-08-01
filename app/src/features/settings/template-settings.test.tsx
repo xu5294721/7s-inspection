@@ -119,14 +119,35 @@ test("applies a saved template version to ungenerated inspections", async () => 
   view.unmount();
 });
 
-test("only exposes two or three photos per row and links settings from the settings landing page", async () => {
+test("exposes adaptive or fixed layout and one to four photos per row", async () => {
   const database = createTestDb(`template-settings-${Date.now()}`);
   const view = renderWithRouter({ database, initialPath: "/settings" });
 
   await screen.findByRole("link", { name: "Word模板设置" });
   await userEvent.setup().click(screen.getByRole("link", { name: "Word模板设置" }));
+  const mode = await screen.findByRole("combobox", { name: "照片排版模式" });
   const photosPerRow = await screen.findByRole("combobox", { name: "每行照片数" });
-  expect(Array.from((photosPerRow as HTMLSelectElement).options).map((option) => option.value)).toEqual(["2", "3"]);
+  expect(Array.from((mode as HTMLSelectElement).options).map((option) => option.value)).toEqual(["adaptive", "fixed"]);
+  expect(Array.from((photosPerRow as HTMLSelectElement).options).map((option) => option.value)).toEqual(["1", "2", "3", "4"]);
+  view.unmount();
+});
+
+test("saves adaptive mode and a one-photo row limit as a new template version", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`template-photo-layout-save-${Date.now()}`);
+  const dependencies = createAppDependencies(database);
+  const templates = new TemplateRepository(database);
+  const view = renderWithRouter({ database, initialPath: "/settings/templates", appProps: { dependencies } });
+
+  await screen.findByRole("combobox", { name: "照片排版模式" });
+  await user.selectOptions(screen.getByRole("combobox", { name: "照片排版模式" }), "adaptive");
+  await user.selectOptions(screen.getByRole("combobox", { name: "每行照片数" }), "1");
+  await user.click(screen.getByRole("button", { name: "保存为新版本" }));
+
+  await waitFor(async () => expect((await templates.getLatest("template-default"))).toMatchObject({
+    photoLayoutMode: "adaptive",
+    photosPerRow: 1,
+  }));
   view.unmount();
 });
 
