@@ -2,6 +2,7 @@
 tmp/
 .tools/
 .superpowers/
+.worktrees/
 .sdd-baselines/
 __pycache__/
 
