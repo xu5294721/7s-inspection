@@ -1,6 +1,10 @@
 import JSZip from "jszip";
 import { convertMillimetersToTwip } from "docx";
 import { vi } from "vitest";
+import {
+  DOCX_PHOTO_MEDIA_BUDGET,
+  getDocxPhotoBudget,
+} from "../../lib/images/compressDocxPhoto";
 import { makeInspection, makePhoto, makePhotoGroup, makeTemplate } from "../../test/fixtures";
 import { generateDocx } from "./generateDocx";
 import { buildReportModel } from "./reportModel";
@@ -38,6 +42,13 @@ async function drawingMediaReferences(blob: Blob) {
     return { photoId, relationshipId, target, media: zip.file(target) };
   });
   return { zip, documentXml, relationshipsXml, references };
+}
+
+async function embeddedMediaBytes(blob: Blob): Promise<number> {
+  const zip = await JSZip.loadAsync(blob);
+  const media = zip.file(/^word\/media\//);
+  const sizes = await Promise.all(media.map(async (file) => (await file.async("uint8array")).byteLength));
+  return sizes.reduce((total, size) => total + size, 0);
 }
 
 function fivePhotoModel() {
@@ -372,4 +383,52 @@ test("packages annotation renderer output instead of the unannotated source", as
   expect(render).toHaveBeenCalledWith(photo.imageBlob, photo.annotationJson);
   expect(media).toHaveLength(1);
   await expect(media[0].async("string")).resolves.toBe("annotated-image-bytes");
+});
+
+test("passes annotated output to the Word compressor before packaging", async () => {
+  const model = fivePhotoModel();
+  const photo = model.sections[0].groups[0].photos[0];
+  const rendered = new Blob(["rendered-jpeg"], { type: "image/jpeg" });
+  const compressed = new Blob(["compressed-jpeg"], { type: "image/jpeg" });
+  const renderAnnotation = vi.fn().mockResolvedValue(rendered);
+  const compressForDocx = vi.fn().mockResolvedValue(compressed);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined, {
+    renderAnnotation,
+    compressForDocx,
+  }));
+
+  expect(renderAnnotation).toHaveBeenCalledWith(photo.imageBlob, photo.annotationJson);
+  expect(compressForDocx).toHaveBeenCalledWith(rendered, expect.any(Number));
+  await expect(zip.file(/^word\/media\//)[0].async("string")).resolves.toBe("compressed-jpeg");
+});
+
+test("keeps an 80-photo DOCX media payload within the configured budget", async () => {
+  const photoIds = Array.from({ length: 80 }, (_, index) => `budget-photo-${index + 1}`);
+  const inspection = makeInspection({ templateVersion: 1 });
+  const template = makeTemplate();
+  const model = buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({ photoIds })],
+    photos: photoIds.map((id, index) => makePhoto(
+      new Blob([`source-${index}`], { type: "image/jpeg" }),
+      { id, order: index, width: 1200, height: 800 },
+    )),
+    template,
+  }, template);
+  const compressForDocx = vi.fn(async (_source: Blob, targetBytes: number) =>
+    new Blob([new Uint8Array(targetBytes).fill(3)], { type: "image/jpeg" }));
+
+  const blob = await generateDocx(model, () => undefined, {
+    renderAnnotation: async (source) => source,
+    compressForDocx,
+  });
+
+  expect(compressForDocx).toHaveBeenCalledTimes(80);
+  expect(await embeddedMediaBytes(blob)).toBeLessThanOrEqual(DOCX_PHOTO_MEDIA_BUDGET);
+  expect(blob.size).toBeLessThan(8 * 1024 * 1024);
+  expect(compressForDocx).toHaveBeenCalledWith(
+    expect.any(Blob),
+    getDocxPhotoBudget(80).targetBytes,
+  );
 });

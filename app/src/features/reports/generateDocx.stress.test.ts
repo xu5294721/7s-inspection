@@ -90,6 +90,7 @@ test("processes 100 realistic photos with bounded temporary bytes and complete r
       renderedIndex += 1;
       return new TrackedImageBlob(new Uint8Array(source.size).fill(renderedIndex));
     },
+    compressForDocx: async (source) => source,
   });
 
   const references = await drawingReferences(blob);
