@@ -18,6 +18,10 @@ import {
 } from "docx";
 import JSZip from "jszip";
 import { columnsForPhotoCount } from "../../domain/photoLayout";
+import {
+  compressDocxPhoto,
+  getDocxPhotoBudget,
+} from "../../lib/images/compressDocxPhoto";
 import { renderAnnotation } from "../../lib/images/renderAnnotation";
 import type { ReportModel, ReportPhoto } from "./reportModel";
 import { replaceZipMediaSequentially } from "./sequentialZip";
@@ -32,9 +36,13 @@ export interface ReportProgress {
 
 export interface DocxGenerationRuntime {
   renderAnnotation(sourceBlob: Blob, annotationJson: string | null): Promise<Blob>;
+  compressForDocx?(sourceBlob: Blob, targetBytes: number): Promise<Blob>;
 }
 
-const browserGenerationRuntime: DocxGenerationRuntime = { renderAnnotation };
+const browserGenerationRuntime: DocxGenerationRuntime = {
+  renderAnnotation,
+  compressForDocx: compressDocxPhoto,
+};
 
 interface PreparedPhoto extends ReportPhoto {
   data: ArrayBuffer;
@@ -245,6 +253,8 @@ export async function generateDocx(
 ): Promise<Blob> {
   const reportPhotos = model.sections.flatMap((section) => section.groups.flatMap((group) => group.photos));
   const totalImages = reportPhotos.length;
+  const photoBudget = getDocxPhotoBudget(totalImages);
+  const compressForDocx = runtime.compressForDocx ?? compressDocxPhoto;
   const preparedById = new Map<string, PreparedPhoto>();
   for (const [index, photo] of reportPhotos.entries()) {
     preparedById.set(photo.id, {
@@ -349,7 +359,9 @@ export async function generateDocx(
     replacements.set(mediaPath, async () => {
       const rendered = await runtime.renderAnnotation(photo.imageBlob, photo.annotationJson);
       if (rendered.type !== "image/jpeg") throw new Error(`照片 ${photo.id} 未渲染为JPEG。`);
-      return rendered;
+      const compressed = await compressForDocx(rendered, photoBudget.targetBytes);
+      if (compressed.type !== "image/jpeg") throw new Error(`照片 ${photo.id} 未压缩为JPEG。`);
+      return compressed;
     });
   }
   let completedImages = 0;
