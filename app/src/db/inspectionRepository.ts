@@ -14,7 +14,7 @@ import type {
   ReviewRouteOrderByCategory,
 } from "../domain/models";
 import type { SevenSDb } from "./database";
-import { createInspectionEntry, parseAnnotationJson } from "../domain/inspection";
+import { createInspectionEntry, descriptionForCategory, parseAnnotationJson } from "../domain/inspection";
 import { normalizeInspectionCheckSelections } from "../domain/inspectionCheckContents";
 import { normalizeRouteName } from "../domain/routeNames";
 import { validateReportReadiness } from "../domain/reportValidation";
@@ -206,7 +206,7 @@ function requireUniqueReferences(ids: string[], label: string): void {
 }
 
 function assertGroupEvaluation(group: PhotoGroup): void {
-  if (!["good", "reminder", "assessment"].includes(group.category)) {
+  if (!["good", "general", "reminder", "assessment"].includes(group.category)) {
     throw new GraphIntegrityError("照片组分类无效。");
   }
   const award = group.awardAssessment;
@@ -1028,12 +1028,14 @@ export class InspectionRepository {
         if (id !== groupId) return { ...group, order };
         const entry = entryById.get(group.entryId);
         if (!entry) throw new GraphIntegrityError(`巡检条目 ${group.entryId} 不存在。`);
-        const description = category === "assessment"
-          ? entry.itemSnapshot.assessmentText
-          : category === "reminder"
-            ? entry.itemSnapshot.reminderText
-            : entry.itemSnapshot.goodText;
-        return { ...group, category, description, awardAssessment: null, order };
+        return {
+          ...group,
+          category,
+          description: descriptionForCategory(entry.itemSnapshot as ChecklistItem, category),
+          descriptionManuallyEdited: false,
+          awardAssessment: null,
+          order,
+        };
       });
       if (!byId.has(groupId)) throw new GraphIntegrityError(`照片组 ${groupId} 不存在。`);
       const rank = new Map(orderedGroupIds.map((id, order) => [id, order]));

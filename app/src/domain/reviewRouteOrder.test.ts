@@ -5,6 +5,7 @@ import {
   resolveReviewRouteOrder,
   resolveReviewRouteOrderForCategory,
   sortRouteNamesForReview,
+  sortRouteNamesForReviewByCategory,
 } from "./reviewRouteOrder";
 import { inspectionRecordSchema } from "./schemas";
 import { makeChecklistItem, makeInspection, makePhoto, makePhotoGroup } from "../test/fixtures";
@@ -103,6 +104,26 @@ test("resolves an independent route-title order for each photo category", () => 
     .toEqual(["卷扬机间", "仓库外围院子"]);
   expect(resolveReviewRouteOrderForCategory(inspection, "assessment", ["仓库外围院子", "卷扬机间"]))
     .toEqual(["卷扬机间", "仓库外围院子"]);
+});
+
+test("sorts general photo routes independently", () => {
+  const inspection = makeInspection({
+    reviewRouteOrder: ["route-a", "route-b"],
+    reviewRouteOrderByCategory: { general: ["route-b", "route-a"] },
+    entries: [entryFor("route-a", 0), entryFor("route-b", 1)],
+  });
+
+  expect(sortRouteNamesForReviewByCategory({
+    inspection,
+    groups: [
+      makePhotoGroup({ id: "general-a", entryId: "entry-0", category: "general", photoIds: ["photo-a"] }),
+      makePhotoGroup({ id: "general-b", entryId: "entry-1", category: "general", photoIds: ["photo-b"] }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: "photo-a", groupId: "general-a" }),
+      makePhoto(undefined, { id: "photo-b", groupId: "general-b" }),
+    ],
+  }).general).toEqual(["route-b", "route-a"]);
 });
 
 test("inspection records accept legacy missing order but reject duplicate saved titles", () => {

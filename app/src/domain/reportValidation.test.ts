@@ -147,6 +147,17 @@ test("rejects a template that does not match the inspection snapshot", () => {
   }));
 });
 
+test("requires the latest four-category template for photographed general groups", () => {
+  const errors = validateReportReadiness(makeGraph({
+    groups: [{ ...group, category: "general", description: "general performance", photoIds: ["photo-1"] }],
+  }));
+
+  expect(errors).toContainEqual(expect.objectContaining({
+    code: "PHOTO_CATEGORY_NOT_IN_TEMPLATE",
+    field: "template.sections",
+  }));
+});
+
 test("rejects duplicate group ids without losing the duplicate evidence", () => {
   const errors = validateReportReadiness(
     makeGraph({
@@ -218,6 +229,20 @@ test("rejects incomplete assessment details", () => {
   );
 
   expect(errors.map((error) => error.code)).toEqual(["ASSESSMENT_DETAILS_REQUIRED"]);
+});
+
+test("rejects award data in general category", () => {
+  const errors = validateReportReadiness(
+    makeGraph({
+      groups: [{
+        ...group,
+        category: "general",
+        awardAssessment: { type: "reward", people: "tester", amount: 50 },
+      }],
+    }),
+  );
+
+  expect(errors.map((error) => error.code)).toEqual(["CATEGORY_AWARD_INCOMPATIBLE", "PHOTO_CATEGORY_NOT_IN_TEMPLATE"]);
 });
 
 test("rejects incompatible award assessment category", () => {

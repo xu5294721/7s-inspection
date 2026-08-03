@@ -163,6 +163,35 @@ test("persists group evaluation and serialized annotations across a database rel
   expect(restored?.photos[0].annotationJson).toBe(annotationJson);
 });
 
+test("persists a general group and its independent description across a database reload", async () => {
+  const databaseName = `general-group-reload-${Date.now()}`;
+  const db = createTestDb(databaseName);
+  databases.push(db);
+  const repository = new InspectionRepository(db);
+  const inspection = makeInspection();
+  await repository.saveGraph({
+    inspection,
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+  });
+
+  await repository.updatePhotoGroup({
+    ...makePhotoGroup(),
+    category: "general",
+    description: inspection.entries[0].itemSnapshot.generalText!,
+    awardAssessment: null,
+  });
+  db.close();
+
+  const reopened = createTestDb(databaseName);
+  databases.push(reopened);
+  expect((await new InspectionRepository(reopened).getGraph("inspection-1"))?.groups[0]).toMatchObject({
+    category: "general",
+    description: inspection.entries[0].itemSnapshot.generalText,
+    awardAssessment: null,
+  });
+});
+
 test("group evaluation updates cannot change structural photo references", async () => {
   const db = createTestDb(`task-7-group-structure-${Date.now()}`);
   databases.push(db);

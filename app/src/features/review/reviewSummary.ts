@@ -10,8 +10,8 @@ export interface ReviewSummary {
 
 export function buildReviewSummary(groups: PhotoGroup[]): ReviewSummary {
   const summary: ReviewSummary = {
-    groups: { good: 0, reminder: 0, assessment: 0 },
-    photos: { good: 0, reminder: 0, assessment: 0 },
+    groups: { good: 0, general: 0, reminder: 0, assessment: 0 },
+    photos: { good: 0, general: 0, reminder: 0, assessment: 0 },
     rewardAmount: 0,
     assessmentAmount: 0,
     totalPhotos: 0,

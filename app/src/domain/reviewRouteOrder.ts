@@ -76,6 +76,7 @@ export function sortRouteNamesForReviewByCategory(
   const entryById = new Map(graph.inspection.entries.map((entry) => [entry.id, entry]));
   const routeNamesByCategory: Record<PhotoCategory, string[]> = {
     good: [],
+    general: [],
     reminder: [],
     assessment: [],
   };

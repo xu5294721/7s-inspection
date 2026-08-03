@@ -1118,6 +1118,27 @@ describe("InspectionRepository", () => {
     expect(restored?.inspection.entries[0].groupIds).toEqual(["group-2", "group-1"]);
   });
 
+  test("moves a rewarded good group to general with its independent description", async () => {
+    const db = testDb("review-move-general");
+    const repository = new InspectionRepository(db);
+    const graph = makeTwoGroupGraph();
+    await repository.saveGraph({
+      ...graph,
+      groups: [{
+        ...graph.groups[0],
+        awardAssessment: { type: "reward", people: "tester", amount: 30 },
+      }, graph.groups[1]],
+    });
+
+    await repository.moveGroupToCategory("inspection-1", "group-1", "general", ["group-1", "group-2"]);
+
+    expect((await repository.getGraph("inspection-1"))?.groups[0]).toMatchObject({
+      category: "general",
+      description: graph.inspection.entries[0].itemSnapshot.generalText,
+      awardAssessment: null,
+    });
+  });
+
   test("persists consecutive photo order and group references", async () => {
     const db = testDb("review-photo-order");
     const repository = new InspectionRepository(db);

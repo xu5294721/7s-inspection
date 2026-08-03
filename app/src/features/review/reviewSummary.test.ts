@@ -10,11 +10,21 @@ test("counts groups, photos, rewards, and assessments independently", () => {
   ]);
 
   expect(summary).toEqual({
-    groups: { good: 2, reminder: 1, assessment: 1 },
-    photos: { good: 3, reminder: 3, assessment: 1 },
+    groups: { good: 2, general: 0, reminder: 1, assessment: 1 },
+    photos: { good: 3, general: 0, reminder: 3, assessment: 1 },
     rewardAmount: 30,
     assessmentAmount: 50,
     totalPhotos: 7,
+  });
+});
+
+test("includes general counts in the four-category summary", () => {
+  expect(buildReviewSummary([
+    makePhotoGroup({ category: "general", photoIds: ["p1", "p2"] }),
+  ])).toMatchObject({
+    groups: { good: 0, general: 1, reminder: 0, assessment: 0 },
+    photos: { good: 0, general: 2, reminder: 0, assessment: 0 },
+    totalPhotos: 2,
   });
 });
 

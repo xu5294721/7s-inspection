@@ -48,8 +48,8 @@ function validateGroup(group: PhotoGroup): ReportValidationError[] {
     } else if (!hasCompleteDetails(group.awardAssessment)) {
       errors.push(error(group.id, "awardAssessment", "REWARD_DETAILS_INCOMPLETE", "奖励必须填写人员和正数金额。"));
     }
-  } else if (group.category === "reminder" && group.awardAssessment) {
-    errors.push(error(group.id, "awardAssessment", "CATEGORY_AWARD_INCOMPATIBLE", "提醒事项不能填写奖考信息。"));
+  } else if ((group.category === "general" || group.category === "reminder") && group.awardAssessment) {
+    errors.push(error(group.id, "awardAssessment", "CATEGORY_AWARD_INCOMPATIBLE", "一般表现和提醒事项不能填写奖考信息。"));
   }
 
   return errors;
@@ -57,6 +57,7 @@ function validateGroup(group: PhotoGroup): ReportValidationError[] {
 
 export function validateReportReadiness(graph: InspectionGraph): ReportValidationError[] {
   const errors: ReportValidationError[] = [];
+  let templateCategories: Set<string> | null = null;
 
   if (graph.photos.length === 0) {
     errors.push(error(null, "photos", "REPORT_PHOTO_REQUIRED", "报告至少需要一张已归组照片。"));
@@ -85,6 +86,8 @@ export function validateReportReadiness(graph: InspectionGraph): ReportValidatio
     errors.push(error(null, "template", "TEMPLATE_REFERENCE_MISMATCH", "报告模板版本与巡检记录不一致。"));
   } else if (!reportTemplateSchema.safeParse(graph.template).success) {
     errors.push(error(null, "template", "TEMPLATE_INVALID", "报告模板结构无效。"));
+  } else {
+    templateCategories = new Set(graph.template.sections.map((section) => section.category));
   }
 
   for (const photo of graph.photos) {
@@ -129,6 +132,19 @@ export function validateReportReadiness(graph: InspectionGraph): ReportValidatio
 
   for (const group of graph.groups) {
     errors.push(...validateGroup(group));
+
+    if (
+      templateCategories &&
+      group.photoIds.length > 0 &&
+      !templateCategories.has(group.category)
+    ) {
+      errors.push(error(
+        group.id,
+        "template.sections",
+        "PHOTO_CATEGORY_NOT_IN_TEMPLATE",
+        "照片分类不在当前模板章节中，请切换至最新四分类模板。",
+      ));
+    }
 
     if (group.inspectionId !== graph.inspection.id) {
       errors.push(error(group.id, "inspectionId", "GROUP_INSPECTION_MISMATCH", "照片组所属巡检记录不一致。"));

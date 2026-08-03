@@ -9,6 +9,7 @@ import {
   storageCapacityState,
 } from "./backupRepository";
 import type { InspectionGraph, InspectionRouteTemplate } from "../domain/models";
+import { descriptionForCategory } from "../domain/inspection";
 import { makeChecklistItem, makeInspection, makePhoto, makePhotoGroup, makeTemplate } from "../test/fixtures";
 
 const MiB = 1024 * 1024;
@@ -335,6 +336,78 @@ async function clearApplicationTables(db: SevenSDb): Promise<void> {
     for (const table of db.tables) await table.clear();
   });
 }
+
+test("restores legacy item snapshots without general text and derives the fallback", async () => {
+  const source = createTestDb(`backup-legacy-general-text-source-${Date.now()}`);
+  const legacyItem = makeChecklistItem();
+  delete (legacyItem as { generalText?: string }).generalText;
+  const { generalText: _generalText, ...legacySnapshot } = legacyItem;
+  const inspection = makeInspection({
+    entries: [{ ...makeInspection().entries[0], itemSnapshot: legacySnapshot }],
+  });
+  await source.checklistItems.put(legacyItem);
+  await source.templates.put(makeTemplate());
+  await source.routeTemplates.put(makeRouteTemplate());
+  await new InspectionRepository(source).saveGraph({
+    inspection,
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+  });
+
+  const target = createTestDb(`backup-legacy-general-text-target-${Date.now()}`);
+  await restoreBackup(target, await createBackup(source), "replace");
+
+  const restoredItem = await target.checklistItems.get("item-1");
+  const restoredEntry = await target.entries.get("entry-1");
+  expect(restoredItem).toBeDefined();
+  expect(restoredEntry).toBeDefined();
+  expect(restoredItem).not.toHaveProperty("generalText");
+  expect(restoredEntry?.itemSnapshot).not.toHaveProperty("generalText");
+  expect(descriptionForCategory({
+    ...restoredEntry!.itemSnapshot,
+    enabled: true,
+    createdAt: "2026-07-28T00:00:00.000Z",
+    updatedAt: "2026-07-28T00:00:00.000Z",
+  }, "general")).toBe(descriptionForCategory({
+    ...legacySnapshot,
+    enabled: true,
+    createdAt: "2026-07-28T00:00:00.000Z",
+    updatedAt: "2026-07-28T00:00:00.000Z",
+  }, "general"));
+});
+
+test("round trips a four-category photo group and template", async () => {
+  const source = createTestDb(`backup-four-category-source-${Date.now()}`);
+  const fourCategoryTemplate = makeTemplate({
+    sections: [
+      { category: "good", title: "good", order: 0 },
+      { category: "general", title: "general", order: 1 },
+      { category: "reminder", title: "reminder", order: 2 },
+      { category: "assessment", title: "assessment", order: 3 },
+    ],
+  });
+  const inspection = makeInspection();
+  await source.checklistItems.put(makeChecklistItem());
+  await source.templates.put(fourCategoryTemplate);
+  await source.routeTemplates.put(makeRouteTemplate());
+  await new InspectionRepository(source).saveGraph({
+    inspection,
+    groups: [makePhotoGroup({
+      category: "general",
+      description: inspection.entries[0].itemSnapshot.generalText!,
+    })],
+    photos: [makePhoto()],
+    template: fourCategoryTemplate,
+  });
+
+  const target = createTestDb(`backup-four-category-target-${Date.now()}`);
+  await restoreBackup(target, await createBackup(source), "replace");
+
+  expect((await target.photoGroups.get("group-1"))?.category).toBe("general");
+  expect((await target.templates.get(["template-default", 1]))?.sections.map((section) => section.category))
+    .toEqual(["good", "general", "reminder", "assessment"]);
+  expect((await target.photos.get("photo-1"))?.groupId).toBe("group-1");
+});
 
 test("round trips every row and exact full/thumbnail Blob bytes after clear and reopen", async () => {
   const db = createTestDb(`backup-round-trip-${Date.now()}`);

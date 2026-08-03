@@ -196,11 +196,20 @@ export const reportTemplateSchema = z
     const categories = new Set(template.sections.map((section) => section.category));
     const orders = new Set(template.sections.map((section) => section.order));
 
-    if (template.sections.length !== 3 || categories.size !== 3) {
+    const isLegacyThreeCategoryTemplate =
+      template.sections.length === 3 &&
+      categories.size === 3 &&
+      ["good", "reminder", "assessment"].every((category) => categories.has(category));
+    const isFourCategoryTemplate =
+      template.sections.length === 4 &&
+      categories.size === 4 &&
+      ["good", "general", "reminder", "assessment"].every((category) => categories.has(category));
+
+    if (!isLegacyThreeCategoryTemplate && !isFourCategoryTemplate) {
       context.addIssue({
         code: "custom",
         path: ["sections"],
-        message: "模板必须包含且仅包含三类照片章节。",
+        message: "模板必须包含旧三类章节或完整四类照片章节。",
       });
     }
 
