@@ -95,6 +95,25 @@ const template: ReportTemplate = {
   signatureDatePattern: "YYYY年MM月DD日",
 };
 
+const legacyThreeSectionTemplate: ReportTemplate = {
+  ...template,
+  sections: [
+    { category: "good", title: "好的方面", order: 0 },
+    { category: "reminder", title: "提醒问题", order: 1 },
+    { category: "assessment", title: "考核问题", order: 2 },
+  ],
+};
+
+const fourSectionTemplate: ReportTemplate = {
+  ...template,
+  sections: [
+    { category: "good", title: "好的方面", order: 0 },
+    { category: "general", title: "一般表现", order: 1 },
+    { category: "reminder", title: "提醒问题", order: 2 },
+    { category: "assessment", title: "考核问题", order: 3 },
+  ],
+};
+
 function makeGraph(overrides: Partial<InspectionGraph> = {}): InspectionGraph {
   return {
     inspection,
@@ -359,6 +378,22 @@ test("validates complete report template structure", () => {
 
   expect(reportTemplateSchema.safeParse(template).success).toBe(true);
   expect(invalid.success).toBe(false);
+});
+
+test("accepts legacy and complete four-category template sections only", () => {
+  const fourSectionsMissingGeneral = {
+    ...fourSectionTemplate,
+    sections: [
+      { category: "good", title: "好的方面", order: 0 },
+      { category: "good", title: "另一好的方面", order: 1 },
+      { category: "reminder", title: "提醒问题", order: 2 },
+      { category: "assessment", title: "考核问题", order: 3 },
+    ],
+  };
+
+  expect(reportTemplateSchema.safeParse(legacyThreeSectionTemplate).success).toBe(true);
+  expect(reportTemplateSchema.safeParse(fourSectionTemplate).success).toBe(true);
+  expect(reportTemplateSchema.safeParse(fourSectionsMissingGeneral).success).toBe(false);
 });
 
 test("accepts explicitly cleared optional report headings", () => {

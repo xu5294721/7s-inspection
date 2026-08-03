@@ -26,7 +26,7 @@ test("saves a new template version and applies it to an ungenerated inspection",
   await user.click(screen.getByRole("button", { name: "保存为新版本" }));
 
   const templates = new TemplateRepository(database);
-  await waitFor(async () => expect((await templates.getLatest("template-default"))?.version).toBe(3));
+  await waitFor(async () => expect((await templates.getLatest("template-default"))?.version).toBe(4));
   expect((await templates.get("template-default", 2))?.titlePattern).not.toBe("新版 {date} 巡检通报");
   expect((await templates.getLatest("template-default"))?.photosPerRow).toBe(2);
   expect((await templates.getLatest("template-default"))?.bodyFontSizePt).toBe(16);
@@ -34,8 +34,8 @@ test("saves a new template version and applies it to an ungenerated inspection",
   await waitFor(() => expect(screen.getByRole("textbox", { name: "正文字号" })).toHaveValue("16"));
   expect(screen.getByRole("textbox", { name: "正文首行缩进" })).toHaveValue("2");
   const restored = await new InspectionRepository(database).getGraph("old-template-inspection");
-  expect(restored?.inspection.templateVersion).toBe(3);
-  expect(restored?.template?.version).toBe(3);
+  expect(restored?.inspection.templateVersion).toBe(4);
+  expect(restored?.template?.version).toBe(4);
   view.unmount();
 
   const newInspectionView = renderWithRouter({ database, initialPath: "/inspections/new", appProps: { dependencies } });
@@ -43,7 +43,7 @@ test("saves a new template version and applies it to an ungenerated inspection",
   await user.click(screen.getByRole("button", { name: "开始检查" }));
   await waitFor(async () => expect(await database.inspections.count()).toBe(2));
   const created = (await database.inspections.toArray()).find((item) => item.id !== "old-template-inspection");
-  expect(created?.templateVersion).toBe(3);
+  expect(created?.templateVersion).toBe(4);
   newInspectionView.unmount();
 });
 
@@ -62,7 +62,7 @@ test("rejects unsupported body font size input without creating a template versi
 
   expect(await screen.findByRole("alert")).toHaveTextContent("正文字号请输入三号或大于0的磅值");
   expect(await database.templates.count()).toBe(versionCount);
-  expect((await templates.getLatest("template-default"))?.version).toBe(2);
+  expect((await templates.getLatest("template-default"))?.version).toBe(3);
   view.unmount();
 });
 
@@ -88,7 +88,7 @@ test("preserves explicitly cleared report headings in the next template version"
   await user.clear(screen.getByRole("textbox", { name: "总体情况标题" }));
   await user.click(screen.getByRole("button", { name: "保存为新版本" }));
 
-  await waitFor(async () => expect((await templates.getLatest("template-default"))?.version).toBe(4));
+  await waitFor(async () => expect((await templates.getLatest("template-default"))?.version).toBe(5));
   expect((await templates.getLatest("template-default"))?.generalHeading).toBe("");
   expect((await templates.getLatest("template-default"))?.situationHeading).toBe("");
   editingView.unmount();
@@ -114,7 +114,7 @@ test("applies a saved template version to ungenerated inspections", async () => 
   await user.clear(screen.getByRole("textbox", { name: "总体要求标题" }));
   await user.click(screen.getByRole("button", { name: "保存为新版本" }));
 
-  await waitFor(async () => expect((await repository.getGraph(inspection.id))?.inspection.templateVersion).toBe(3));
+  await waitFor(async () => expect((await repository.getGraph(inspection.id))?.inspection.templateVersion).toBe(4));
   expect((await repository.getGraph(inspection.id))?.template?.generalHeading).toBe("");
   view.unmount();
 });
@@ -129,6 +129,31 @@ test("exposes adaptive or fixed layout and one to four photos per row", async ()
   const photosPerRow = await screen.findByRole("combobox", { name: "每行照片数" });
   expect(Array.from((mode as HTMLSelectElement).options).map((option) => option.value)).toEqual(["adaptive", "fixed"]);
   expect(Array.from((photosPerRow as HTMLSelectElement).options).map((option) => option.value)).toEqual(["1", "2", "3", "4"]);
+  view.unmount();
+});
+
+test("renders four photo chapter labels and saves the general chapter title", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`template-four-sections-${Date.now()}`);
+  const dependencies = createAppDependencies(database);
+  const templates = new TemplateRepository(database);
+  const view = renderWithRouter({ database, initialPath: "/settings/templates", appProps: { dependencies } });
+
+  await screen.findByRole("textbox", { name: "general章节名称" });
+  expect(screen.getByText("好的方面", { selector: "strong" })).toBeInTheDocument();
+  expect(screen.getByText("一般表现", { selector: "strong" })).toBeInTheDocument();
+  expect(screen.getByText("提醒问题", { selector: "strong" })).toBeInTheDocument();
+  expect(screen.getByText("考核问题", { selector: "strong" })).toBeInTheDocument();
+  await user.clear(screen.getByRole("textbox", { name: "general章节名称" }));
+  await user.type(screen.getByRole("textbox", { name: "general章节名称" }), "一般表现（已复查）");
+  await user.click(screen.getByRole("button", { name: "保存为新版本" }));
+
+  await waitFor(async () => expect((await templates.getLatest("template-default"))?.version).toBe(4));
+  expect((await templates.getLatest("template-default"))?.sections).toContainEqual({
+    category: "general",
+    title: "一般表现（已复查）",
+    order: 1,
+  });
   view.unmount();
 });
 

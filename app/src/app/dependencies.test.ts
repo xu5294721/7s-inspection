@@ -296,7 +296,16 @@ test("renames later recovered legacy routes when two edited v1 rows share a norm
   );
   const historicalSnapshot = inspection.entries[0].itemSnapshot;
   await new InspectionRepository(database).saveGraph({ inspection, groups: [], photos: [] });
-  await database.templates.add(makeTemplate({ version: 2, name: "正式巡检通报模板" }));
+  await database.templates.add(makeTemplate({
+    version: 3,
+    name: "正式巡检通报模板",
+    sections: [
+      { category: "good", title: "好的方面", order: 0 },
+      { category: "general", title: "一般表现", order: 1 },
+      { category: "reminder", title: "提醒问题", order: 2 },
+      { category: "assessment", title: "考核问题", order: 3 },
+    ],
+  }));
 
   await ensureRouteCatalog(database, "2026-07-30T00:00:00.000Z");
 
@@ -358,7 +367,16 @@ test("keeps an enabled custom name and renames a colliding recovered legacy rout
   );
   const historicalSnapshot = inspection.entries[0].itemSnapshot;
   await new InspectionRepository(database).saveGraph({ inspection, groups: [], photos: [] });
-  await database.templates.add(makeTemplate({ version: 2, name: "正式巡检通报模板" }));
+  await database.templates.add(makeTemplate({
+    version: 3,
+    name: "正式巡检通报模板",
+    sections: [
+      { category: "good", title: "好的方面", order: 0 },
+      { category: "general", title: "一般表现", order: 1 },
+      { category: "reminder", title: "提醒问题", order: 2 },
+      { category: "assessment", title: "考核问题", order: 3 },
+    ],
+  }));
 
   await ensureRouteCatalog(database, "2026-07-30T00:00:00.000Z");
 
@@ -407,7 +425,7 @@ test("rolls back core rows, settings, and malformed-default repairs when the rep
   write.mockRestore();
 });
 
-test("seeds immutable formal template v2 and binds new inspections without replacing v1", async () => {
+test("seeds immutable formal template v3 and binds new inspections without replacing v1 or v2", async () => {
   const database = createTestDb(`formal-template-${Date.now()}`);
   const dependencies = createAppDependencies(database);
 
@@ -416,14 +434,15 @@ test("seeds immutable formal template v2 and binds new inspections without repla
 
   const repository = new TemplateRepository(database);
   const legacy = await repository.get("template-default", 1);
-  const formal = await repository.get("template-default", 2);
+  const formalV2 = await repository.get("template-default", 2);
+  const formalV3 = await repository.get("template-default", 3);
   expect(legacy).toMatchObject({
     version: 1,
     openingText: "现将巡检情况通报如下。",
     bodyFont: "仿宋",
     marginMm: { top: 20, right: 20, bottom: 20, left: 20 },
   });
-  expect(formal).toEqual({
+  expect(formalV2).toEqual({
     id: "template-default",
     version: 2,
     name: "正式巡检通报模板",
@@ -463,10 +482,20 @@ test("seeds immutable formal template v2 and binds new inspections without repla
     photoGapPt: 6,
     signatureDatePattern: "YYYY年M月D日",
   });
-  expect(await database.templates.count()).toBe(2);
+  expect(formalV3).toEqual({
+    ...formalV2,
+    version: 3,
+    sections: [
+      { category: "good", title: "好的方面", order: 0 },
+      { category: "general", title: "一般表现", order: 1 },
+      { category: "reminder", title: "提醒问题", order: 2 },
+      { category: "assessment", title: "考核问题", order: 3 },
+    ],
+  });
+  expect(await database.templates.count()).toBe(3);
   expect(createInspection([makeChecklistItem()], "new-inspection", "2026-07-29")).toMatchObject({
     templateId: "template-default",
-    templateVersion: 2,
+    templateVersion: 3,
   });
 });
 

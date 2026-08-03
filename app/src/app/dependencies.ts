@@ -221,6 +221,17 @@ const formalReportTemplate: ReportTemplate = {
   signatureDatePattern: defaultReportTemplate.signatureDatePattern,
 };
 
+const fourCategoryFormalReportTemplate: ReportTemplate = {
+  ...formalReportTemplate,
+  version: 3,
+  sections: [
+    { category: "good", title: "好的方面", order: 0 },
+    { category: "general", title: "一般表现", order: 1 },
+    { category: "reminder", title: "提醒问题", order: 2 },
+    { category: "assessment", title: "考核问题", order: 3 },
+  ],
+};
+
 export function createAppDependencies(
   database: SevenSDb,
   options: DependencyOptions = {},
@@ -297,5 +308,6 @@ export async function initializeApp(dependencies: AppDependencies): Promise<void
     dependencies.initializeRouteCatalog(),
     dependencies.templateRepository.seedIfMissing(defaultReportTemplate),
     dependencies.templateRepository.seedIfMissing(formalReportTemplate),
+    dependencies.templateRepository.seedIfMissing(fourCategoryFormalReportTemplate),
   ]);
 }

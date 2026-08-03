@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAppDependencies } from "../../app/useAppDependencies";
 import type { PhotoLayoutMode, PhotosPerRow, ReportSection, ReportTemplate } from "../../domain/models";
 import { PHOTO_ROW_COUNTS } from "../../domain/photoLayout";
+import { photoCategoryLabel } from "../../domain/photoCategory";
 import { reportTemplateSchema } from "../../domain/schemas";
 import { parseBodyFontSizeInput, parseFirstLineIndentInput } from "./reportTemplateInputs";
 
@@ -91,7 +92,7 @@ export function TemplateSettingsPage() {
       <label>每行照片数<select aria-label="每行照片数" value={draft.photosPerRow} onChange={(event) => set("photosPerRow", Number(event.currentTarget.value) as PhotosPerRow)}>{PHOTO_ROW_COUNTS.map((count) => <option key={count} value={count}>{count}张</option>)}</select></label>
       <label>落款日期格式<input aria-label="落款日期格式" value={draft.signatureDatePattern} onChange={(event) => set("signatureDatePattern", event.currentTarget.value)} /></label>
     </div>
-    <section className="template-sections"><h3>照片章节</h3>{draft.sections.map((section, index) => <div key={section.category} className="template-section"><strong>{section.category === "good" ? "好的方面" : section.category === "reminder" ? "提醒事项" : "考核问题"}</strong><label>章节名称<input aria-label={`${section.category}章节名称`} value={section.title} onChange={(event) => setSection(index, { title: event.currentTarget.value })} /></label><label>章节顺序<input aria-label={`${section.category}章节顺序`} type="number" min="0" value={section.order} onChange={(event) => setSection(index, { order: Number(event.currentTarget.value) })} /></label></div>)}</section>
+    <section className="template-sections"><h3>照片章节</h3>{draft.sections.map((section, index) => <div key={section.category} className="template-section"><strong>{photoCategoryLabel(section.category)}</strong><label>章节名称<input aria-label={`${section.category}章节名称`} value={section.title} onChange={(event) => setSection(index, { title: event.currentTarget.value })} /></label><label>章节顺序<input aria-label={`${section.category}章节顺序`} type="number" min="0" value={section.order} onChange={(event) => setSection(index, { order: Number(event.currentTarget.value) })} /></label></div>)}</section>
     <div className="page-actions"><Link className="secondary-action" to="/settings">返回设置</Link><button type="button" className="primary-action" disabled={saving} onClick={() => void save()}>{saving ? "正在保存" : "保存为新版本"}</button></div>
   </section>;
 }

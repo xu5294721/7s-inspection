@@ -161,7 +161,7 @@ export function createInspection(
     inspectionDate,
     title: formatInspectionTitle(inspectionDate),
     templateId: "template-default",
-    templateVersion: 2,
+    templateVersion: 3,
     photoLayoutModeOverride: null,
     photosPerRowOverride: null,
     reviewRouteOrder: [...new Set(entries.map((entry) => entry.itemSnapshot.routeName))],
