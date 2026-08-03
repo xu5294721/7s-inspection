@@ -1817,8 +1817,21 @@ describe("TemplateRepository", () => {
     await initializeApp(dependencies);
     await initializeApp(dependencies);
 
-    expect(await new TemplateRepository(db).get("template-default", 1)).toEqual(makeTemplate());
-    expect(await db.templates.count()).toBe(2);
+    const repository = new TemplateRepository(db);
+    const version3 = await repository.get("template-default", 3);
+
+    expect(await repository.get("template-default", 1)).toEqual(makeTemplate());
+    expect(version3).toMatchObject({
+      version: 3,
+      sections: [
+        { category: "good", title: "好的方面", order: 0 },
+        { category: "general", title: "一般表现", order: 1 },
+        { category: "reminder", title: "提醒问题", order: 2 },
+        { category: "assessment", title: "考核问题", order: 3 },
+      ],
+    });
+    expect(await repository.getLatest("template-default")).toEqual(version3);
+    expect(await db.templates.count()).toBe(3);
   });
 });
 
