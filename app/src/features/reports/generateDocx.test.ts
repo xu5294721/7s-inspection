@@ -272,7 +272,7 @@ test("writes configured report section headings in the saved order", async () =>
 test.each([2, 3] as const)(
   "divides the exact content width into %i columns and uses a fixed 3:4 photo frame",
   async (photosPerRow) => {
-    const { model, dimensions } = layoutModel(photosPerRow);
+    const { model } = layoutModel(photosPerRow);
     const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
     const documentXml = await zip.file("word/document.xml")!.async("string");
     const photoTable = documentXml.match(/<w:tbl>(?:(?!<w:tbl>)[\s\S])*?<w:drawing>[\s\S]*?<\/w:tbl>/)?.[0];
