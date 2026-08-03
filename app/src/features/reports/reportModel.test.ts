@@ -7,7 +7,7 @@ function makeCurrentFormalTemplate() {
     name: "正式巡检通报模板",
     sections: [
       { category: "good", title: "好的方面", order: 0 },
-      { category: "general", title: "一般表现", order: 1 },
+      { category: "general", title: "一般情况（自定义章节）", order: 1 },
       { category: "reminder", title: "提醒问题", order: 2 },
       { category: "assessment", title: "考核问题", order: 3 },
     ],
@@ -257,6 +257,12 @@ test("uses selected check text verbatim across current formal photo categories w
     "general",
     "reminder",
     "assessment",
+  ]);
+  expect(model.sections.map((section) => section.title)).toEqual([
+    "好的方面",
+    "一般情况（自定义章节）",
+    "提醒问题",
+    "考核问题",
   ]);
   expect(model.sections.map((section) => section.groups.map((group) => group.text))).toEqual([
     [`${baseText}（奖励：张三，50元）`],

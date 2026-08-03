@@ -36,10 +36,12 @@ test("exports selected inspection content without the old annex or generic wordi
   const situationHeading = `${await situationHeadingInput.inputValue()}（自定义）`;
   const goodHeading = await page.getByRole("textbox", { name: "good章节名称" }).inputValue();
   const generalSectionHeading = await page.getByRole("textbox", { name: "general章节名称" }).inputValue();
+  const customGeneralSectionHeading = "一般情况（本次自定义章节）";
   const reminderHeading = await page.getByRole("textbox", { name: "reminder章节名称" }).inputValue();
   const assessmentHeading = await page.getByRole("textbox", { name: "assessment章节名称" }).inputValue();
   await page.getByRole("textbox", { name: "总体要求标题" }).clear();
   await situationHeadingInput.fill(situationHeading);
+  await page.getByRole("textbox", { name: "general章节名称" }).fill(customGeneralSectionHeading);
   await page.getByRole("textbox", { name: "正文字号" }).fill("三号");
   await page.getByRole("textbox", { name: "正文首行缩进" }).fill("2");
   await page.getByRole("button", { name: "保存为新版本" }).click();
@@ -88,7 +90,8 @@ test("exports selected inspection content without the old annex or generic wordi
   expect(word.documentXml).not.toContain(oldGenericAutoWording);
   expect(word.documentXml).not.toContain(generalHeading);
   expect(word.documentXml).not.toContain(goodHeading);
-  expect(word.documentXml).toContain(generalSectionHeading);
+  expect(word.documentXml).toContain(customGeneralSectionHeading);
+  expect(word.documentXml).not.toContain(generalSectionHeading);
   expect(word.documentXml).not.toContain(reminderHeading);
   expect(word.documentXml).not.toContain(assessmentHeading);
   expect(word.documentXml.match(/<w:drawing\b/g)).toHaveLength(1);
