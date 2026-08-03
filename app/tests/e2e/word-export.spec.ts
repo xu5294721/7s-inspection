@@ -30,11 +30,12 @@ test("exports selected inspection content without the old annex or generic wordi
   const captureScreenshot = page.screenshot.bind(page);
   test.setTimeout(120_000);
   await page.goto("/#/settings/templates");
-  await expect(page.getByText("当前编辑 v2，保存后将生成 v3")).toBeVisible();
+  await expect(page.getByText("当前编辑 v3，保存后将生成 v4")).toBeVisible();
   const generalHeading = await page.getByRole("textbox", { name: "总体要求标题" }).inputValue();
   const situationHeadingInput = page.getByRole("textbox", { name: "总体情况标题" });
   const situationHeading = `${await situationHeadingInput.inputValue()}（自定义）`;
   const goodHeading = await page.getByRole("textbox", { name: "good章节名称" }).inputValue();
+  const generalSectionHeading = await page.getByRole("textbox", { name: "general章节名称" }).inputValue();
   const reminderHeading = await page.getByRole("textbox", { name: "reminder章节名称" }).inputValue();
   const assessmentHeading = await page.getByRole("textbox", { name: "assessment章节名称" }).inputValue();
   await page.getByRole("textbox", { name: "总体要求标题" }).clear();
@@ -42,7 +43,7 @@ test("exports selected inspection content without the old annex or generic wordi
   await page.getByRole("textbox", { name: "正文字号" }).fill("三号");
   await page.getByRole("textbox", { name: "正文首行缩进" }).fill("2");
   await page.getByRole("button", { name: "保存为新版本" }).click();
-  await expect(page.getByText("当前编辑 v3，保存后将生成 v4")).toBeVisible();
+  await expect(page.getByText("当前编辑 v4，保存后将生成 v5")).toBeVisible();
   await page.goto("/#/inspections/new");
   await expect(page.getByRole("checkbox", { name: photographedRoute })).toBeVisible();
   await page.getByRole("button", { name: "全不选" }).click();
@@ -65,7 +66,7 @@ test("exports selected inspection content without the old annex or generic wordi
   await importRealJpegForRoute(page, photographedRoute);
   const photoGroup = page.locator(".photo-group-editor");
   await expect(photoGroup).toHaveCount(1);
-  await photoGroup.getByRole("radio", { name: "提醒问题" }).check();
+  await photoGroup.getByRole("radio", { name: "一般表现" }).check();
   await photoGroup.getByRole("button", { name: "保存评价" }).click();
   await openReview(page);
 
@@ -87,6 +88,8 @@ test("exports selected inspection content without the old annex or generic wordi
   expect(word.documentXml).not.toContain(oldGenericAutoWording);
   expect(word.documentXml).not.toContain(generalHeading);
   expect(word.documentXml).not.toContain(goodHeading);
+  expect(word.documentXml).toContain(generalSectionHeading);
+  expect(word.documentXml).not.toContain(reminderHeading);
   expect(word.documentXml).not.toContain(assessmentHeading);
   expect(word.documentXml.match(/<w:drawing\b/g)).toHaveLength(1);
   expect(word.documentXml).toContain('<w:sz w:val="32"/>');
@@ -94,7 +97,7 @@ test("exports selected inspection content without the old annex or generic wordi
   expect(paragraphContaining(word.documentXml, situationHeading)).toContain(
     '<w:ind w:firstLine="640"/>',
   );
-  expect(paragraphContaining(word.documentXml, reminderHeading)).toContain('<w:ind w:firstLine="640"/>');
+  expect(paragraphContaining(word.documentXml, generalSectionHeading)).toContain('<w:ind w:firstLine="640"/>');
 
   const routeHeadings = paragraphsWithKeepNext(word.documentXml);
   expect(routeHeadings).toHaveLength(1);

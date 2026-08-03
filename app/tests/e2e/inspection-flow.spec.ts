@@ -54,13 +54,17 @@ test("selects inspection content, preserves it after reload, and reaches mobile 
   const evaluationDescription = photoGroup.getByRole("textbox", { name: "评价说明" });
   await expect(evaluationDescription).toHaveValue(selectedEvaluationSentence);
   await expect(evaluationDescription).not.toHaveAttribute("readonly", "");
-  await photoGroup.getByRole("radio", { name: "提醒问题" }).check();
+  await photoGroup.getByRole("radio", { name: "一般表现" }).check();
   await photoGroup.getByRole("button", { name: "保存评价" }).click();
   await openReview(page);
 
-  const reminderTab = page.getByRole("tab", { name: "提醒问题 1张" });
-  await reminderTab.click();
-  await expect(reminderTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "好的方面 0张" })).toBeVisible();
+  const generalTab = page.getByRole("tab", { name: "一般表现 1张" });
+  await expect(generalTab).toBeVisible();
+  await expect(page.getByRole("tab", { name: "提醒问题 0张" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "考核问题 0张" })).toBeVisible();
+  await generalTab.click();
+  await expect(generalTab).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText(selectedEvaluationSentence, { exact: true })).toBeVisible();
   await expect(page.getByText(oldGenericEvaluationSentence, { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "生成Word" })).toBeVisible();

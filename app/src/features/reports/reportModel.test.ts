@@ -1,6 +1,19 @@
 import { makeInspection, makePhoto, makePhotoGroup, makeTemplate } from "../../test/fixtures";
 import { buildReportFilename, buildReportModel } from "./reportModel";
 
+function makeCurrentFormalTemplate() {
+  return makeTemplate({
+    version: 3,
+    name: "正式巡检通报模板",
+    sections: [
+      { category: "good", title: "好的方面", order: 0 },
+      { category: "general", title: "一般表现", order: 1 },
+      { category: "reminder", title: "提醒问题", order: 2 },
+      { category: "assessment", title: "考核问题", order: 3 },
+    ],
+  });
+}
+
 test("builds the required Word filename from the inspection date", () => {
   expect(buildReportFilename("2026-07-28")).toBe(
     "向塘钢轨焊接整修车间7月28日7S巡检通报.docx",
@@ -175,9 +188,9 @@ test("refuses to build a report model without a persisted photo", () => {
   }, template)).toThrow("报告至少需要一张已归组照片。");
 });
 
-test("uses selected check text verbatim across photo categories and omits annex rows", () => {
-  const template = makeTemplate();
-  const inspection = makeInspection();
+test("uses selected check text verbatim across current formal photo categories without a general award suffix", () => {
+  const template = makeCurrentFormalTemplate();
+  const inspection = makeInspection({ templateVersion: 3 });
   const entry = {
     ...inspection.entries[0],
     id: "entry-selected",
@@ -192,7 +205,7 @@ test("uses selected check text verbatim across photo categories and omits annex 
       { category: "placement" as const, value: "规范有序", isCustom: false },
       { category: "safety" as const, value: "消防器材缺失", isCustom: true },
     ],
-    groupIds: ["group-good", "group-reminder", "group-assessment"],
+    groupIds: ["group-good", "group-general", "group-reminder", "group-assessment"],
   };
   const groups = [
     makePhotoGroup({
@@ -202,6 +215,13 @@ test("uses selected check text verbatim across photo categories and omits annex 
       description: "卷扬机间7S管理落实较好。",
       awardAssessment: { type: "reward", people: "张三", amount: 50 },
       photoIds: ["photo-good"],
+    }),
+    makePhotoGroup({
+      id: "group-general",
+      entryId: entry.id,
+      category: "general",
+      description: "卷扬机间7S管理基本落实。",
+      photoIds: ["photo-general"],
     }),
     makePhotoGroup({
       id: "group-reminder",
@@ -224,6 +244,7 @@ test("uses selected check text verbatim across photo categories and omits annex 
     groups,
     photos: [
       makePhoto(undefined, { id: "photo-good", groupId: "group-good" }),
+      makePhoto(undefined, { id: "photo-general", groupId: "group-general" }),
       makePhoto(undefined, { id: "photo-reminder", groupId: "group-reminder" }),
       makePhoto(undefined, { id: "photo-assessment", groupId: "group-assessment" }),
     ],
@@ -231,12 +252,33 @@ test("uses selected check text verbatim across photo categories and omits annex 
   }, template);
 
   const baseText = "卷扬机间：环境卫生干净整洁，物品定置规范有序。";
+  expect(model.sections.map((section) => section.category)).toEqual([
+    "good",
+    "general",
+    "reminder",
+    "assessment",
+  ]);
   expect(model.sections.map((section) => section.groups.map((group) => group.text))).toEqual([
     [`${baseText}（奖励：张三，50元）`],
+    [baseText],
     [baseText],
     [`${baseText}（考核：李四，70元）`],
   ]);
   expect(model).not.toHaveProperty("annexRows");
+});
+
+test("omits the empty general section from a current formal template", () => {
+  const template = makeCurrentFormalTemplate();
+  const inspection = makeInspection({ templateVersion: 3 });
+  const model = buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({ photoIds: ["photo-1"] })],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  expect(model.sections.map((section) => section.category)).toEqual(["good"]);
+  expect(model.sections.map((section) => section.title)).not.toContain("一般表现");
 });
 
 test("uses a manually edited evaluation description instead of selected check text", () => {

@@ -113,6 +113,42 @@ function layoutModel(photosPerRow: 2 | 3) {
   };
 }
 
+test("writes the current formal general section and preserves its photo relationship", async () => {
+  const template = makeTemplate({
+    version: 3,
+    name: "正式巡检通报模板",
+    sections: [
+      { category: "good", title: "好的方面", order: 0 },
+      { category: "general", title: "一般表现", order: 1 },
+      { category: "reminder", title: "提醒问题", order: 2 },
+      { category: "assessment", title: "考核问题", order: 3 },
+    ],
+  });
+  const inspection = makeInspection({ templateVersion: 3 });
+  const model = buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({
+      id: "general-group",
+      category: "general",
+      description: "卷扬机间一般表现说明。",
+      photoIds: ["general-photo"],
+    })],
+    photos: [makePhoto(undefined, { id: "general-photo", groupId: "general-group" })],
+    template,
+  }, template);
+
+  const { documentXml, references } = await drawingMediaReferences(
+    await generateDocx(model, () => undefined),
+  );
+
+  expect(documentXml).toContain("一般表现");
+  expect(documentXml).toContain("卷扬机间一般表现说明。");
+  expect(documentXml).not.toContain("（奖励：");
+  expect(documentXml).not.toContain("（考核：");
+  expect(references.map((reference) => reference.photoId)).toEqual(["general-photo"]);
+  expect(references[0]?.media).not.toBeNull();
+});
+
 test("packages complete five-photo document content and image references", async () => {
   const model = fivePhotoModel();
   const blob = await generateDocx(model, () => undefined);
