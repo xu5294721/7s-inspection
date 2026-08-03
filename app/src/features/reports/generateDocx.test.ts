@@ -270,7 +270,7 @@ test("writes configured report section headings in the saved order", async () =>
 });
 
 test.each([2, 3] as const)(
-  "divides the exact content width into %i columns and preserves image aspect ratios",
+  "divides the exact content width into %i columns and uses a fixed 3:4 photo frame",
   async (photosPerRow) => {
     const { model, dimensions } = layoutModel(photosPerRow);
     const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
@@ -287,12 +287,9 @@ test.each([2, 3] as const)(
       convertMillimetersToTwip(210 - 22 - 22),
     );
     expect(extents).toHaveLength(photosPerRow);
-    extents.forEach((extent, index) => {
-      expect(extent.width / extent.height).toBeCloseTo(
-        dimensions[index].width / dimensions[index].height,
-        3,
-      );
-    });
+    expect(new Set(extents.map(({ width, height }) => String(width) + "x" + String(height))).size).toBe(1);
+    const firstExtent = extents[0]!;
+    expect(firstExtent.width / firstExtent.height).toBeCloseTo(3 / 4, 3);
   },
 );
 
