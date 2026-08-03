@@ -48,7 +48,7 @@ test("shows an Excel import preview before applying library mutations", async ()
   sheet.addRow(EXCEL_HEADERS);
   sheet.addRow([
     1, "导入路线", "导入区域", "", "导入部位", "导入标准", "导入工班", "清扫",
-    "好的表述", "提醒表述", "考核表述", "短语", "是",
+    "好的表述", "一般表现表述", "提醒表述", "考核表述", "短语", "是",
   ]);
   const file = new File([await workbook.xlsx.writeBuffer()], "items.xlsx", {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -103,7 +103,7 @@ test("keeps a real historical snapshot unchanged after edit, disable, and confir
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("导入模板");
   sheet.addRow(EXCEL_HEADERS);
-  sheet.addRow([item.routeOrder, item.routeName, item.area, item.device, item.part, "导入后标准", item.team, item.sevenSCategory, item.goodText, item.reminderText, item.assessmentText, item.quickPhrases.join("|"), "是"]);
+  sheet.addRow([item.routeOrder, item.routeName, item.area, item.device, item.part, "导入后标准", item.team, item.sevenSCategory, item.goodText, item.generalText, item.reminderText, item.assessmentText, item.quickPhrases.join("|"), "是"]);
   const file = new File([await workbook.xlsx.writeBuffer()], "snapshot.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   fireEvent.change(screen.getByLabelText("导入Excel项点库"), { target: { files: [file] } });
   await screen.findByRole("heading", { name: "导入预览" });

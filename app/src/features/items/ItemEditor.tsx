@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { defaultGeneralText } from "../../domain/inspection";
 import type { ChecklistItem, SevenSCategory } from "../../domain/models";
 
 const categories: SevenSCategory[] = ["", "整理", "整顿", "清扫", "清洁", "素养", "安全", "节约"];
@@ -10,12 +11,16 @@ interface ItemEditorProps {
 }
 
 export function ItemEditor({ item, onCancel, onSave }: ItemEditorProps) {
-  const [draft, setDraft] = useState<ChecklistItem>({ ...item, quickPhrases: [...item.quickPhrases] });
+  const [draft, setDraft] = useState<ChecklistItem>({
+    ...item,
+    generalText: item.generalText?.trim() || defaultGeneralText(item),
+    quickPhrases: [...item.quickPhrases],
+  });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof ChecklistItem>(key: K, value: ChecklistItem[K]) => setDraft((current) => ({ ...current, [key]: value }));
   async function save() {
-    const required: Array<keyof ChecklistItem> = ["routeName", "area", "part", "standard", "team", "goodText", "reminderText", "assessmentText"];
+    const required: Array<keyof ChecklistItem> = ["routeName", "area", "part", "standard", "team", "goodText", "generalText", "reminderText", "assessmentText"];
     if (required.some((key) => !String(draft[key]).trim()) || !Number.isSafeInteger(draft.routeOrder) || draft.routeOrder < 1) {
       setError("请完整填写必填项，路线顺序须为正整数。");
       return;
@@ -37,6 +42,7 @@ export function ItemEditor({ item, onCancel, onSave }: ItemEditorProps) {
       <label>责任工班<input aria-label="责任工班" value={draft.team} onChange={(event) => set("team", event.currentTarget.value)} /></label>
       <label>7S类别<select aria-label="7S类别" value={draft.sevenSCategory} onChange={(event) => set("sevenSCategory", event.currentTarget.value as SevenSCategory)}>{categories.map((category) => <option key={category} value={category}>{category || "未分类"}</option>)}</select></label>
       <label>好的表述<textarea aria-label="好的表述" value={draft.goodText} onChange={(event) => set("goodText", event.currentTarget.value)} /></label>
+      <label>一般表现表述<textarea aria-label="一般表现表述" value={draft.generalText ?? ""} onChange={(event) => set("generalText", event.currentTarget.value)} /></label>
       <label>提醒表述<textarea aria-label="提醒表述" value={draft.reminderText} onChange={(event) => set("reminderText", event.currentTarget.value)} /></label>
       <label>考核表述<textarea aria-label="考核表述" value={draft.assessmentText} onChange={(event) => set("assessmentText", event.currentTarget.value)} /></label>
       <label>常用短语（以 | 分隔）<textarea aria-label="常用短语" value={draft.quickPhrases.join(" | ")} onChange={(event) => set("quickPhrases", event.currentTarget.value.split("|").map((value) => value.trim()).filter(Boolean))} /></label>

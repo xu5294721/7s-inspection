@@ -19,7 +19,7 @@ SOURCE_MEMBER = "word/embeddings/oleObject1.bin"
 SHEET_NAME = "包保划分表"
 DATA_ROW_START = 2  # Excel row 3, zero-based for xlrd.
 SOURCE_TIMESTAMP = "2024-05-15T00:00:00.000Z"
-REQUIRED_FIELDS = ("id", "routeName", "area", "part", "standard", "team")
+REQUIRED_FIELDS = ("id", "routeName", "area", "part", "standard", "team", "generalText")
 NUMBERED_STANDARD = re.compile(r"(?<!\S)(\d+)[、．.]")
 WHITESPACE = re.compile(r"[\s\u3000]+")
 
@@ -133,6 +133,7 @@ def extract_items(source_path: pathlib.Path) -> list[dict[str, Any]]:
                 "team": team,
                 "sevenSCategory": "",
                 "goodText": f"{part}落实较好。",
+                "generalText": f"{part}7S管理基本落实，但现场标准仍有提升空间。",
                 "reminderText": f"{part}落实不到位，本次予以提醒。",
                 "assessmentText": f"{part}落实不到位。",
                 "quickPhrases": [],

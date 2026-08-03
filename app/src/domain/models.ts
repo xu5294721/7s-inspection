@@ -1,4 +1,4 @@
-export type PhotoCategory = "good" | "reminder" | "assessment";
+export type PhotoCategory = "good" | "general" | "reminder" | "assessment";
 
 export type ReviewRouteOrderByCategory = Partial<Record<PhotoCategory, string[]>>;
 
@@ -29,6 +29,7 @@ export interface ChecklistItem {
   team: string;
   sevenSCategory: SevenSCategory;
   goodText: string;
+  generalText?: string;
   reminderText: string;
   assessmentText: string;
   quickPhrases: string[];

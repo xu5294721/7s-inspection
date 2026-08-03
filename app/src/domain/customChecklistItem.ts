@@ -17,6 +17,7 @@ export function createCustomChecklistItem(
     team: "相关责任工班",
     sevenSCategory: "",
     goodText: `${normalizedName}7S管理落实较好。`,
+    generalText: `${normalizedName}7S管理基本落实，但现场标准仍有提升空间。`,
     reminderText: `${normalizedName}存在7S管理不到位问题，本次予以提醒。`,
     assessmentText: `${normalizedName}存在7S管理不到位问题。`,
     quickPhrases: [],

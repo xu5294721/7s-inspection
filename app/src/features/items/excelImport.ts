@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import type { ItemRepository } from "../../db/itemRepository";
+import { defaultGeneralText } from "../../domain/inspection";
 import type { ChecklistItem, SevenSCategory } from "../../domain/models";
 
 export const EXCEL_HEADERS = [
@@ -12,11 +13,16 @@ export const EXCEL_HEADERS = [
   "责任工班",
   "7S类别",
   "好的表述",
+  "一般表现表述",
   "提醒表述",
   "考核表述",
   "常见问题",
   "是否启用",
 ] as const;
+
+const LEGACY_EXCEL_HEADERS = EXCEL_HEADERS.filter(
+  (header) => header !== "一般表现表述",
+);
 
 export const ITEM_SOURCE_TIMESTAMP = "2024-05-15T00:00:00.000Z";
 
@@ -71,6 +77,7 @@ const REQUIRED_TEXT_FIELDS = [
   ["检查标准", "standard"],
   ["责任工班", "team"],
   ["好的表述", "goodText"],
+  ["一般表现表述", "generalText"],
   ["提醒表述", "reminderText"],
   ["考核表述", "assessmentText"],
 ] as const;
@@ -85,6 +92,7 @@ const COMPARABLE_FIELDS = [
   "team",
   "sevenSCategory",
   "goodText",
+  "generalText",
   "reminderText",
   "assessmentText",
   "quickPhrases",
@@ -155,7 +163,9 @@ export async function validateImportRows(
 
     const texts: Partial<Record<(typeof REQUIRED_TEXT_FIELDS)[number][1], string>> = {};
     for (const [header, property] of REQUIRED_TEXT_FIELDS) {
-      const value = requiredText(sourceRow[header]);
+      const value = property === "generalText"
+        ? optionalText(sourceRow[header])
+        : requiredText(sourceRow[header]);
       if (value === null) {
         addError(errors, excelRow, header, `${header}必须为非空文本。`);
       } else {
@@ -208,6 +218,7 @@ export async function validateImportRows(
         team: texts.team!,
         sevenSCategory: sevenSCategory!,
         goodText: texts.goodText!,
+        generalText: texts.generalText || defaultGeneralText(stableKey),
         reminderText: texts.reminderText!,
         assessmentText: texts.assessmentText!,
         quickPhrases: quickPhraseText!
@@ -264,17 +275,25 @@ export async function parseChecklistWorkbook(
   }
 
   const actualHeaders = Array.from(
-    { length: Math.max(worksheet.actualColumnCount, EXCEL_HEADERS.length) },
+    { length: worksheet.actualColumnCount },
     (_, index) => cellText(worksheet.getRow(1).getCell(index + 1)),
   );
+  const expectedHeaders = actualHeaders.length === LEGACY_EXCEL_HEADERS.length
+    ? LEGACY_EXCEL_HEADERS
+    : EXCEL_HEADERS;
   const headerErrors: ImportError[] = [];
-  for (const [index, expected] of EXCEL_HEADERS.entries()) {
+  for (const [index, expected] of expectedHeaders.entries()) {
     if (actualHeaders[index] !== expected) {
       addError(headerErrors, 1, expected, `第 ${index + 1} 列表头必须为“${expected}”。`);
     }
   }
-  if (actualHeaders.length !== EXCEL_HEADERS.length) {
-    addError(headerErrors, 1, "表头", `工作表必须恰好包含 ${EXCEL_HEADERS.length} 列。`);
+  if (actualHeaders.length !== expectedHeaders.length) {
+    addError(
+      headerErrors,
+      1,
+      "表头",
+      `工作表必须恰好包含 ${EXCEL_HEADERS.length} 列，或使用旧版 ${LEGACY_EXCEL_HEADERS.length} 列表头。`,
+    );
   }
   if (new Set(actualHeaders).size !== actualHeaders.length) {
     addError(headerErrors, 1, "表头", "工作表表头不得重复。");
@@ -291,7 +310,7 @@ export async function parseChecklistWorkbook(
       continue;
     }
     const sourceRow: Partial<ImportRow> = {};
-    for (const [index, header] of EXCEL_HEADERS.entries()) {
+    for (const [index, header] of expectedHeaders.entries()) {
       const cell = worksheetRow.getCell(index + 1);
       sourceRow[header] = cell.value;
     }

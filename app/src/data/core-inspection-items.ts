@@ -54,6 +54,7 @@ export function createCoreInspectionItems(timestamp: string): ChecklistItem[] {
     team: "相关责任工班",
     sevenSCategory: "",
     goodText: `${routeName}7S管理落实较好。`,
+    generalText: `${routeName}7S管理基本落实，但现场标准仍有提升空间。`,
     reminderText: `${routeName}存在7S管理不到位问题，本次予以提醒。`,
     assessmentText: `${routeName}存在7S管理不到位问题。`,
     quickPhrases: [],

@@ -39,6 +39,7 @@ class ExtractionContractTests(unittest.TestCase):
             "part": "部位",
             "standard": "标准",
             "team": "班组",
+            "generalText": "一般表现",
         }
         with self.assertRaisesRegex(ValueError, "缺少必填字段"):
             MODULE.validate_items([{**valid, "team": ""}])
@@ -64,6 +65,7 @@ class ExtractionContractTests(unittest.TestCase):
                     "standard",
                     "team",
                     "goodText",
+                    "generalText",
                     "reminderText",
                     "assessmentText",
                 )

@@ -3,6 +3,7 @@ import {
   createInspection,
   createInspectionEntry,
   createPhotoGroup,
+  descriptionForCategory,
   isPositiveSafeInteger,
   parseAnnotationJson,
   serializeAnnotationShapes,
@@ -11,6 +12,7 @@ import {
 import type { ChecklistItem } from "./models";
 import { createId } from "../lib/ids";
 import { toInspectionTimestamp } from "../lib/dates";
+import { makeChecklistItem } from "../test/fixtures";
 
 const item: ChecklistItem = {
   id: "item-1",
@@ -23,6 +25,7 @@ const item: ChecklistItem = {
   team: "焊接工班",
   sevenSCategory: "清扫",
   goodText: "油缸表面清理较干净。",
+  generalText: "油缸7S管理基本落实，但现场标准仍有提升空间。",
   reminderText: "油缸表面积灰、油污清理不到位，本次予以提醒。",
   assessmentText: "油缸表面积灰、油污未清理。",
   quickPhrases: ["积灰未清理", "油污未清理"],
@@ -37,6 +40,33 @@ test("new photo groups default to good", () => {
   expect(group.category).toBe("good");
   expect(group.description).toBe(item.goodText);
   expect(group.awardAssessment).toBeNull();
+});
+
+test("uses independent general-performance text and a legacy fallback", () => {
+  const item = makeChecklistItem({
+    generalText: "油缸表面基本清洁，但标准化保养仍有提升空间。",
+  });
+
+  expect(descriptionForCategory(item, "general")).toBe(
+    "油缸表面基本清洁，但标准化保养仍有提升空间。",
+  );
+  expect(descriptionForCategory({ ...item, generalText: undefined }, "general")).toBe(
+    "油缸7S管理基本落实，但现场标准仍有提升空间。",
+  );
+});
+
+test("changing to general clears reward or assessment data and uses general text", () => {
+  const source = {
+    ...createPhotoGroup(item, "inspection-1", "entry-1", ["photo-1"], "group-1"),
+    category: "good" as const,
+    awardAssessment: { type: "reward" as const, people: "张三", amount: 50 },
+  };
+
+  const result = changePhotoGroupCategory(source, "general", item);
+
+  expect(result.category).toBe("general");
+  expect(result.description).toBe(item.generalText);
+  expect(result.awardAssessment).toBeNull();
 });
 
 test("split photo creates a separate immutable group", () => {
@@ -114,6 +144,7 @@ test("creates an inspection entry with supplied identity, order, and an immutabl
       team: "焊接工班",
       sevenSCategory: "清扫",
       goodText: "油缸表面清理较干净。",
+      generalText: "油缸7S管理基本落实，但现场标准仍有提升空间。",
       reminderText: "油缸表面积灰、油污清理不到位，本次予以提醒。",
       assessmentText: "油缸表面积灰、油污未清理。",
       quickPhrases: ["柜内积灰"],

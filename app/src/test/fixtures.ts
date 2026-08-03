@@ -18,6 +18,7 @@ export function makeChecklistItem(overrides: Partial<ChecklistItem> = {}): Check
     team: "焊接工班",
     sevenSCategory: "清扫",
     goodText: "油缸表面清理较干净。",
+    generalText: "油缸7S管理基本落实，但现场标准仍有提升空间。",
     reminderText: "油缸表面清理不到位，本次予以提醒。",
     assessmentText: "油缸表面积灰、油泥未清理。",
     quickPhrases: ["积灰未清理", "油泥未清理"],

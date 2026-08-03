@@ -29,6 +29,7 @@ const completeRow: ImportRow = {
   责任工班: "焊接工班",
   "7S类别": "清扫",
   好的表述: "油缸表面清理较干净。",
+  一般表现表述: "油缸表面基本清洁，但标准化保养仍有提升空间。",
   提醒表述: "油缸表面清理不到位，本次予以提醒。",
   考核表述: "油缸表面积灰、油泥未清理。",
   常见问题: "积灰未清理| 油泥未清理 ||",
@@ -51,6 +52,7 @@ function existingItem(overrides: Partial<ChecklistItem>): ChecklistItem {
     team: "旧班组",
     sevenSCategory: "",
     goodText: "旧好的表述",
+    generalText: "旧一般表现表述",
     reminderText: "旧提醒表述",
     assessmentText: "旧考核表述",
     quickPhrases: [],
@@ -72,6 +74,7 @@ function importRowForItem(item: ChecklistItem, overrides: Partial<ImportRow> = {
     责任工班: item.team,
     "7S类别": item.sevenSCategory,
     好的表述: item.goodText,
+    一般表现表述: item.generalText ?? "",
     提醒表述: item.reminderText,
     考核表述: item.assessmentText,
     常见问题: item.quickPhrases.join("|"),
@@ -113,6 +116,14 @@ describe("validateImportRows", () => {
       enabled: true,
       quickPhrases: ["积灰未清理", "油泥未清理"],
     });
+  });
+
+  test("uses the independent general-performance text or a legacy fallback", async () => {
+    const withGeneralText = await validateImportRows([row()]);
+    const legacy = await validateImportRows([row({ 一般表现表述: "" })]);
+
+    expect(withGeneralText.items[0]?.item.generalText).toBe("油缸表面基本清洁，但标准化保养仍有提升空间。");
+    expect(legacy.items[0]?.item.generalText).toBe("油缸7S管理基本落实，但现场标准仍有提升空间。");
   });
 
   test("reports exact Excel rows and Chinese field names", async () => {
@@ -162,6 +173,19 @@ describe("parseChecklistWorkbook", () => {
     expect(invalid.errors).toEqual(
       expect.arrayContaining([expect.objectContaining({ row: 1, field: "路线顺序" })]),
     );
+  });
+
+  test("accepts the legacy 13-column workbook shape", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("旧导入模板");
+    const legacyHeaders = EXCEL_HEADERS.filter((header) => header !== "一般表现表述");
+    worksheet.addRow(legacyHeaders);
+    worksheet.addRow(legacyHeaders.map((header) => completeRow[header]));
+
+    const parsed = await parseChecklistWorkbook(await workbook.xlsx.writeBuffer());
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.items[0]?.item.generalText).toBe("油缸7S管理基本落实，但现场标准仍有提升空间。");
   });
 
   test("preserves physical Excel row numbers when blank rows are skipped", async () => {

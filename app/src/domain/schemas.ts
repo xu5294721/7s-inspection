@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { DEFAULT_ROUTE_TEMPLATE_NAME } from "./routeNames";
 
-export const photoCategorySchema = z.enum(["good", "reminder", "assessment"]);
+export const photoCategorySchema = z.enum(["good", "general", "reminder", "assessment"]);
 const reviewRouteOrderByCategorySchema = z.object({
   good: z.array(z.string().trim().min(1)).optional(),
+  general: z.array(z.string().trim().min(1)).optional(),
   reminder: z.array(z.string().trim().min(1)).optional(),
   assessment: z.array(z.string().trim().min(1)).optional(),
 });
@@ -29,6 +30,7 @@ export const checklistItemSchema = z.object({
   team: z.string(),
   sevenSCategory: sevenSCategorySchema,
   goodText: z.string(),
+  generalText: z.string().optional(),
   reminderText: z.string(),
   assessmentText: z.string(),
   quickPhrases: z.array(z.string()),

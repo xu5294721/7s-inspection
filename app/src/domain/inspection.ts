@@ -107,6 +107,10 @@ function snapshotItem(item: ChecklistItem): ItemSnapshot {
 }
 
 export function descriptionForCategory(item: ChecklistItem, category: PhotoCategory): string {
+  if (category === "general") {
+    return item.generalText?.trim() || defaultGeneralText(item);
+  }
+
   if (category === "reminder") {
     return item.reminderText;
   }
@@ -116,6 +120,10 @@ export function descriptionForCategory(item: ChecklistItem, category: PhotoCateg
   }
 
   return item.goodText;
+}
+
+export function defaultGeneralText(item: Pick<ChecklistItem, "routeName" | "part">): string {
+  return `${item.part}7S管理基本落实，但现场标准仍有提升空间。`;
 }
 
 export function createInspectionEntry(
