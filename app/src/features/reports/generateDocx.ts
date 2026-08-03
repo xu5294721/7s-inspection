@@ -51,6 +51,7 @@ interface PreparedPhoto extends ReportPhoto {
 
 const a4WidthMm = 210;
 const a4HeightMm = 297;
+const docxPhotoFrameAspectRatio = 3 / 4;
 const pxPerMm = 96 / 25.4;
 const maximumWordTwips = 2_147_483_647n;
 
@@ -202,10 +203,7 @@ function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
   const cellWidthMm = contentWidthMm / columns;
   const gapTwips = Math.round(model.photoGapPt * 20 / 2);
   const imageWidthPx = Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm));
-  const imageHeightPx = Math.max(
-    1,
-    Math.floor((a4HeightMm - model.marginMm.top - model.marginMm.bottom) * pxPerMm),
-  );
+  const imageHeightPx = Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio);
   const rows = chunks(photos, columns).map((row) => {
     const cells = Array.from({ length: columns }, (_, index) => {
       const photo = row[index];
@@ -216,9 +214,8 @@ function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
           children: [new Paragraph("")],
         });
       }
-      const scale = Math.min(1, imageWidthPx / photo.width, imageHeightPx / photo.height);
-      const width = Math.max(1, photo.width * scale);
-      const height = Math.max(1, photo.height * scale);
+      const width = imageWidthPx;
+      const height = imageHeightPx;
       return new TableCell({
         width: { size: cellWidthTwips, type: WidthType.DXA },
         verticalAlign: VerticalAlign.CENTER,

@@ -339,7 +339,7 @@ test("adapts each photo group independently up to the configured limit", async (
   expect(columnCounts).toEqual([1, 4]);
 });
 
-test("fits extreme portrait and landscape images within usable cell width and page height", async () => {
+test("uses fixed 3:4 frames for extreme portrait and landscape images", async () => {
   const { model } = layoutModel(2);
   const photos = model.sections[0].groups[0].photos;
   Object.assign(photos[0], { width: 100, height: 10_000 });
@@ -356,9 +356,11 @@ test("fits extreme portrait and landscape images within usable cell width and pa
 
   expect(extents).toHaveLength(2);
   expect(extents[0].height).toBeLessThanOrEqual(Math.floor(maxPageHeightPx) * emuPerPx);
-  expect(extents[0].width / extents[0].height).toBeCloseTo(100 / 10_000, 3);
   expect(extents[1].width).toBeLessThanOrEqual(Math.floor(maxCellWidthPx) * emuPerPx);
-  expect(extents[1].width / extents[1].height).toBeCloseTo(10_000 / 100, 0);
+  expect(new Set(extents.map(({ width, height }) => String(width) + "x" + String(height))).size).toBe(1);
+  extents.forEach(({ width, height }) => {
+    expect(width / height).toBeCloseTo(3 / 4, 3);
+  });
 });
 
 test("packages annotation renderer output instead of the unannotated source", async () => {
