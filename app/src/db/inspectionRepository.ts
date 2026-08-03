@@ -306,6 +306,7 @@ function assertGraphIntegrity(graph: InspectionGraph): void {
   }
 
   for (const group of groups) {
+    assertGroupEvaluation(group);
     if (group.inspectionId !== inspection.id) {
       throw new GraphIntegrityError(`照片组 ${group.id} 的巡检记录 ID 不一致。`);
     }

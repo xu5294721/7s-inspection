@@ -1139,6 +1139,20 @@ describe("InspectionRepository", () => {
     });
   });
 
+  test("rejects general groups with award data when saving a graph", async () => {
+    const repository = new InspectionRepository(testDb("save-graph-general-award"));
+    const graph = makeTwoGroupGraph();
+
+    await expect(repository.saveGraph({
+      ...graph,
+      groups: [{
+        ...graph.groups[0],
+        category: "general",
+        awardAssessment: { type: "reward", people: "tester", amount: 30 },
+      }, graph.groups[1]],
+    })).rejects.toThrow("奖考类型与照片组分类不一致");
+  });
+
   test("persists consecutive photo order and group references", async () => {
     const db = testDb("review-photo-order");
     const repository = new InspectionRepository(db);
