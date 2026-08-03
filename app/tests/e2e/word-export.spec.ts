@@ -100,7 +100,7 @@ test("exports selected inspection content without the old annex or generic wordi
   expect(paragraphContaining(word.documentXml, situationHeading)).toContain(
     '<w:ind w:firstLine="640"/>',
   );
-  expect(paragraphContaining(word.documentXml, generalSectionHeading)).toContain('<w:ind w:firstLine="640"/>');
+  expect(paragraphContaining(word.documentXml, customGeneralSectionHeading)).toContain('<w:ind w:firstLine="640"/>');
 
   const routeHeadings = paragraphsWithKeepNext(word.documentXml);
   expect(routeHeadings).toHaveLength(1);
