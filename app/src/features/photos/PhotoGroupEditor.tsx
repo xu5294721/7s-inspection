@@ -10,6 +10,7 @@ import type {
   PhotoCategory,
   PhotoGroup,
 } from "../../domain/models";
+import { PHOTO_CATEGORIES } from "../../domain/photoCategory";
 import { PhotoAnnotationDialog } from "./PhotoAnnotationDialog";
 
 export interface PhotoGroupEditorProps {
@@ -22,11 +23,7 @@ export interface PhotoGroupEditorProps {
   onPhotoSave?: (photo: PhotoAsset) => Promise<void>;
 }
 
-const categoryOptions: Array<{ value: PhotoCategory; label: string }> = [
-  { value: "good", label: "好的方面" },
-  { value: "reminder", label: "提醒问题" },
-  { value: "assessment", label: "考核问题" },
-];
+const categoryOptions = PHOTO_CATEGORIES.map(({ id, label }) => ({ value: id, label }));
 
 function parseAmount(value: string): number | null {
   if (!/^[1-9]\d*$/.test(value)) return null;
@@ -200,7 +197,7 @@ export function PhotoGroupEditor({
   }, []);
 
   function awardFor(category: PhotoCategory, nextPeople = people, nextAmount = amountInput) {
-    if (category === "reminder" || (category === "good" && !rewardEnabled)) return null;
+    if (category === "general" || category === "reminder" || (category === "good" && !rewardEnabled)) return null;
     return {
       type: category === "good" ? "reward" as const : "assessment" as const,
       people: nextPeople.trim(),

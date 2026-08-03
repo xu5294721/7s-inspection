@@ -8,8 +8,9 @@ import {
   beginPhotoProcessing,
 } from "../../app/photoProcessingSignal";
 import type { ChecklistItem, InspectionCheckSelection, InspectionEntry, InspectionGraph, PhotoAsset, PhotoCategory, PhotoGroup, PhotoLayoutMode, PhotosPerRow, ReportTemplate, ReportValidationError, ReviewRouteOrderByCategory } from "../../domain/models";
-import { splitPhotoIntoGroup } from "../../domain/inspection";
+import { descriptionForCategory, splitPhotoIntoGroup } from "../../domain/inspection";
 import { PHOTO_ROW_COUNTS } from "../../domain/photoLayout";
+import { PHOTO_CATEGORIES } from "../../domain/photoCategory";
 import { sortRouteNamesForReview, sortRouteNamesForReviewByCategory } from "../../domain/reviewRouteOrder";
 import { createBrowserUuid } from "../../lib/ids";
 import { processImage } from "../../lib/images/compressImage";
@@ -23,11 +24,7 @@ import { ReviewRouteEditDialog } from "./ReviewRouteEditDialog";
 import { ReviewRouteSortDialog } from "./ReviewRouteSortDialog";
 import { buildReviewSummary } from "./reviewSummary";
 
-const categories: Array<{ id: PhotoCategory; label: string }> = [
-  { id: "good", label: "好的方面" },
-  { id: "reminder", label: "提醒问题" },
-  { id: "assessment", label: "考核问题" },
-];
+const categories = PHOTO_CATEGORIES;
 
 interface SaveBatch {
   generation: number;
@@ -366,11 +363,9 @@ export function ReviewPage() {
     const orderedIds = allIds.map((group) => group.id);
     const rank = new Map(orderedIds.map((currentId, order) => [currentId, order]));
     const entry = graph.inspection.entries.find((item) => item.id === moved.entryId);
-    const description = category === "assessment"
-      ? entry?.itemSnapshot.assessmentText ?? moved.description
-      : category === "reminder"
-        ? entry?.itemSnapshot.reminderText ?? moved.description
-        : entry?.itemSnapshot.goodText ?? moved.description;
+    const description = entry
+      ? descriptionForCategory(checklistItemForEntry(entry, graph), category)
+      : moved.description;
     const next: InspectionGraph = {
       ...graph,
       inspection: {

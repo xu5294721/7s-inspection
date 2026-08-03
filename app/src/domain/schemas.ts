@@ -199,11 +199,11 @@ export const reportTemplateSchema = z
     const isLegacyThreeCategoryTemplate =
       template.sections.length === 3 &&
       categories.size === 3 &&
-      ["good", "reminder", "assessment"].every((category) => categories.has(category));
+      (["good", "reminder", "assessment"] as const).every((category) => categories.has(category));
     const isFourCategoryTemplate =
       template.sections.length === 4 &&
       categories.size === 4 &&
-      ["good", "general", "reminder", "assessment"].every((category) => categories.has(category));
+      (["good", "general", "reminder", "assessment"] as const).every((category) => categories.has(category));
 
     if (!isLegacyThreeCategoryTemplate && !isFourCategoryTemplate) {
       context.addIssue({

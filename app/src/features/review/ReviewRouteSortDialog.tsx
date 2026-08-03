@@ -4,24 +4,20 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { useState } from "react";
 import type { PhotoCategory, ReviewRouteOrderByCategory } from "../../domain/models";
-
-const categories: Array<{ id: PhotoCategory; label: string }> = [
-  { id: "good", label: "好的方面" },
-  { id: "reminder", label: "提醒问题" },
-  { id: "assessment", label: "考核问题" },
-];
+import { PHOTO_CATEGORIES } from "../../domain/photoCategory";
 
 interface ReviewRouteSortDialogProps {
-  routeNamesByCategory: Record<PhotoCategory, string[]>;
+  routeNamesByCategory: ReviewRouteOrderByCategory;
   onSave(routeOrderByCategory: ReviewRouteOrderByCategory): Promise<void> | void;
   onCancel(): void;
 }
 
 export function ReviewRouteSortDialog({ routeNamesByCategory, onSave, onCancel }: ReviewRouteSortDialogProps) {
   const [orderedRouteNames, setOrderedRouteNames] = useState<Record<PhotoCategory, string[]>>(() => ({
-    good: [...routeNamesByCategory.good],
-    reminder: [...routeNamesByCategory.reminder],
-    assessment: [...routeNamesByCategory.assessment],
+    good: [...(routeNamesByCategory.good ?? [])],
+    general: [...(routeNamesByCategory.general ?? [])],
+    reminder: [...(routeNamesByCategory.reminder ?? [])],
+    assessment: [...(routeNamesByCategory.assessment ?? [])],
   }));
   const [saving, setSaving] = useState(false);
   const sensors = useSensors(
@@ -46,6 +42,7 @@ export function ReviewRouteSortDialog({ routeNamesByCategory, onSave, onCancel }
     try {
       await onSave({
         good: [...orderedRouteNames.good],
+        general: [...orderedRouteNames.general],
         reminder: [...orderedRouteNames.reminder],
         assessment: [...orderedRouteNames.assessment],
       });
@@ -59,7 +56,7 @@ export function ReviewRouteSortDialog({ routeNamesByCategory, onSave, onCancel }
       <section className="review-route-sort-dialog" role="dialog" aria-modal="true" aria-label="项点排序">
         <header className="review-route-dialog__header"><h3>项点排序</h3></header>
         <div className="review-route-dialog__body">
-          {categories.map(({ id, label }) => (
+          {PHOTO_CATEGORIES.map(({ id, label }) => (
             <section className="review-route-sort-dialog__section" key={id} aria-label={label}>
               <h4>{label}</h4>
               {orderedRouteNames[id].length === 0 ? <p>暂无已拍照项点</p> : (

@@ -9,15 +9,10 @@ import type {
   PhotoCategory,
   PhotoGroup,
 } from "../../domain/models";
+import { PHOTO_CATEGORIES } from "../../domain/photoCategory";
 import { PhotoCaptureButtons, type PhotoInputSource } from "../photos/PhotoCaptureButtons";
 import { PhotoGroupEditor } from "../photos/PhotoGroupEditor";
 import { InspectionCheckContentEditor } from "./InspectionCheckContentEditor";
-
-const categories: Array<{ key: PhotoCategory; label: string }> = [
-  { key: "good", label: "较好" },
-  { key: "reminder", label: "提醒" },
-  { key: "assessment", label: "考核" },
-];
 
 export interface InspectionEntryEditorProps {
   entry: InspectionEntry;
@@ -162,10 +157,10 @@ export function InspectionEntryEditor({
       </div>
       <div className="inspection-entry__counts" aria-label={`照片${photoCount}张`}>
         <span>照片 {photoCount}</span>
-        {categories.map(({ key, label }) => (
-          <span key={key} data-category={key}>
+        {PHOTO_CATEGORIES.map(({ id, label }) => (
+          <span key={id} data-category={id}>
             {label} {groups
-              .filter((group) => group.category === key)
+              .filter((group) => group.category === id)
               .reduce((count, group) => count + group.photoIds.length, 0)}
           </span>
         ))}

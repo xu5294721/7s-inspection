@@ -94,6 +94,40 @@ test("cross-category group DnD cleans incompatible fields and persists after rel
   expect(restored?.inspection.entries[0].groupIds).toEqual(["group-1"]);
 });
 
+test("cross-category group DnD to general uses the independent general description", async () => {
+  const database = createTestDb(`review-dnd-general-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  const inspection = makeInspection({
+    entries: [{
+      ...makeInspection().entries[0],
+      itemSnapshot: {
+        ...makeInspection().entries[0].itemSnapshot,
+        generalText: "油缸已基本清洁，后续继续提升定置标准。",
+      },
+    }],
+  });
+  await repository.saveGraph({
+    inspection,
+    groups: [makePhotoGroup({ awardAssessment: { type: "reward", people: "张三", amount: 30 } })],
+    photos: [makePhoto()],
+  });
+  const view = renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
+  const handle = await screen.findByRole("button", { name: "拖动照片组 group-1" });
+  drag(handle, screen.getByRole("tab", { name: "一般表现 0张" }), rect(200), rect(20, 160));
+
+  await waitFor(async () => expect((await repository.getGraph("inspection-1"))?.groups[0]).toMatchObject({
+    category: "general",
+    description: "油缸已基本清洁，后续继续提升定置标准。",
+    awardAssessment: null,
+  }));
+  view.unmount();
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
+  await screen.findByRole("tab", { name: "一般表现 1张" });
+  expect((await repository.getGraph("inspection-1"))?.groups[0].description).toBe(
+    "油缸已基本清洁，后续继续提升定置标准。",
+  );
+});
+
 test("failed group DnD stops a queued assessment save, rolls back, and blocks completion", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`review-dnd-failure-${Date.now()}`);
@@ -208,6 +242,7 @@ test("title DnD persists route order and refreshes the review title order", asyn
 
   await waitFor(() => expect(updateOrder).toHaveBeenCalledWith("inspection-1", {
     good: ["焊机间", "仓库外围院子"],
+    general: [],
     reminder: [],
     assessment: [],
   }));

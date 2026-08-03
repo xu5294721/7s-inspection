@@ -4,14 +4,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAppDependencies } from "../../app/useAppDependencies";
 import { createInspection } from "../../domain/inspection";
 import type { ChecklistItem, InspectionGraph, PhotoCategory } from "../../domain/models";
+import { PHOTO_CATEGORIES, photoCategoryLabel } from "../../domain/photoCategory";
 import { toLocalInspectionDate } from "../../lib/dates";
 import { isPrefixedBrowserUuid } from "../../lib/ids";
-
-const categoryLabels: Record<PhotoCategory, string> = {
-  good: "较好",
-  reminder: "提醒",
-  assessment: "考核",
-};
 
 function copiedItems(graph: InspectionGraph): ChecklistItem[] {
   return graph.inspection.entries
@@ -29,7 +24,7 @@ function copiedItems(graph: InspectionGraph): ChecklistItem[] {
 }
 
 function HistorySummary({ graph }: { graph: InspectionGraph }) {
-  const counts: Record<PhotoCategory, number> = { good: 0, reminder: 0, assessment: 0 };
+  const counts: Record<PhotoCategory, number> = { good: 0, general: 0, reminder: 0, assessment: 0 };
   let rewards = 0;
   let assessments = 0;
   for (const group of graph.groups) {
@@ -39,7 +34,7 @@ function HistorySummary({ graph }: { graph: InspectionGraph }) {
   }
   return (
     <div className="history-summary" aria-label="巡检汇总">
-      <span>较好 {counts.good}</span><span>提醒 {counts.reminder}</span><span>考核 {counts.assessment}</span>
+      {PHOTO_CATEGORIES.map(({ id, label }) => <span key={id}>{label} {counts[id]}</span>)}
       <span>照片 {graph.photos.length}</span><span>奖励 {rewards}元</span><span>考核 {assessments}元</span>
     </div>
   );
@@ -152,7 +147,7 @@ export function HistoryPage() {
     <div className="history-filter" aria-label="历史筛选">
       <label>巡检日期<input aria-label="巡检日期" type="date" value={date} onChange={(event) => setDate(event.currentTarget.value)} /></label>
       <label className="search-control"><span className="sr-only">按路线或区域筛选</span><input type="search" aria-label="按路线或区域筛选" value={text} onChange={(event) => setText(event.currentTarget.value)} placeholder="路线或区域" /></label>
-      <label>检查类别<select aria-label="按类别筛选" value={category} onChange={(event) => setCategory(event.currentTarget.value as "" | PhotoCategory)}><option value="">全部类别</option>{(Object.keys(categoryLabels) as PhotoCategory[]).map((value) => <option key={value} value={value}>{categoryLabels[value]}</option>)}</select></label>
+      <label>检查类别<select aria-label="按类别筛选" value={category} onChange={(event) => setCategory(event.currentTarget.value as "" | PhotoCategory)}><option value="">全部类别</option>{PHOTO_CATEGORIES.map(({ id }) => <option key={id} value={id}>{photoCategoryLabel(id)}</option>)}</select></label>
       <label>相关人员<input aria-label="按人员筛选" value={people} onChange={(event) => setPeople(event.currentTarget.value)} /></label>
     </div>
     {error ? <p className="inline-error" role="alert">{error}</p> : null}

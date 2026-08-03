@@ -73,6 +73,25 @@ test("shows selected check content instead of the legacy preset description", as
   expect(screen.queryByText("卷扬机间7S管理落实较好。")).not.toBeInTheDocument();
 });
 
+test("shows the general-performance tab and its photo", async () => {
+  const database = createTestDb(`review-general-tab-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  await repository.saveGraph({
+    inspection: makeInspection(),
+    groups: [makePhotoGroup({ category: "general", description: "油缸一般表现说明" })],
+    photos: [makePhoto()],
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
+
+  const tab = await screen.findByRole("tab", { name: "一般表现 1张" });
+  await userEvent.setup().click(tab);
+  expect(screen.getByRole("tabpanel", { name: "一般表现 1张" })).toContainElement(
+    screen.getByRole("img", { name: "巡检照片 photo-1" }),
+  );
+  expect(screen.getByText("油缸一般表现说明")).toBeVisible();
+});
+
 test("shows a manually edited evaluation description instead of selected check content", async () => {
   const database = createTestDb(`review-manual-description-${Date.now()}`);
   const repository = new InspectionRepository(database);
@@ -303,18 +322,18 @@ test("uses roving tab focus, arrow switching, and linked tabpanel semantics", as
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
   const good = await screen.findByRole("tab", { name: "好的方面 1张" });
-  const reminder = screen.getByRole("tab", { name: "提醒问题 0张" });
+  const general = screen.getByRole("tab", { name: "一般表现 0张" });
   const panel = screen.getByRole("tabpanel");
   expect(good).toHaveAttribute("tabindex", "0");
-  expect(reminder).toHaveAttribute("tabindex", "-1");
+  expect(general).toHaveAttribute("tabindex", "-1");
   expect(good).toHaveAttribute("aria-controls", panel.id);
   expect(panel).toHaveAttribute("aria-labelledby", good.id);
 
   good.focus();
   await user.keyboard("{ArrowRight}");
-  expect(reminder).toHaveFocus();
-  expect(reminder).toHaveAttribute("aria-selected", "true");
-  expect(panel).toHaveAttribute("aria-labelledby", reminder.id);
+  expect(general).toHaveFocus();
+  expect(general).toHaveAttribute("aria-selected", "true");
+  expect(panel).toHaveAttribute("aria-labelledby", general.id);
 });
 
 test("focuses settings and global targets for damaged non-group validation errors", async () => {

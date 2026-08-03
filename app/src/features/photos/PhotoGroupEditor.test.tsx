@@ -22,7 +22,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-test("exposes the three photo categories as accessible radios", () => {
+test("exposes the four photo categories as accessible radios", () => {
   render(
     <PhotoGroupEditor
       item={makeChecklistItem()}
@@ -34,8 +34,33 @@ test("exposes the three photo categories as accessible radios", () => {
   );
 
   expect(screen.getByRole("radio", { name: "好的方面" })).toBeChecked();
+  expect(screen.getByRole("radio", { name: "一般表现" })).not.toBeChecked();
   expect(screen.getByRole("radio", { name: "提醒问题" })).not.toBeChecked();
   expect(screen.getByRole("radio", { name: "考核问题" })).not.toBeChecked();
+});
+
+test("selecting general performance saves its independent text without award data", async () => {
+  const user = userEvent.setup();
+  const item = makeChecklistItem();
+  const onSave = vi.fn().mockResolvedValue(undefined);
+  render(
+    <PhotoGroupEditor
+      item={item}
+      group={makePhotoGroup({ awardAssessment: { type: "reward", people: "张三", amount: 50 } })}
+      photos={[makePhoto()]}
+      onSave={onSave}
+      onSplit={vi.fn()}
+    />,
+  );
+
+  await user.click(screen.getByRole("radio", { name: "一般表现" }));
+
+  expect(screen.getByRole("textbox", { name: "评价说明" })).toHaveValue(item.generalText);
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({
+    category: "general",
+    description: item.generalText,
+    awardAssessment: null,
+  }));
 });
 
 test("shows selected check content as an editable evaluation description", () => {
@@ -364,6 +389,27 @@ test("changing one selected photo requests a new group", async () => {
   await user.click(screen.getByRole("menuitem", { name: "提醒问题" }));
 
   expect(onSplit).toHaveBeenCalledWith("photo-1", "reminder");
+});
+
+test("splits one selected photo into the general category", async () => {
+  const user = userEvent.setup();
+  const onSplit = vi.fn().mockResolvedValue(undefined);
+  const first = makePhoto();
+  const second = makePhoto(undefined, { id: "photo-2", order: 1 });
+  render(
+    <PhotoGroupEditor
+      item={makeChecklistItem()}
+      group={makePhotoGroup({ photoIds: [first.id, second.id] })}
+      photos={[first, second]}
+      onSave={vi.fn()}
+      onSplit={onSplit}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "调整照片 photo-1" }));
+  await user.click(screen.getByRole("menuitem", { name: "一般表现" }));
+
+  expect(onSplit).toHaveBeenCalledWith("photo-1", "general");
 });
 
 test("changing a one-photo group updates it without splitting", async () => {
