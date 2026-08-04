@@ -1168,6 +1168,66 @@ describe("InspectionRepository", () => {
     ]);
   });
 
+  test("creates and reloads an empty evaluation group", async () => {
+    const db = testDb("empty-evaluation-group");
+    const repository = new InspectionRepository(db);
+    const base = makeInspection();
+    const inspection = {
+      ...base,
+      entries: [{ ...base.entries[0]!, groupIds: [] }],
+    };
+    await repository.saveGraph({ inspection, groups: [], photos: [] });
+
+    const result = await repository.addEvaluationGroup(
+      "entry-1",
+      "reminder",
+      "group-empty",
+      "2026-08-04T10:00:00.000Z",
+    );
+
+    expect(result.group).toMatchObject({
+      id: "group-empty",
+      entryId: "entry-1",
+      category: "reminder",
+      description: inspection.entries[0]!.itemSnapshot.reminderText,
+      awardAssessment: null,
+      photoIds: [],
+      order: 0,
+    });
+    expect(result.entry.groupIds).toEqual(["group-empty"]);
+    expect(result.updatedAt).toBe("2026-08-04T10:00:00.000Z");
+
+    const restored = await repository.getGraph("inspection-1");
+    expect(restored?.groups).toEqual([result.group]);
+    expect(restored?.inspection.entries[0]?.groupIds).toEqual(["group-empty"]);
+    expect(restored?.inspection.status).toBe("draft");
+  });
+
+  test("rejects an empty evaluation group for a missing entry or duplicate group id", async () => {
+    const db = testDb("empty-evaluation-group-integrity");
+    const repository = new InspectionRepository(db);
+    const base = makeInspection();
+    await repository.saveGraph({
+      inspection: {
+        ...base,
+        entries: [{ ...base.entries[0]!, groupIds: [] }],
+      },
+      groups: [],
+      photos: [],
+    });
+
+    await expect(repository.addEvaluationGroup("missing-entry", "good", "group-new"))
+      .rejects.toThrow("巡检条目 missing-entry 不存在");
+
+    await repository.addEvaluationGroup("entry-1", "good", "group-existing");
+    await expect(repository.addEvaluationGroup("entry-1", "assessment", "group-existing"))
+      .rejects.toThrow("照片组 group-existing 已存在");
+
+    const restored = await repository.getGraph("inspection-1");
+    expect(restored?.groups).toHaveLength(1);
+    expect(restored?.inspection.entries[0]?.groupIds).toEqual(["group-existing"]);
+  });
+
   test("marks a ready inspection reviewed without marking it generated", async () => {
     const db = testDb("review-status");
     const repository = new InspectionRepository(db);

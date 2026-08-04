@@ -18,7 +18,7 @@ import { createInspectionEntry, descriptionForCategory, parseAnnotationJson } fr
 import { normalizeInspectionCheckSelections } from "../domain/inspectionCheckContents";
 import { normalizeRouteName } from "../domain/routeNames";
 import { validateReportReadiness } from "../domain/reportValidation";
-import { reportTemplateSchema } from "../domain/schemas";
+import { photoCategorySchema, reportTemplateSchema } from "../domain/schemas";
 import { isPrefixedBrowserUuid } from "../lib/ids";
 
 export class GraphIntegrityError extends Error {
@@ -32,6 +32,12 @@ export interface PhotoAppendResult {
   entry: InspectionEntry;
   group: PhotoGroup;
   photo: PhotoAsset;
+}
+
+export interface EvaluationGroupAppendResult {
+  entry: InspectionEntry;
+  group: PhotoGroup;
+  updatedAt: string;
 }
 
 export interface TemporaryEntryAppendResult {
@@ -805,6 +811,63 @@ export class InspectionRepository {
       await recomputeCompletedReviewStatus(this.db, entry.inspectionId);
       return { entry: storedEntry, group: storedGroup, photo: storedPhoto };
     });
+  }
+
+  async addEvaluationGroup(
+    entryId: string,
+    category: PhotoCategory,
+    groupId: string,
+    updatedAt = new Date().toISOString(),
+  ): Promise<EvaluationGroupAppendResult> {
+    const parsedCategory = photoCategorySchema.safeParse(category);
+    if (!parsedCategory.success) throw new GraphIntegrityError("照片组分类无效。");
+    requireId(groupId, "照片组");
+
+    return this.db.transaction(
+      "rw",
+      this.db.inspections,
+      this.db.entries,
+      this.db.photoGroups,
+      async () => {
+        const entry = await requireRow(
+          await this.db.entries.get(entryId),
+          `巡检条目 ${entryId} 不存在。`,
+        );
+        const inspection = await requireRow(
+          await this.db.inspections.get(entry.inspectionId),
+          `巡检记录 ${entry.inspectionId} 不存在。`,
+        );
+        if (inspection.deletedAt !== null) {
+          throw new GraphIntegrityError("巡检记录已删除。");
+        }
+        if (await this.db.photoGroups.get(groupId)) {
+          throw new GraphIntegrityError(`照片组 ${groupId} 已存在。`);
+        }
+
+        const group: PhotoGroup = {
+          id: groupId,
+          inspectionId: inspection.id,
+          entryId: entry.id,
+          category,
+          description: descriptionForCategory(entry.itemSnapshot as ChecklistItem, category),
+          descriptionManuallyEdited: false,
+          awardAssessment: null,
+          photoIds: [],
+          order: entry.groupIds.length,
+        };
+        const storedEntry = { ...entry, groupIds: [...entry.groupIds, group.id] };
+        await this.db.photoGroups.add(group);
+        await this.db.entries.put(storedEntry);
+        const updated = await this.db.inspections.update(inspection.id, {
+          status: "draft",
+          updatedAt,
+        });
+        if (updated !== 1) {
+          throw new GraphIntegrityError(`巡检记录 ${inspection.id} 更新失败。`);
+        }
+        return { entry: storedEntry, group, updatedAt };
+      },
+    );
   }
 
   async replacePhoto(photo: PhotoAsset): Promise<void> {

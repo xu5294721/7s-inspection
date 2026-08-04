@@ -9,6 +9,7 @@ import {
 } from "../db/backupRepository";
 import {
   InspectionRepository,
+  type EvaluationGroupAppendResult,
   type InspectionCheckSelectionUpdateResult,
   type PhotoAppendResult,
   type TemporaryEntryAppendResult,
@@ -23,9 +24,11 @@ import type {
   InspectionCheckSelection,
   InspectionRouteTemplate,
   PhotoAsset,
+  PhotoCategory,
   PhotoLayoutMode,
   PhotoGroup,
   PhotosPerRow,
+  ReportSection,
   ReportTemplate,
 } from "../domain/models";
 import type { ReportProgress } from "../features/reports/generateDocx";
@@ -69,6 +72,12 @@ export interface InspectionRepositoryPort {
     photo: PhotoAsset,
     newGroupId: string,
   ): Promise<PhotoAppendResult>;
+  addEvaluationGroup(
+    entryId: string,
+    category: PhotoCategory,
+    groupId: string,
+    updatedAt?: string,
+  ): Promise<EvaluationGroupAppendResult>;
   replacePhoto(photo: PhotoAsset): Promise<void>;
   deletePhoto(photoId: string): Promise<void>;
   updatePhotoGroup(group: PhotoGroup): Promise<void>;
@@ -150,6 +159,35 @@ export interface AppDependencies {
 interface DependencyOptions {
   createInspectionId?: () => string;
   now?: () => Date;
+}
+
+const DEFAULT_REPORT_TEMPLATE_ID = "template-default";
+const FOUR_CATEGORY_ORDER = ["good", "general", "reminder", "assessment"] as const satisfies readonly PhotoCategory[];
+const DEFAULT_PHOTO_SECTION_TITLES: Record<PhotoCategory, string> = {
+  good: "好的方面",
+  general: "一般表现",
+  reminder: "提醒问题",
+  assessment: "考核问题",
+};
+
+function isFourCategoryTemplate(template: ReportTemplate | undefined): boolean {
+  if (!template || template.sections.length !== FOUR_CATEGORY_ORDER.length) return false;
+  const categories = new Set(template.sections.map((section) => section.category));
+  return FOUR_CATEGORY_ORDER.every((category) => categories.has(category));
+}
+
+function migrateToFourCategoryTemplate(template: ReportTemplate): ReportTemplate {
+  const existingSections = new Map(template.sections.map((section) => [section.category, section]));
+  const sections: ReportSection[] = FOUR_CATEGORY_ORDER.map((category, order) => ({
+    category,
+    title: existingSections.get(category)?.title ?? DEFAULT_PHOTO_SECTION_TITLES[category],
+    order,
+  }));
+  return {
+    ...template,
+    version: template.version + 1,
+    sections,
+  };
 }
 
 const defaultReportTemplate: ReportTemplate = {
@@ -310,4 +348,33 @@ export async function initializeApp(dependencies: AppDependencies): Promise<void
     dependencies.templateRepository.seedIfMissing(formalReportTemplate),
     dependencies.templateRepository.seedIfMissing(fourCategoryFormalReportTemplate),
   ]);
+
+  const templates = await dependencies.templateRepository.listVersions(DEFAULT_REPORT_TEMPLATE_ID);
+  const latestTemplate = templates[0];
+  if (!latestTemplate) return;
+
+  const fourCategoryTemplate = isFourCategoryTemplate(latestTemplate)
+    ? latestTemplate
+    : migrateToFourCategoryTemplate(latestTemplate);
+  if (fourCategoryTemplate !== latestTemplate) {
+    await dependencies.templateRepository.seedIfMissing(fourCategoryTemplate);
+  }
+
+  const activeInspections = await dependencies.inspectionRepository.listGraphs(false);
+  const currentTemplate = fourCategoryTemplate === latestTemplate
+    ? latestTemplate
+    : (await dependencies.templateRepository.getLatest(DEFAULT_REPORT_TEMPLATE_ID)) ?? fourCategoryTemplate;
+  await Promise.all(activeInspections
+    .filter((graph) =>
+      graph.inspection.status !== "generated" &&
+      graph.inspection.templateId === currentTemplate.id &&
+      !isFourCategoryTemplate(graph.template),
+    )
+    .map((graph) => dependencies.inspectionRepository.updateReviewSettings(
+      graph.inspection.id,
+      currentTemplate.id,
+      currentTemplate.version,
+      graph.inspection.photoLayoutModeOverride,
+      graph.inspection.photosPerRowOverride,
+    )));
 }
