@@ -161,7 +161,7 @@ export async function saveChunkStreamToDownloads(
   }
   const parts: BlobPart[] = [];
   for await (const chunk of accumulateChunks(chunks, CHUNK_BASE64_TARGET_BYTES)) {
-    parts.push(chunk);
+    parts.push(chunk.slice());
   }
   await saveBlobToDownloads(new Blob(parts, { type: mimeType }), filename);
 }
