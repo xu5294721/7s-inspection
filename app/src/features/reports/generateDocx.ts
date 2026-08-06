@@ -194,6 +194,7 @@ function chunks<T>(values: T[], size: number): T[][] {
 
 function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
   const isSinglePhoto = photos.length === 1;
+  const fillsRowWidth = !isSinglePhoto || model.photoLayoutMode === "adaptive";
   const columns = isSinglePhoto
     ? 1
     : columnsForPhotoCount(model.photoLayoutMode, model.photosPerRow, photos.length);
@@ -207,12 +208,12 @@ function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
   );
   const cellWidthMm = contentWidthMm / columns;
   const gapTwips = Math.round(model.photoGapPt * 20 / 2);
-  const imageWidthPx = isSinglePhoto
-    ? Math.round(singlePhotoWidthMm * pxPerMm)
-    : Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm));
-  const imageHeightPx = isSinglePhoto
-    ? Math.round(singlePhotoHeightMm * pxPerMm)
-    : Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio);
+  const imageWidthPx = fillsRowWidth
+    ? Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm))
+    : Math.round(singlePhotoWidthMm * pxPerMm);
+  const imageHeightPx = fillsRowWidth
+    ? Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio)
+    : Math.round(singlePhotoHeightMm * pxPerMm);
   const rows = chunks(photos, columns).map((row) => {
     const cells = Array.from({ length: columns }, (_, index) => {
       const photo = row[index];

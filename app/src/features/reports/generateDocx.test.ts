@@ -359,6 +359,39 @@ test("uses a centered 9 by 12 centimeter frame for a single photo", async () => 
   });
 });
 
+test("fills the content width for a single photo in adaptive layout", async () => {
+  const inspection = makeInspection({ templateVersion: 1 });
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    marginMm: { top: 20, right: 22, bottom: 20, left: 22 },
+  });
+  const model = buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({ photoIds: ["single-photo"] })],
+    photos: [makePhoto(undefined, { id: "single-photo", width: 1600, height: 900 })],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const photoTable = documentXml.match(/<w:tbl>(?:(?!<w:tbl>)[\s\S])*?<w:drawing>[\s\S]*?<\/w:tbl>/)?.[0];
+  const gridWidths = [...photoTable!.matchAll(/<w:gridCol w:w="(\d+)"\/>/g)]
+    .map((match) => Number(match[1]));
+  const extent = [...photoTable!.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
+    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }))[0];
+  const pxPerMm = 96 / 25.4;
+  const emuPerPx = 9_525;
+  const contentWidthMm = 210 - 22 - 22;
+  const gapMm = 6 * 25.4 / 72;
+  const expectedWidthPx = Math.floor((contentWidthMm - gapMm) * pxPerMm);
+
+  expect(gridWidths).toHaveLength(1);
+  expect(extent).toBeDefined();
+  expect(extent.width).toBe(expectedWidthPx * emuPerPx);
+  expect(extent.width / extent.height).toBeCloseTo(3 / 4, 3);
+  expect(extent.width).toBeGreaterThan(Math.round(90 * pxPerMm) * emuPerPx);
+});
+
 test("adapts each photo group independently up to the configured limit", async () => {
   const baseInspection = makeInspection();
   const firstEntry = {
