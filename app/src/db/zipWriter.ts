@@ -31,6 +31,11 @@ function setUint32(bytes: Uint8Array, offset: number, value: number): void {
   new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(offset, value, true);
 }
 
+export interface ZipEntryInput {
+  name: string;
+  data: Uint8Array;
+}
+
 export interface StoredZipWriter {
   addFile(name: string, data: Uint8Array): void;
   end(): void;
