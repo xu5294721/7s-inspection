@@ -225,13 +225,13 @@ test("clears the restore input so the same file can be retried after inspection 
   expect(inspect).toHaveBeenCalledTimes(2);
 });
 
-test("disables repeated export while pending and downloads a clearly named ZIP", async () => {
+test("disables repeated export while pending and saves a clearly named ZIP", async () => {
   const user = userEvent.setup();
   const target = createTestDb(`backup-export-ui-${Date.now()}`);
   const dependencies = createAppDependencies(target, { now: () => new Date("2026-07-29T08:09:10") });
-  const pending = deferred<Blob>();
-  const create = vi.spyOn(dependencies.backupRepository, "createBackup").mockImplementation(() => pending.promise);
-  const download = installDownloadSpies();
+  const pending = deferred<void>();
+  const create = vi.spyOn(dependencies.backupRepository, "createBackupToDownloads")
+    .mockImplementation(() => pending.promise);
   renderWithRouter({ database: target, initialPath: "/settings/backup", appProps: { dependencies } });
   const exportButton = await screen.findByRole("button", { name: "导出ZIP备份" });
 
@@ -240,30 +240,26 @@ test("disables repeated export while pending and downloads a clearly named ZIP",
   expect(screen.getByLabelText("选择备份文件")).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "正在生成..." }));
   expect(create).toHaveBeenCalledTimes(1);
-  pending.resolve(new Blob(["zip"], { type: "application/zip" }));
+  expect(create).toHaveBeenCalledWith("7S巡检备份-20260729-080910.zip");
+  pending.resolve();
 
-  await waitFor(() => expect(download.createObjectURL).toHaveBeenCalledOnce());
-  expect(download.click).toHaveBeenCalledOnce();
-  expect(download.filename()).toBe("7S巡检备份-20260729-080910.zip");
-  expect(screen.getByRole("button", { name: "导出ZIP备份" })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole("button", { name: "导出ZIP备份" })).toBeEnabled());
 });
 
-test("keeps export failure retryable and never downloads an invalid local snapshot", async () => {
+test("keeps export failure retryable", async () => {
   const user = userEvent.setup();
   const target = createTestDb(`backup-export-retry-${Date.now()}`);
   const dependencies = createAppDependencies(target);
-  const create = vi.spyOn(dependencies.backupRepository, "createBackup")
+  const create = vi.spyOn(dependencies.backupRepository, "createBackupToDownloads")
     .mockRejectedValueOnce(new Error("模拟导出失败"))
-    .mockResolvedValueOnce(new Blob(["zip"], { type: "application/zip" }));
-  const download = installDownloadSpies();
+    .mockResolvedValueOnce(undefined);
   renderWithRouter({ database: target, initialPath: "/settings/backup", appProps: { dependencies } });
 
   await user.click(await screen.findByRole("button", { name: "导出ZIP备份" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("模拟导出失败");
-  expect(download.createObjectURL).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "导出ZIP备份" })).toBeEnabled();
   await user.click(screen.getByRole("button", { name: "导出ZIP备份" }));
-  await waitFor(() => expect(download.createObjectURL).toHaveBeenCalledOnce());
+  await waitFor(() => expect(screen.getByText(/备份文件已保存/)).toBeVisible());
   expect(create).toHaveBeenCalledTimes(2);
 });
 

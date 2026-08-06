@@ -135,6 +135,7 @@ export interface ReportGeneratorPort {
 
 export interface BackupRepositoryPort {
   createBackup(): Promise<Blob>;
+  createBackupToDownloads(filename: string): Promise<void>;
   inspectBackup(blob: Blob): Promise<BackupPreview>;
   restoreBackup(blob: Blob, mode: RestoreMode): Promise<RestoreResult>;
   requestPersistentStorage(): Promise<PersistentStorageStatus>;

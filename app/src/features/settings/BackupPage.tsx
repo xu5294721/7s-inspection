@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { ArchiveRestore, DatabaseBackup, HardDrive, ShieldCheck } from "lucide-react";
 import { useAppDependencies } from "../../app/useAppDependencies";
 import {
-  downloadBackup,
   storageCapacityState,
   type BackupPreview,
   type PersistentStorageStatus,
@@ -151,8 +150,7 @@ export function BackupPage() {
     setError("");
     setMessage("");
     try {
-      const blob = await backupRepository.createBackup();
-      await downloadBackup(blob, backupFilename(now()));
+      await backupRepository.createBackupToDownloads(backupFilename(now()));
       setMessage("备份文件已保存，请妥善保存。 ");
       await refreshEstimate();
     } catch (caught) {

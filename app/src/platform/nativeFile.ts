@@ -29,7 +29,7 @@ interface NativeFilePlugin {
 
 const nativeFile = registerPlugin<NativeFilePlugin>("NativeFile");
 
-function isNativeAndroid(): boolean {
+export function isNativeAndroid(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 }
 

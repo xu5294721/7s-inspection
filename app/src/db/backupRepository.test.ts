@@ -5,9 +5,13 @@ import { InspectionRepository } from "./inspectionRepository";
 import {
   createBackup,
   inspectBackup,
+  MAX_BACKUP_CENTRAL_DIRECTORY_BYTES,
+  MAX_BACKUP_ENTRY_COUNT,
   restoreBackup,
   storageCapacityState,
+  streamBackup,
 } from "./backupRepository";
+import { parseZipCentralDirectory } from "./zipCentralDirectory";
 import type { InspectionGraph, InspectionRouteTemplate } from "../domain/models";
 import { descriptionForCategory } from "../domain/inspection";
 import { makeChecklistItem, makeInspection, makePhoto, makePhotoGroup, makeTemplate } from "../test/fixtures";
@@ -1666,3 +1670,27 @@ test.each([
     expect(storageCapacityState({ usage, quota })).toMatchObject({ warning, photoWriteBlocked });
   },
 );
+
+test("streams a backup that matches createBackup content and passes read-back validation", async () => {
+  const db = createTestDb(`backup-stream-${Date.now()}`);
+  await seedCompleteDatabase(db);
+  const blob = await createBackup(db);
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of streamBackup(db)) {
+    chunks.push(chunk);
+  }
+  const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const streamedBlob = new Blob([merged], { type: "application/zip" });
+
+  const [direct, streamed] = await Promise.all([
+    parseZipCentralDirectory(blob, { maxEntries: MAX_BACKUP_ENTRY_COUNT, maxCentralDirectoryBytes: MAX_BACKUP_CENTRAL_DIRECTORY_BYTES }),
+    parseZipCentralDirectory(streamedBlob, { maxEntries: MAX_BACKUP_ENTRY_COUNT, maxCentralDirectoryBytes: MAX_BACKUP_CENTRAL_DIRECTORY_BYTES }),
+  ]);
+  expect(streamed.entries.map((entry) => entry.name)).toEqual(direct.entries.map((entry) => entry.name));
+});

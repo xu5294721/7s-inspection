@@ -440,6 +440,91 @@ export async function createBackup(db: SevenSDb): Promise<Blob> {
   return backup;
 }
 
+export async function* streamBackup(db: SevenSDb): AsyncGenerator<Uint8Array> {
+  const data = await readDatabase(db);
+  const photoMetadata = photoMetadataRows(data.photos);
+  const pathsByPhotoId = assertLocalSnapshot(data, photoMetadata);
+  const archivePaths = ["manifest.json", ...Object.values(dataPaths)];
+  for (const paths of pathsByPhotoId.values()) archivePaths.push(paths.image, paths.thumbnail);
+  if (archivePaths.length > MAX_BACKUP_ENTRY_COUNT) {
+    throw new BackupValidationError(`备份ZIP条目数量不能超过${MAX_BACKUP_ENTRY_COUNT}个。`);
+  }
+  assertExportCentralDirectoryLimit(archivePaths);
+
+  const jsonPayloads: Record<string, string> = {
+    [dataPaths.checklistItems]: stableStringify(data.checklistItems),
+    [dataPaths.templates]: stableStringify(data.templates),
+    [dataPaths.routeTemplates]: stableStringify(data.routeTemplates),
+    [dataPaths.inspections]: stableStringify(data.inspections),
+    [dataPaths.entries]: stableStringify(data.entries),
+    [dataPaths.photoGroups]: stableStringify(data.photoGroups),
+    [dataPaths.photos]: stableStringify(photoMetadata),
+    [dataPaths.settings]: stableStringify(data.settings),
+  };
+  const files: ManifestV3["files"] = {};
+  let totalUncompressedBytes = 0;
+  let totalCompressedBytes = 0;
+
+  const queue: Uint8Array[] = [];
+  const writer = createStoredZipWriter((chunk) => {
+    queue.push(chunk);
+    totalCompressedBytes += chunk.byteLength;
+    if (totalCompressedBytes > MAX_BACKUP_COMPRESSED_BYTES) {
+      throw new BackupValidationError("备份ZIP压缩文件不能超过256 MB。");
+    }
+  });
+
+  async function* drain(): AsyncGenerator<Uint8Array> {
+    while (queue.length > 0) yield queue.shift()!;
+  }
+
+  for (const [path, serialized] of Object.entries(jsonPayloads)) {
+    const jsonBytes = new TextEncoder().encode(serialized).byteLength;
+    if (jsonBytes > MAX_BACKUP_JSON_BYTES) {
+      throw new BackupValidationError(`备份中的单个JSON文件不能超过16 MB：${path}。`);
+    }
+    totalUncompressedBytes = addUncompressedBytes(totalUncompressedBytes, jsonBytes);
+    writer.addFile(path, new TextEncoder().encode(serialized));
+    files[path] = { sha256: await sha256(serialized) };
+    yield* drain();
+  }
+  for (const photo of data.photos) {
+    const paths = pathsByPhotoId.get(photo.id);
+    if (!paths) throw new BackupValidationError(`照片 ${photo.id} 的文件路径无效。`);
+    const { image: imagePath, thumbnail: thumbnailPath } = paths;
+    if (photo.imageBlob.size > MAX_BACKUP_PHOTO_BYTES || photo.thumbnailBlob.size > MAX_BACKUP_PHOTO_BYTES) {
+      throw new BackupValidationError(`备份中的单张照片文件不能超过32 MB：${photo.id}。`);
+    }
+    totalUncompressedBytes = addUncompressedBytes(totalUncompressedBytes, photo.imageBlob.size);
+    totalUncompressedBytes = addUncompressedBytes(totalUncompressedBytes, photo.thumbnailBlob.size);
+    const imageBytes = new Uint8Array(await blobArrayBuffer(photo.imageBlob));
+    writer.addFile(imagePath, imageBytes);
+    files[imagePath] = { sha256: await sha256(imageBytes) };
+    yield* drain();
+    const thumbnailBytes = new Uint8Array(await blobArrayBuffer(photo.thumbnailBlob));
+    writer.addFile(thumbnailPath, thumbnailBytes);
+    files[thumbnailPath] = { sha256: await sha256(thumbnailBytes) };
+    yield* drain();
+  }
+
+  const manifest: ManifestV3 = {
+    schemaVersion,
+    createdAt: new Date().toISOString(),
+    rowCounts: countsOf(data),
+    files: Object.fromEntries(Object.entries(files).sort(([left], [right]) => left.localeCompare(right))),
+  };
+  const serializedManifest = stableStringify(manifest);
+  const manifestBytes = new TextEncoder().encode(serializedManifest).byteLength;
+  if (manifestBytes > MAX_BACKUP_JSON_BYTES) {
+    throw new BackupValidationError("备份中的单个JSON文件不能超过16 MB：manifest.json。");
+  }
+  addUncompressedBytes(totalUncompressedBytes, manifestBytes);
+  writer.addFile("manifest.json", new TextEncoder().encode(serializedManifest));
+  yield* drain();
+  writer.end();
+  yield* drain();
+}
+
 export function downloadBackup(blob: Blob, filename: string): Promise<void> {
   return saveBlobToDownloads(blob, filename);
 }
@@ -1261,6 +1346,15 @@ export class BackupRepository {
     return createBackup(this.db);
   }
 
+  async createBackupToDownloads(filename: string): Promise<void> {
+    if (isNativeAndroid()) {
+      await saveChunkStreamToDownloads(streamBackup(this.db), filename, backupMimeType);
+      return;
+    }
+    const blob = await createBackup(this.db);
+    await downloadBackup(blob, filename);
+  }
+
   inspectBackup(blob: Blob): Promise<BackupPreview> {
     return inspectBackup(blob, this.db);
   }
@@ -1289,4 +1383,9 @@ export class BackupRepository {
     return dismissBackupReminder(this.db, milestone, updatedAt);
   }
 }
-import { saveBlobToDownloads } from "../platform/nativeFile";
+import {
+  isNativeAndroid,
+  saveBlobToDownloads,
+  saveChunkStreamToDownloads,
+} from "../platform/nativeFile";
+import { createStoredZipWriter } from "./zipWriter";
