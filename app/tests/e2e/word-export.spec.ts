@@ -1,6 +1,8 @@
 import {
+  closeInspectionEntry,
   downloadGeneratedWord,
   importRealJpegForRoute,
+  openInspectionEntry,
   openReview,
 } from "./inspection-helpers";
 import { expect, test } from "./fixtures";
@@ -56,17 +58,19 @@ test("exports selected inspection content without the old annex or generic wordi
   await page.waitForURL(/#\/inspections\/(?!new$)[^/]+$/);
 
   const photographedRouteCard = page.locator(".inspection-route").filter({
-    has: page.getByRole("button", { name: photographedRoute, exact: true }),
+    hasText: photographedRoute,
   });
-  await photographedRouteCard.locator(".inspection-route__toggle").click();
-  await photographedRouteCard.getByRole("button", { name: "检查内容：请选择检查内容" }).click();
-  await photographedRouteCard.getByRole("combobox", { name: "环境卫生" }).selectOption("干净整洁");
-  await photographedRouteCard.getByRole("combobox", { name: "物品定置" }).selectOption({ label: "自定义" });
-  await photographedRouteCard.getByRole("textbox", { name: "物品定置自定义内容" }).fill("工具摆放整齐");
-  await photographedRouteCard.getByRole("button", { name: "确认" }).click();
+  const contentDialog = await openInspectionEntry(page, photographedRouteCard);
+  await contentDialog.getByRole("button", { name: "检查内容：请选择检查内容" }).click();
+  await contentDialog.getByRole("combobox", { name: "环境卫生" }).selectOption("干净整洁");
+  await contentDialog.getByRole("combobox", { name: "物品定置" }).selectOption({ label: "自定义" });
+  await contentDialog.getByRole("textbox", { name: "物品定置自定义内容" }).fill("工具摆放整齐");
+  await contentDialog.getByRole("button", { name: "确认" }).click();
+  await closeInspectionEntry(contentDialog);
 
   await importRealJpegForRoute(page, photographedRoute);
-  const photoGroup = page.locator(".photo-group-editor");
+  const photoDialog = await openInspectionEntry(page, photographedRouteCard);
+  const photoGroup = photoDialog.locator(".photo-group-editor");
   await expect(photoGroup).toHaveCount(1);
   await photoGroup.getByRole("radio", { name: "一般表现" }).check();
   await photoGroup.getByRole("button", { name: "保存评价" }).click();

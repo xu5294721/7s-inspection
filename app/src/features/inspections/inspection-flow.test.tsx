@@ -96,7 +96,7 @@ test("opens one inspection item in a bottom sheet and closes it after completion
   const view = renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
 
   const firstSummary = await screen.findByRole("button", { name: /焊机间/ });
-  expect(firstSummary).toHaveAttribute("data-complete", "false");
+  expect(firstSummary).toHaveAttribute("data-complete", "true");
   expect(screen.queryByRole("button", { name: "检查内容：请选择检查内容" })).not.toBeInTheDocument();
 
   await user.click(firstSummary);
@@ -118,6 +118,41 @@ test("opens one inspection item in a bottom sheet and closes it after completion
   expect(firstSummary).toHaveFocus();
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "检查项：探伤间" })).not.toBeInTheDocument());
   view.unmount();
+});
+
+test("classifying an item without a photo marks it complete and survives reload", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`photo-free-evaluation-${Date.now()}`);
+  const base = makeInspection();
+  const inspection = {
+    ...base,
+    entries: base.entries.map((entry) => ({ ...entry, groupIds: [], checkSelections: [] })),
+  };
+  const repository = new InspectionRepository(database);
+  await repository.saveGraph({ inspection, groups: [], photos: [] });
+
+  const firstView = renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  const summary = await screen.findByRole("button", { name: /焊机间/ });
+  expect(summary).toHaveAttribute("data-complete", "false");
+
+  await user.click(summary);
+  const sheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
+  await user.click(within(sheet).getByRole("radio", { name: "一般表现" }));
+
+  await waitFor(async () => {
+    expect((await repository.getGraph("inspection-1"))?.groups).toMatchObject([
+      { category: "general", photoIds: [] },
+    ]);
+  });
+  expect(summary).toHaveAttribute("data-complete", "true");
+  expect(summary).toHaveTextContent("已完成");
+
+  firstView.unmount();
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  const reloadedSummary = await screen.findByRole("button", { name: /焊机间/ });
+  expect(reloadedSummary).toHaveAttribute("data-complete", "true");
+  await user.click(reloadedSummary);
+  expect(await screen.findByRole("radio", { name: "一般表现" })).toBeChecked();
 });
 
 test("restores selected draft entries after a hash-route reload", async () => {
@@ -176,7 +211,10 @@ test("persists check content, shows its summary immediately, restores it after r
 
   const summary = "检查内容：环境卫生干净整洁";
   expect(await screen.findByRole("button", { name: summary })).toBeVisible();
-  expect((await new InspectionRepository(database).getGraph("inspection-1"))?.inspection).toMatchObject({
+  const goodEditor = await screen.findByTestId(/^photo-group-/);
+  expect(within(goodEditor).getByRole("radio", { name: "好的方面" })).toBeChecked();
+  const savedGraph = await new InspectionRepository(database).getGraph("inspection-1");
+  expect(savedGraph?.inspection).toMatchObject({
     status: "draft",
     entries: [{
       checkSelections: [
@@ -184,6 +222,8 @@ test("persists check content, shows its summary immediately, restores it after r
       ],
     }],
   });
+  expect(savedGraph?.groups).toMatchObject([{ category: "good", photoIds: [] }]);
+  expect(savedGraph?.inspection.entries[0]?.groupIds).toHaveLength(1);
 
   const search = screen.getByRole("searchbox", { name: "搜索巡检项点" });
   await user.type(search, "干净整洁");

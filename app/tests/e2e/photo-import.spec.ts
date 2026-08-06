@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { expect, test } from "./fixtures";
+import { openInspectionEntry } from "./inspection-helpers";
 
 test("photo import stores decodable 2000px report and 320px thumbnail JPEGs", async ({ page }) => {
   await page.goto("/#/inspections/new");
@@ -7,12 +8,12 @@ test("photo import stores decodable 2000px report and 320px thumbnail JPEGs", as
   await page.getByRole("button", { name: "开始检查" }).click();
   await expect(page.getByRole("heading", { name: /7S巡检通报/ })).toBeVisible();
 
-  await page.locator(".inspection-route__toggle").first().click();
-  await page.getByLabel("相册文件").first().setInputFiles(
+  const entryDialog = await openInspectionEntry(page, page.locator(".inspection-route").first());
+  await entryDialog.getByLabel("相册文件").setInputFiles(
     resolve("tests/fixtures/site-photo.jpg"),
   );
   await expect(page.getByText("已处理 1/1")).toBeVisible();
-  await expect(page.getByAltText("巡检照片缩略图")).toBeVisible();
+  await expect(entryDialog.getByAltText("巡检照片缩略图")).toBeVisible();
 
   const dimensions = await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolveDatabase, reject) => {

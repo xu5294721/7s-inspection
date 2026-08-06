@@ -250,6 +250,21 @@ export function ReviewPage() {
     }
   }
 
+  async function createEditEvaluationGroup(entryId: string, category: PhotoCategory) {
+    setEditError("");
+    setEditProcessing(true);
+    try {
+      await inspectionRepository.addEvaluationGroup(entryId, category, createBrowserUuid());
+      await refreshGraph();
+    } catch (error) {
+      const failure = error instanceof Error ? error : new Error("评价保存失败");
+      setEditError(failure.message);
+      throw failure;
+    } finally {
+      setEditProcessing(false);
+    }
+  }
+
   async function saveEditPhotoGroup(group: PhotoGroup) {
     setEditError("");
     try {
@@ -672,6 +687,7 @@ export function ReviewPage() {
                   disabled={editProcessing}
                   onFilesSelected={(files, source) => void processEditFiles(entry.id, files, source)}
                   onSaveCheckSelections={(selections) => saveEditCheckSelections(entry.id, selections)}
+                  onCreatePhotoGroup={(category) => createEditEvaluationGroup(entry.id, category)}
                   onSavePhotoGroup={saveEditPhotoGroup}
                   onSplit={(group, photoId, category) => splitEditPhoto(group, checklistItem, photoId, category)}
                   onPhotoSave={saveEditPhotoAnnotation}

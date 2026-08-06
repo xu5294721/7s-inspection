@@ -1,5 +1,5 @@
 import { Trash2 } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import { formatInspectionEvaluationDescription } from "../../domain/inspectionCheckContents";
 import type {
   ChecklistItem,
@@ -22,12 +22,54 @@ export interface InspectionEntryEditorProps {
   disabled: boolean;
   onFilesSelected(files: File[], source: PhotoInputSource): void;
   onSaveCheckSelections(selections: InspectionCheckSelection[]): Promise<void>;
+  onCreatePhotoGroup(category: PhotoCategory): Promise<void>;
   onSavePhotoGroup(group: PhotoGroup): Promise<void>;
   onSplit(group: PhotoGroup, photoId: string, category: PhotoCategory): Promise<void>;
   onPhotoSave(photo: PhotoAsset): Promise<void>;
   onDeletePhoto(photoId: string): void;
   onReplacePhoto(photo: PhotoAsset, file: File, source: PhotoInputSource): void;
   onHighQualityChange(photo: PhotoAsset, highQuality: boolean): void;
+}
+
+function EmptyEvaluationPicker({
+  disabled,
+  onCreatePhotoGroup,
+}: {
+  disabled: boolean;
+  onCreatePhotoGroup(category: PhotoCategory): Promise<void>;
+}) {
+  const radioName = useId();
+  const [pendingCategory, setPendingCategory] = useState<PhotoCategory | null>(null);
+
+  async function chooseCategory(category: PhotoCategory) {
+    setPendingCategory(category);
+    try {
+      await onCreatePhotoGroup(category);
+    } catch {
+      setPendingCategory(null);
+    }
+  }
+
+  return (
+    <div className="empty-evaluation-picker" role="radiogroup" aria-label="无照片评价分类">
+      <span className="empty-evaluation-picker__label">选择评价</span>
+      <div className="category-segments">
+        {PHOTO_CATEGORIES.map(({ id, label }) => (
+          <label key={id} data-category={id}>
+            <input
+              type="radio"
+              name={radioName}
+              value={id}
+              checked={pendingCategory === id}
+              disabled={disabled || pendingCategory !== null}
+              onChange={() => void chooseCategory(id)}
+            />
+            <span>{label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function PhotoThumbnail({ photo }: { photo: PhotoAsset }) {
@@ -123,6 +165,7 @@ export function InspectionEntryEditor({
   disabled,
   onFilesSelected,
   onSaveCheckSelections,
+  onCreatePhotoGroup,
   onSavePhotoGroup,
   onSplit,
   onPhotoSave,
@@ -138,6 +181,13 @@ export function InspectionEntryEditor({
   const photosById = new Map(photos.map((photo) => [photo.id, photo]));
   const entryPhotos = photos.filter((photo) => groups.some((group) => group.id === photo.groupId));
 
+  async function saveCheckSelections(selections: InspectionCheckSelection[]) {
+    await onSaveCheckSelections(selections);
+    if (groups.length === 0 && selections.length > 0) {
+      await onCreatePhotoGroup("good");
+    }
+  }
+
   return (
     <li
       className="inspection-entry"
@@ -152,7 +202,7 @@ export function InspectionEntryEditor({
         <InspectionCheckContentEditor
           entry={entry}
           disabled={disabled}
-          onSave={onSaveCheckSelections}
+          onSave={saveCheckSelections}
         />
       </div>
       <div className="inspection-entry__counts" aria-label={`照片${photoCount}张`}>
@@ -165,6 +215,12 @@ export function InspectionEntryEditor({
           </span>
         ))}
       </div>
+      {groups.length === 0 ? (
+        <EmptyEvaluationPicker
+          disabled={disabled}
+          onCreatePhotoGroup={onCreatePhotoGroup}
+        />
+      ) : null}
       <PhotoCaptureButtons disabled={disabled} onFilesSelected={onFilesSelected} />
       {!disabled && groups.map((group) => {
         const groupPhotos = group.photoIds

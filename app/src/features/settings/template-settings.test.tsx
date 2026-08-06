@@ -4,7 +4,7 @@ import { createAppDependencies } from "../../app/dependencies";
 import { createTestDb } from "../../db/database";
 import { InspectionRepository } from "../../db/inspectionRepository";
 import { TemplateRepository } from "../../db/templateRepository";
-import { makeInspection, makePhotoGroup } from "../../test/fixtures";
+import { makeInspection, makePhotoGroup, makeTemplate } from "../../test/fixtures";
 import { renderWithRouter } from "../../test/renderWithRouter";
 
 test("saves a new template version and applies it to an ungenerated inspection", async () => {
@@ -152,6 +152,36 @@ test("renders four photo chapter labels and saves the general chapter title", as
   expect((await templates.getLatest("template-default"))?.sections).toContainEqual({
     category: "general",
     title: "一般表现（已复查）",
+    order: 1,
+  });
+  view.unmount();
+});
+
+test("migrates a legacy three-category template before opening settings", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`template-legacy-migration-ui-${Date.now()}`);
+  await database.templates.add(makeTemplate({
+    version: 3,
+    name: "旧版用户模板",
+    sections: [
+      { category: "good", title: "旧好的方面", order: 0 },
+      { category: "reminder", title: "旧提醒问题", order: 1 },
+      { category: "assessment", title: "旧考核问题", order: 2 },
+    ],
+  }));
+  const dependencies = createAppDependencies(database);
+  const templates = new TemplateRepository(database);
+  const view = renderWithRouter({ database, initialPath: "/settings/templates", appProps: { dependencies } });
+
+  await screen.findByRole("textbox", { name: "general章节名称" });
+  await user.clear(screen.getByRole("textbox", { name: "general章节名称" }));
+  await user.type(screen.getByRole("textbox", { name: "general章节名称" }), "一般表现（迁移后）");
+  await user.click(screen.getByRole("button", { name: "保存为新版本" }));
+
+  await waitFor(async () => expect((await templates.getLatest("template-default"))?.version).toBe(5));
+  expect((await templates.getLatest("template-default"))?.sections).toContainEqual({
+    category: "general",
+    title: "一般表现（迁移后）",
     order: 1,
   });
   view.unmount();

@@ -159,9 +159,9 @@ test("creates and uses a mobile route template without persisting a temporary ro
 
   await page.getByRole("button", { name: "开始检查" }).click();
   await page.waitForURL(/#\/inspections\/(?!new$)[^/]+$/);
-  await expect(page.getByRole("heading", { name: selectedRoute, exact: true, level: 3 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: templateCustomRoute, exact: true, level: 3 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: customRoute, exact: true, level: 3 })).toBeVisible();
+  await expect(page.locator(".inspection-route").filter({ hasText: selectedRoute })).toBeVisible();
+  await expect(page.locator(".inspection-route").filter({ hasText: templateCustomRoute })).toBeVisible();
+  await expect(page.locator(".inspection-route").filter({ hasText: customRoute })).toBeVisible();
   await expect(page.getByText(uncheckedRoute, { exact: true })).toHaveCount(0);
   await expect(page.locator(".inspection-route")).toHaveCount(3);
   await expectNoHorizontalOverflow(page);

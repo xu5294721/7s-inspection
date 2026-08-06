@@ -235,16 +235,38 @@ test("rejects an inspection entry whose inspection id does not match the graph",
   );
 });
 
-test("rejects empty group content", () => {
+test("rejects an empty group description but accepts its empty photo list", () => {
   const errors = validateReportReadiness(makeGraph({ groups: [{ ...group, description: "  ", photoIds: [] }] }));
 
-  expect(errors.map((error) => error.code)).toEqual(["EMPTY_DESCRIPTION", "EMPTY_PHOTO_GROUP", "PHOTO_NOT_GROUPED"]);
+  expect(errors.map((error) => error.code)).toEqual(["EMPTY_DESCRIPTION", "PHOTO_NOT_GROUPED"]);
   expect(errors[0]).toMatchObject({ groupId: "group-1", field: "description", message: "照片组说明不能为空。" });
 });
 
 test("rejects incomplete assessment details", () => {
   const errors = validateReportReadiness(
     makeGraph({ groups: [{ ...group, category: "assessment" }] }),
+  );
+
+  expect(errors.map((error) => error.code)).toEqual(["ASSESSMENT_DETAILS_REQUIRED"]);
+});
+
+test("requires assessment details for an empty assessment group", () => {
+  const emptyAssessment = {
+    ...group,
+    id: "group-assessment-empty",
+    category: "assessment" as const,
+    photoIds: [],
+    awardAssessment: null,
+    order: 1,
+  };
+  const errors = validateReportReadiness(
+    makeGraph({
+      inspection: {
+        ...inspection,
+        entries: [{ ...inspection.entries[0], groupIds: [group.id, emptyAssessment.id] }],
+      },
+      groups: [group, emptyAssessment],
+    }),
   );
 
   expect(errors.map((error) => error.code)).toEqual(["ASSESSMENT_DETAILS_REQUIRED"]);

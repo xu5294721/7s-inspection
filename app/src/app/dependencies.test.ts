@@ -5,7 +5,7 @@ import { ItemRepository } from "../db/itemRepository";
 import { RouteTemplateRepository } from "../db/routeTemplateRepository";
 import { TemplateRepository } from "../db/templateRepository";
 import { createInspection } from "../domain/inspection";
-import { makeChecklistItem, makeTemplate } from "../test/fixtures";
+import { makeChecklistItem, makePhoto, makePhotoGroup, makeTemplate } from "../test/fixtures";
 import { createAppDependencies, initializeApp } from "./dependencies";
 import { ensureRouteCatalog } from "./routeCatalogMigration";
 import defaultChecklistItemsJson from "../data/default-checklist-items.json";
@@ -496,6 +496,66 @@ test("seeds immutable formal template v3 and binds new inspections without repla
   expect(createInspection([makeChecklistItem()], "new-inspection", "2026-07-29")).toMatchObject({
     templateId: "template-default",
     templateVersion: 3,
+  });
+});
+
+test("migrates a legacy three-category v3 template and rebinds active drafts for general photos", async () => {
+  const database = createTestDb(`legacy-report-template-migration-${Date.now()}`);
+  const legacyTemplate = makeTemplate({
+    version: 3,
+    name: "用户编辑的三分类模板",
+    titlePattern: "用户自定义 {date} 巡检通报",
+    sections: [
+      { category: "good", title: "保留好的方面", order: 0 },
+      { category: "reminder", title: "保留提醒问题", order: 1 },
+      { category: "assessment", title: "保留考核问题", order: 2 },
+    ],
+  });
+  await database.templates.add(legacyTemplate);
+
+  const item = makeChecklistItem();
+  const inspection = createInspection([item], "legacy-template-draft", "2026-07-29");
+  const entryId = inspection.entries[0]!.id;
+  const group = makePhotoGroup({
+    id: "legacy-general-group",
+    inspectionId: inspection.id,
+    entryId,
+    category: "general",
+    description: item.generalText!,
+    photoIds: ["legacy-general-photo"],
+  });
+  inspection.entries[0] = { ...inspection.entries[0]!, groupIds: [group.id] };
+  await new InspectionRepository(database).saveGraph({
+    inspection,
+    groups: [group],
+    photos: [makePhoto(new Blob(["photo"], { type: "image/jpeg" }), {
+      id: "legacy-general-photo",
+      inspectionId: inspection.id,
+      groupId: group.id,
+    })],
+  });
+
+  await initializeApp(createAppDependencies(database));
+
+  const templates = new TemplateRepository(database);
+  const latest = await templates.getLatest("template-default");
+  expect(await templates.get("template-default", 3)).toEqual(legacyTemplate);
+  expect(latest).toMatchObject({
+    version: 4,
+    name: legacyTemplate.name,
+    titlePattern: legacyTemplate.titlePattern,
+    sections: [
+      { category: "good", title: "保留好的方面", order: 0 },
+      { category: "general", title: "一般表现", order: 1 },
+      { category: "reminder", title: "保留提醒问题", order: 2 },
+      { category: "assessment", title: "保留考核问题", order: 3 },
+    ],
+  });
+
+  const restored = await new InspectionRepository(database).getGraph(inspection.id);
+  expect(restored?.inspection.templateVersion).toBe(4);
+  await expect(new InspectionRepository(database).getReadyGraphForGeneration(inspection.id)).resolves.toMatchObject({
+    template: expect.objectContaining({ version: 4 }),
   });
 });
 

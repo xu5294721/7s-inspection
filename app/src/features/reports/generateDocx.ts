@@ -52,6 +52,8 @@ interface PreparedPhoto extends ReportPhoto {
 const a4WidthMm = 210;
 const a4HeightMm = 297;
 const docxPhotoFrameAspectRatio = 3 / 4;
+const singlePhotoWidthMm = 90;
+const singlePhotoHeightMm = 120;
 const pxPerMm = 96 / 25.4;
 const maximumWordTwips = 2_147_483_647n;
 
@@ -191,7 +193,10 @@ function chunks<T>(values: T[], size: number): T[][] {
 }
 
 function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
-  const columns = columnsForPhotoCount(model.photoLayoutMode, model.photosPerRow, photos.length);
+  const isSinglePhoto = photos.length === 1;
+  const columns = isSinglePhoto
+    ? 1
+    : columnsForPhotoCount(model.photoLayoutMode, model.photosPerRow, photos.length);
   const contentWidthMm = a4WidthMm - model.marginMm.left - model.marginMm.right;
   const contentWidthTwips = convertMillimetersToTwip(contentWidthMm);
   const baseCellWidth = Math.floor(contentWidthTwips / columns);
@@ -202,8 +207,12 @@ function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
   );
   const cellWidthMm = contentWidthMm / columns;
   const gapTwips = Math.round(model.photoGapPt * 20 / 2);
-  const imageWidthPx = Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm));
-  const imageHeightPx = Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio);
+  const imageWidthPx = isSinglePhoto
+    ? Math.round(singlePhotoWidthMm * pxPerMm)
+    : Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm));
+  const imageHeightPx = isSinglePhoto
+    ? Math.round(singlePhotoHeightMm * pxPerMm)
+    : Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio);
   const rows = chunks(photos, columns).map((row) => {
     const cells = Array.from({ length: columns }, (_, index) => {
       const photo = row[index];

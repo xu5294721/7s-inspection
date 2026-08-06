@@ -521,7 +521,7 @@ test("stops a queued save batch after failure and blocks review completion", asy
   const user = userEvent.setup();
   const database = createTestDb(`review-save-queue-${Date.now()}`);
   const repository = new InspectionRepository(database);
-  await repository.saveGraph({ inspection: makeInspection(), groups: [makePhotoGroup()], photos: [makePhoto()] });
+  await repository.saveGraph({ inspection: makeInspection({ templateVersion: 3 }), groups: [makePhotoGroup()], photos: [makePhoto()] });
   const dependencies = createAppDependencies(database);
   const first = deferred<void>();
   const original = dependencies.inspectionRepository.updateReviewSettings.bind(
@@ -873,7 +873,7 @@ test("binds template versions to the active inspection across same-component rou
   }));
   const repository = new InspectionRepository(database);
   await repository.saveGraph({
-    inspection: makeInspection(),
+    inspection: makeInspection({ templateVersion: 3 }),
     groups: [makePhotoGroup()],
     photos: [makePhoto()],
   });

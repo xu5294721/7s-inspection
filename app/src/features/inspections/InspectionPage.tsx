@@ -2,7 +2,7 @@ import { ClipboardCheck, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppDependencies } from "../../app/useAppDependencies";
-import type { PhotoAppendResult } from "../../db/inspectionRepository";
+import type { EvaluationGroupAppendResult, PhotoAppendResult } from "../../db/inspectionRepository";
 import type {
   ChecklistItem,
   InspectionCheckSelection,
@@ -46,9 +46,8 @@ function matchesSearch(entry: InspectionEntry, query: string): boolean {
 
 function routeIsComplete(entries: InspectionEntry[], groups: PhotoGroup[]): boolean {
   return entries.length > 0 && entries.every((entry) =>
-    entry.checkSelections.length > 0 && groups.some(
-      (group) => group.entryId === entry.id && group.photoIds.length > 0,
-    ));
+    groups.some((group) => group.entryId === entry.id),
+  );
 }
 
 interface FailedPhoto {
@@ -89,6 +88,24 @@ function appendPhotoToGraph(
       ? graph.groups.map((group) => group.id === result.group.id ? result.group : group)
       : [...graph.groups, result.group],
     photos: [...graph.photos, result.photo],
+  };
+}
+
+function appendEvaluationGroupToGraph(
+  graph: InspectionGraph,
+  result: EvaluationGroupAppendResult,
+): InspectionGraph {
+  return {
+    ...graph,
+    inspection: {
+      ...graph.inspection,
+      updatedAt: result.updatedAt,
+      entries: graph.inspection.entries.map((entry) =>
+        entry.id === result.entry.id ? result.entry : entry),
+    },
+    groups: graph.groups.some((group) => group.id === result.group.id)
+      ? graph.groups.map((group) => group.id === result.group.id ? result.group : group)
+      : [...graph.groups, result.group],
   };
 }
 
@@ -566,6 +583,52 @@ export function InspectionPage() {
     }
   }
 
+  async function createEvaluationGroup(entryId: string, category: PhotoCategory) {
+    if (processing || savingEntryIds.has(entryId)) {
+      throw new Error("当前项点正在保存，请稍候。");
+    }
+    const generation = inspectionGeneration.current;
+    const inspectionId = id;
+    setSavingEntryIds((current) => new Set(current).add(entryId));
+    setPhotoError("");
+    try {
+      const result = await inspectionRepository.addEvaluationGroup(
+        entryId,
+        category,
+        createBrowserUuid(),
+      );
+      if (
+        generation !== inspectionGeneration.current ||
+        inspectionId !== currentInspectionId.current ||
+        !isCurrentInspectionRoute(inspectionId)
+      ) return;
+      setGraph((current) => current && current.inspection.id === inspectionId
+        ? appendEvaluationGroupToGraph(current, result)
+        : current);
+    } catch (error) {
+      if (
+        generation === inspectionGeneration.current &&
+        inspectionId === currentInspectionId.current &&
+        isCurrentInspectionRoute(inspectionId)
+      ) {
+        setPhotoError(error instanceof Error ? error.message : "评价保存失败");
+      }
+      throw error;
+    } finally {
+      if (
+        generation === inspectionGeneration.current &&
+        inspectionId === currentInspectionId.current &&
+        isCurrentInspectionRoute(inspectionId)
+      ) {
+        setSavingEntryIds((current) => {
+          const next = new Set(current);
+          next.delete(entryId);
+          return next;
+        });
+      }
+    }
+  }
+
   const routes = useMemo(() => {
     const grouped = new Map<string, Map<string, InspectionEntry[]>>();
     if (!graph) return grouped;
@@ -716,6 +779,7 @@ export function InspectionPage() {
             onComplete={completeActiveEntry}
             onFilesSelected={(files, source) => void processFiles(entry.id, files, source)}
             onSaveCheckSelections={(selections) => saveEntryCheckSelections(entry.id, selections)}
+            onCreatePhotoGroup={(category) => createEvaluationGroup(entry.id, category)}
             onSavePhotoGroup={savePhotoGroup}
             onSplit={(group, photoId, category) => splitGroupPhoto(group, checklistItem, photoId, category)}
             onPhotoSave={savePhotoAnnotation}

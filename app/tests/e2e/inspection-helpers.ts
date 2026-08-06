@@ -16,30 +16,40 @@ function photoPayloads(start: number, count: number): FilePayload[] {
 }
 
 async function importPhotos(
+  page: Page,
   route: Locator,
   start: number,
   count: number,
 ): Promise<void> {
-  await expandInspectionRoute(route);
-  await route.getByLabel("相册文件").setInputFiles(photoPayloads(start, count));
-  await expect(route.getByText(`已处理 ${count}/${count}`)).toBeVisible({ timeout: 120_000 });
+  const dialog = await openInspectionEntry(page, route);
+  await dialog.getByLabel("相册文件").setInputFiles(photoPayloads(start, count));
+  await expect(page.getByText(`已处理 ${count}/${count}`)).toBeVisible({ timeout: 120_000 });
+  await closeInspectionEntry(dialog);
 }
 
-async function expandInspectionRoute(route: Locator): Promise<void> {
-  const toggle = route.locator(".inspection-route__toggle");
-  if (await toggle.getAttribute("aria-expanded") !== "true") {
-    await toggle.click();
-  }
+export async function openInspectionEntry(page: Page, route: Locator): Promise<Locator> {
+  const opener = route.locator(".inspection-entry-summary__button").first();
+  await expect(opener).toBeVisible();
+  await opener.click();
+  const dialog = page.getByRole("dialog", { name: /检查项：/ });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+export async function closeInspectionEntry(dialog: Locator): Promise<void> {
+  await dialog.getByRole("button", { name: "暂存并关闭" }).click();
+  await expect(dialog).toHaveCount(0);
 }
 
 export async function importRealJpegForRoute(page: Page, routeName: string): Promise<void> {
   const route = page.locator(".inspection-route").filter({
-    has: page.getByRole("button", { name: routeName, exact: true }),
+    hasText: routeName,
   });
   await expect(route).toHaveCount(1);
-  await expandInspectionRoute(route);
-  await route.getByLabel("相册文件").setInputFiles(realJpegPath);
+  const dialog = await openInspectionEntry(page, route);
+  await dialog.getByLabel("相册文件").setInputFiles(realJpegPath);
   await expect(page.getByText("已处理 1/1")).toBeVisible({ timeout: 120_000 });
+  await closeInspectionEntry(dialog);
 }
 
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -147,20 +157,32 @@ export async function createCategorizedDraft(
 
   let nextPhoto = 1;
   for (let entry = 0; entry < photoCounts.length; entry += 1) {
-    await importPhotos(page.locator(".inspection-route").nth(entry), nextPhoto, photoCounts[entry]);
+    await importPhotos(page, page.locator(".inspection-route").nth(entry), nextPhoto, photoCounts[entry]);
     nextPhoto += photoCounts[entry];
   }
 
-  const groups = page.locator(".photo-group-editor");
-  await expect(groups).toHaveCount(3);
-  await saveReward(groups.nth(0));
-  await groups.nth(1).getByRole("radio", { name: "提醒问题" }).check();
-  await groups.nth(1).getByRole("button", { name: "保存评价" }).click();
-  await saveAssessment(groups.nth(2));
+  const firstDialog = await openInspectionEntry(page, page.locator(".inspection-route").nth(0));
+  const firstGroup = firstDialog.locator(".photo-group-editor");
+  await expect(firstGroup).toHaveCount(1);
+  await saveReward(firstGroup);
+  await closeInspectionEntry(firstDialog);
 
-  const firstGroup = groups.nth(0);
-  await firstGroup.getByRole("button", { name: /^调整照片 / }).first().click();
-  await firstGroup.getByRole("menuitem", { name: "提醒问题" }).click();
+  const reminderDialog = await openInspectionEntry(page, page.locator(".inspection-route").nth(1));
+  const reminderGroup = reminderDialog.locator(".photo-group-editor");
+  await reminderGroup.getByRole("radio", { name: "提醒问题" }).check();
+  await reminderGroup.getByRole("button", { name: "保存评价" }).click();
+  await closeInspectionEntry(reminderDialog);
+
+  const assessmentDialog = await openInspectionEntry(page, page.locator(".inspection-route").nth(2));
+  const assessmentGroup = assessmentDialog.locator(".photo-group-editor");
+  await saveAssessment(assessmentGroup);
+  await closeInspectionEntry(assessmentDialog);
+
+  const splitDialog = await openInspectionEntry(page, page.locator(".inspection-route").nth(0));
+  const splitGroup = splitDialog.locator(".photo-group-editor");
+  await splitGroup.getByRole("button", { name: /^调整照片 / }).first().click();
+  await splitGroup.getByRole("menuitem", { name: "提醒问题" }).click();
+  await closeInspectionEntry(splitDialog);
 
   await expect.poll(() => readStoredSummary(page), { timeout: 30_000 }).toMatchObject({
     photos: totalPhotos,
@@ -174,13 +196,16 @@ export async function createCategorizedDraft(
   await expect(page.getByRole("heading", { name: title, level: 2 })).toBeVisible();
   for (let entry = 0; entry < photoCounts.length; entry += 1) {
     const route = page.locator(".inspection-route").nth(entry);
-    await expandInspectionRoute(route);
-    await expect(route.getByAltText("巡检照片缩略图")).toHaveCount(photoCounts[entry]);
+    const dialog = await openInspectionEntry(page, route);
+    await expect(dialog.getByAltText("巡检照片缩略图")).toHaveCount(photoCounts[entry]);
+    await closeInspectionEntry(dialog);
   }
   return { title, totalPhotos };
 }
 
 export async function openReview(page: Page): Promise<void> {
+  const dialog = page.getByRole("dialog", { name: /检查项：/ });
+  if (await dialog.count() > 0) await closeInspectionEntry(dialog);
   await page.getByRole("button", { name: "完成检查，进入复核" }).click();
   await expect(page.getByRole("heading", { name: "通报复核", level: 2 })).toBeVisible();
 }

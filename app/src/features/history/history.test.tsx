@@ -73,7 +73,7 @@ test("filters history and soft deletes a matching inspection into trash", async 
   const view = renderWithRouter({ database, initialPath: "/history", appProps: { dependencies } });
 
   expect(await screen.findByText("焊机间7S巡检通报")).toBeVisible();
-  expect(screen.getByText("较好 1")).toBeVisible();
+  expect(screen.getByText("好的方面 1")).toBeVisible();
   await user.type(screen.getByRole("searchbox", { name: "按路线或区域筛选" }), "焊机间");
   await user.type(screen.getByRole("textbox", { name: "按人员筛选" }), "张三");
   await user.click(screen.getByRole("button", { name: "删除 焊机间7S巡检通报" }));

@@ -10,7 +10,7 @@ export interface InspectionEntrySummaryProps {
 
 export function InspectionEntrySummary({ entry, groups, onOpen, showContext = false }: InspectionEntrySummaryProps) {
   const photoCount = groups.reduce((count, group) => count + group.photoIds.length, 0);
-  const complete = entry.checkSelections.length > 0 && photoCount > 0;
+  const complete = groups.length > 0;
   const context = [entry.itemSnapshot.part, entry.itemSnapshot.area, entry.itemSnapshot.device]
     .filter((value, index, values) => Boolean(value) && values.indexOf(value) === index)
     .join(" · ");

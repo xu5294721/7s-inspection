@@ -329,6 +329,36 @@ test.each([2, 3] as const)(
   },
 );
 
+test("uses a centered 9 by 12 centimeter frame for a single photo", async () => {
+  const inspection = makeInspection({
+    templateVersion: 1,
+    photosPerRowOverride: 3,
+  });
+  const template = makeTemplate({ marginMm: { top: 20, right: 22, bottom: 20, left: 22 } });
+  const model = buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({ photoIds: ["single-photo"] })],
+    photos: [makePhoto(undefined, { id: "single-photo", width: 1600, height: 900 })],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const photoTable = documentXml.match(/<w:tbl>(?:(?!<w:tbl>)[\s\S])*?<w:drawing>[\s\S]*?<\/w:tbl>/)?.[0];
+  const gridWidths = [...photoTable!.matchAll(/<w:gridCol w:w="(\d+)"\/>/g)]
+    .map((match) => Number(match[1]));
+  const extent = [...photoTable!.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
+    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }))[0];
+  const pxPerMm = 96 / 25.4;
+  const emuPerPx = 9_525;
+
+  expect(gridWidths).toHaveLength(1);
+  expect(extent).toEqual({
+    width: Math.round(90 * pxPerMm) * emuPerPx,
+    height: Math.round(120 * pxPerMm) * emuPerPx,
+  });
+});
+
 test("adapts each photo group independently up to the configured limit", async () => {
   const baseInspection = makeInspection();
   const firstEntry = {

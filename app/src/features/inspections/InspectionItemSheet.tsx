@@ -35,6 +35,7 @@ export interface InspectionItemSheetProps {
   onComplete(): void;
   onFilesSelected(files: File[], source: PhotoInputSource): void;
   onSaveCheckSelections(selections: InspectionCheckSelection[]): Promise<void>;
+  onCreatePhotoGroup(category: PhotoCategory): Promise<void>;
   onSavePhotoGroup(group: PhotoGroup): Promise<void>;
   onSplit(group: PhotoGroup, photoId: string, category: PhotoCategory): Promise<void>;
   onPhotoSave(photo: PhotoAsset): Promise<void>;
@@ -53,6 +54,7 @@ export function InspectionItemSheet({
   onComplete,
   onFilesSelected,
   onSaveCheckSelections,
+  onCreatePhotoGroup,
   onSavePhotoGroup,
   onSplit,
   onPhotoSave,
@@ -136,6 +138,7 @@ export function InspectionItemSheet({
               disabled={disabled}
               onFilesSelected={onFilesSelected}
               onSaveCheckSelections={onSaveCheckSelections}
+              onCreatePhotoGroup={onCreatePhotoGroup}
               onSavePhotoGroup={onSavePhotoGroup}
               onSplit={onSplit}
               onPhotoSave={onPhotoSave}

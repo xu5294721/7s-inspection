@@ -32,10 +32,6 @@ function validateGroup(group: PhotoGroup): ReportValidationError[] {
     errors.push(error(group.id, "description", "EMPTY_DESCRIPTION", "照片组说明不能为空。"));
   }
 
-  if (group.photoIds.length === 0) {
-    errors.push(error(group.id, "photoIds", "EMPTY_PHOTO_GROUP", "照片组至少需要一张照片。"));
-  }
-
   if (group.category === "assessment") {
     if (group.awardAssessment?.type === "reward") {
       errors.push(error(group.id, "awardAssessment", "CATEGORY_AWARD_INCOMPATIBLE", "考核问题不能填写奖励信息。"));

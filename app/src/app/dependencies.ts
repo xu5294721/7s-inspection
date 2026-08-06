@@ -287,6 +287,8 @@ export function createAppDependencies(
     restore: (id) => repository.restore(id),
     purgeInspection: (id) => repository.purgeInspection(id),
     addPhotoToGoodGroup: (entryId, photo, newGroupId) => repository.addPhotoToGoodGroup(entryId, photo, newGroupId),
+    addEvaluationGroup: (entryId, category, groupId, updatedAt) =>
+      repository.addEvaluationGroup(entryId, category, groupId, updatedAt),
     replacePhoto: (photo) => repository.replacePhoto(photo),
     deletePhoto: (photoId) => repository.deletePhoto(photoId),
     updatePhotoGroup: (group) => repository.updatePhotoGroup(group),

@@ -1,7 +1,9 @@
 import {
+  closeInspectionEntry,
   createCategorizedDraft,
   expectNoHorizontalOverflow,
   importRealJpegForRoute,
+  openInspectionEntry,
   openReview,
 } from "./inspection-helpers";
 import { expect, test } from "./fixtures";
@@ -21,35 +23,38 @@ test("selects inspection content, preserves it after reload, and reaches mobile 
   await page.waitForURL(/#\/inspections\/(?!new$)[^/]+$/);
 
   const route = page.locator(".inspection-route").filter({
-    has: page.getByRole("button", { name: selectedContentRoute, exact: true }),
+    hasText: selectedContentRoute,
   });
   await expect(route).toHaveCount(1);
-  await route.locator(".inspection-route__toggle").click();
-  await route.getByRole("button", { name: "检查内容：请选择检查内容" }).click();
-  await route.getByRole("combobox", { name: "环境卫生" }).selectOption("干净整洁");
-  await route.getByRole("combobox", { name: "物品定置" }).selectOption({ label: "自定义" });
-  await route.getByRole("textbox", { name: "物品定置自定义内容" }).fill("工具摆放整齐");
-  await route.getByRole("button", { name: "确认" }).click();
+  const contentDialog = await openInspectionEntry(page, route);
+  await contentDialog.getByRole("button", { name: "检查内容：请选择检查内容" }).click();
+  await contentDialog.getByRole("combobox", { name: "环境卫生" }).selectOption("干净整洁");
+  await contentDialog.getByRole("combobox", { name: "物品定置" }).selectOption({ label: "自定义" });
+  await contentDialog.getByRole("textbox", { name: "物品定置自定义内容" }).fill("工具摆放整齐");
+  await contentDialog.getByRole("button", { name: "确认" }).click();
 
-  await expect(route.getByRole("button", { name: selectedContentSummary })).toBeVisible();
+  await expect(contentDialog.getByRole("button", { name: selectedContentSummary })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await captureScreenshot({
     path: testInfo.outputPath("inspection-content-selected.png"),
     fullPage: true,
   });
+  await closeInspectionEntry(contentDialog);
 
   await page.reload();
-  await route.locator(".inspection-route__toggle").click();
-  await expect(route.getByRole("button", { name: selectedContentSummary })).toBeVisible();
-  await route.getByRole("button", { name: selectedContentSummary }).click();
-  await expect(route.getByRole("combobox", { name: "环境卫生" })).toHaveValue("干净整洁");
-  await expect(route.getByRole("combobox", { name: "物品定置" })).toHaveValue("__custom__");
-  await expect(route.getByRole("textbox", { name: "物品定置自定义内容" })).toHaveValue("工具摆放整齐");
-  await route.getByRole("button", { name: "取消" }).click();
+  const restoredDialog = await openInspectionEntry(page, route);
+  await expect(restoredDialog.getByRole("button", { name: selectedContentSummary })).toBeVisible();
+  await restoredDialog.getByRole("button", { name: selectedContentSummary }).click();
+  await expect(restoredDialog.getByRole("combobox", { name: "环境卫生" })).toHaveValue("干净整洁");
+  await expect(restoredDialog.getByRole("combobox", { name: "物品定置" })).toHaveValue("__custom__");
+  await expect(restoredDialog.getByRole("textbox", { name: "物品定置自定义内容" })).toHaveValue("工具摆放整齐");
+  await restoredDialog.getByRole("button", { name: "取消" }).click();
+  await closeInspectionEntry(restoredDialog);
   await expectNoHorizontalOverflow(page);
 
   await importRealJpegForRoute(page, selectedContentRoute);
-  const photoGroup = route.locator(".photo-group-editor");
+  const photoDialog = await openInspectionEntry(page, route);
+  const photoGroup = photoDialog.locator(".photo-group-editor");
   await expect(photoGroup).toHaveCount(1);
   const evaluationDescription = photoGroup.getByRole("textbox", { name: "评价说明" });
   await expect(evaluationDescription).toHaveValue(selectedEvaluationSentence);
@@ -129,16 +134,21 @@ test("adds a temporary item in the field, photographs it, and opens review", asy
   expect(openLayout).toEqual({ toolbarInside: true, dialogInside: true });
   await dialog.getByRole("button", { name: "保存" }).click();
 
-  const routeToggle = page.getByRole("button", { name: temporaryName, exact: true });
+  const temporaryRoute = page.locator(".inspection-route").filter({ hasText: temporaryName });
+  const routeToggle = temporaryRoute.locator(".inspection-entry-summary__button");
   await expect(routeToggle).toBeVisible();
-  await expect.poll(() => routeToggle.locator("span").first().evaluate((element) => ({
+  await expect.poll(() => routeToggle.locator(".inspection-entry-summary__content").evaluate((element) => ({
     overflowWrap: getComputedStyle(element).overflowWrap,
     fitsWidth: element.scrollWidth <= element.clientWidth,
   }))).toEqual({ overflowWrap: "anywhere", fitsWidth: true });
   await expectNoHorizontalOverflow(page);
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: temporaryName, exact: true, level: 3 })).toBeVisible();
+  const restoredTemporaryRoute = page.locator(".inspection-route").filter({ hasText: temporaryName });
+  await expect(restoredTemporaryRoute).toHaveCount(1);
+  const temporaryDialog = await openInspectionEntry(page, restoredTemporaryRoute);
+  await expect(temporaryDialog.getByRole("heading", { name: `检查项：${temporaryName}`, exact: true, level: 3 })).toBeVisible();
+  await closeInspectionEntry(temporaryDialog);
   await importRealJpegForRoute(page, temporaryName);
   await openReview(page);
   await expect(page.getByText(temporaryName, { exact: true }).first()).toBeVisible();

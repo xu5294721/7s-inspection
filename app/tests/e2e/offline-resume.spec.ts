@@ -22,7 +22,7 @@ test("reloads the cached shell and saved draft while offline", async ({ context,
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "7S巡检", level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { name: title, level: 2 })).toBeVisible();
-    await expect(page.getByRole("heading", { name: routeName, level: 3 })).toBeVisible();
+    await expect(page.locator(".inspection-route").filter({ hasText: routeName })).toBeVisible();
   } finally {
     await context.setOffline(false);
   }
