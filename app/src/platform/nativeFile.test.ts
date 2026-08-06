@@ -61,4 +61,18 @@ describe("saveChunkStreamToDownloads", () => {
     const decoded = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
     expect(decoded).toEqual(expected);
   });
+
+  it("splits a source chunk larger than the target size into multiple appends", async () => {
+    const big = new Uint8Array(300 * 1024);
+    for (let index = 0; index < big.length; index += 1) big[index] = index % 251;
+    await saveChunkStreamToDownloads(chunksOf(big), "c.zip", "application/zip");
+    expect(native.saveFileAppend).toHaveBeenCalledTimes(2);
+    const merged: number[] = [];
+    for (const call of native.saveFileAppend.mock.calls) {
+      const { data } = call[0];
+      const decoded = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+      for (const byte of decoded) merged.push(byte);
+    }
+    expect(merged).toEqual(Array.from(big));
+  });
 });

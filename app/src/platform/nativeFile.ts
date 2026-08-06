@@ -99,9 +99,11 @@ async function* accumulateChunks(
   const parts: Uint8Array[] = [];
   let bufferedBytes = 0;
   for await (const chunk of source) {
-    parts.push(chunk);
-    bufferedBytes += chunk.byteLength;
-    if (bufferedBytes >= targetBytes) {
+    let remainder = chunk;
+    while (remainder.byteLength + bufferedBytes >= targetBytes) {
+      const take = targetBytes - bufferedBytes;
+      parts.push(remainder.subarray(0, take));
+      bufferedBytes += take;
       const merged = new Uint8Array(bufferedBytes);
       let offset = 0;
       for (const part of parts) {
@@ -111,6 +113,12 @@ async function* accumulateChunks(
       yield merged;
       parts.length = 0;
       bufferedBytes = 0;
+      remainder = remainder.subarray(take);
+      if (remainder.byteLength === 0) break;
+    }
+    if (remainder.byteLength > 0) {
+      parts.push(remainder);
+      bufferedBytes += remainder.byteLength;
     }
   }
   if (bufferedBytes > 0) {
