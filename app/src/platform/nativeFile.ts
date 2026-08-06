@@ -11,6 +11,20 @@ interface NativeFilePlugin {
     filename: string;
     mimeType: string;
   }): Promise<{ uri: string }>;
+  saveFileBegin(options: {
+    filename: string;
+    mimeType: string;
+  }): Promise<{ sessionId: string }>;
+  saveFileAppend(options: {
+    sessionId: string;
+    data: string;
+  }): Promise<void>;
+  saveFileEnd(options: {
+    sessionId: string;
+  }): Promise<{ uri: string }>;
+  saveFileAbort(options: {
+    sessionId: string;
+  }): Promise<void>;
 }
 
 const nativeFile = registerPlugin<NativeFilePlugin>("NativeFile");
@@ -74,4 +88,72 @@ export async function saveCapturedPhotoToGallery(file: File): Promise<void> {
     filename: galleryFilename(file),
     mimeType: file.type || "image/jpeg",
   });
+}
+
+const CHUNK_BASE64_TARGET_BYTES = 256 * 1024;
+
+async function* accumulateChunks(
+  source: AsyncIterable<Uint8Array>,
+  targetBytes: number,
+): AsyncIterable<Uint8Array> {
+  const parts: Uint8Array[] = [];
+  let bufferedBytes = 0;
+  for await (const chunk of source) {
+    parts.push(chunk);
+    bufferedBytes += chunk.byteLength;
+    if (bufferedBytes >= targetBytes) {
+      const merged = new Uint8Array(bufferedBytes);
+      let offset = 0;
+      for (const part of parts) {
+        merged.set(part, offset);
+        offset += part.byteLength;
+      }
+      yield merged;
+      parts.length = 0;
+      bufferedBytes = 0;
+    }
+  }
+  if (bufferedBytes > 0) {
+    const merged = new Uint8Array(bufferedBytes);
+    let offset = 0;
+    for (const part of parts) {
+      merged.set(part, offset);
+      offset += part.byteLength;
+    }
+    yield merged;
+  }
+}
+
+function chunkToBase64(chunk: Uint8Array): string {
+  let binary = "";
+  const pieceSize = 0x8000;
+  for (let offset = 0; offset < chunk.byteLength; offset += pieceSize) {
+    binary += String.fromCharCode(...chunk.subarray(offset, offset + pieceSize));
+  }
+  return btoa(binary);
+}
+
+export async function saveChunkStreamToDownloads(
+  chunks: AsyncIterable<Uint8Array>,
+  filename: string,
+  mimeType: string,
+): Promise<void> {
+  if (isNativeAndroid()) {
+    const { sessionId } = await nativeFile.saveFileBegin({ filename, mimeType });
+    try {
+      for await (const chunk of accumulateChunks(chunks, CHUNK_BASE64_TARGET_BYTES)) {
+        await nativeFile.saveFileAppend({ sessionId, data: chunkToBase64(chunk) });
+      }
+      await nativeFile.saveFileEnd({ sessionId });
+    } catch (error) {
+      await nativeFile.saveFileAbort({ sessionId }).catch(() => undefined);
+      throw error;
+    }
+    return;
+  }
+  const parts: BlobPart[] = [];
+  for await (const chunk of accumulateChunks(chunks, CHUNK_BASE64_TARGET_BYTES)) {
+    parts.push(chunk);
+  }
+  await saveBlobToDownloads(new Blob(parts, { type: mimeType }), filename);
 }
