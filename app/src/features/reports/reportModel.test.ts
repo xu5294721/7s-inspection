@@ -468,6 +468,33 @@ test("appends reward info to a no-photo good entry", () => {
   expect(group.text).toContain("（奖励：张三，50元）");
 });
 
+test("derives no-photo entry text from selected check contents", () => {
+  const template = makeTemplate();
+  const inspection = makeInspection({
+    entries: [{
+      ...makeInspection().entries[0],
+      id: "entry-checked",
+      groupIds: ["group-checked"],
+      itemSnapshot: { ...makeInspection().entries[0].itemSnapshot, routeName: "卷扬机间" },
+      checkSelections: [
+        { category: "environment", value: "干净整洁", isCustom: false },
+        { category: "placement", value: "规范有序", isCustom: false },
+      ],
+    }],
+  });
+  const model = buildReportModel({
+    inspection,
+    groups: [
+      makePhotoGroup({ id: "group-checked", entryId: "entry-checked", description: "兜底说明。", photoIds: [] }),
+    ],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  const group = model.sections[0].groups[0];
+  expect(group.text).toBe("卷扬机间：环境卫生干净整洁，物品定置规范有序。");
+});
+
 test("rejects a photographed group that references a missing inspection entry", () => {
   const template = makeTemplate();
   const inspection = makeInspection({
