@@ -177,6 +177,19 @@ test("requires the latest four-category template for photographed general groups
   }));
 });
 
+test("requires the latest four-category template for no-photo general groups too", () => {
+  const errors = validateReportReadiness(makeGraph({
+    groups: [{ ...group, category: "general", description: "general performance", photoIds: [] }],
+    photos: [photo],
+  }));
+
+  expect(errors).toContainEqual(expect.objectContaining({
+    code: "PHOTO_CATEGORY_NOT_IN_TEMPLATE",
+    field: "template.sections",
+    message: "评价分类不在当前模板章节中，请切换至最新四分类模板。",
+  }));
+});
+
 test("rejects duplicate group ids without losing the duplicate evidence", () => {
   const errors = validateReportReadiness(
     makeGraph({

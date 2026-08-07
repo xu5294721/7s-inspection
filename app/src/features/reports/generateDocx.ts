@@ -314,11 +314,13 @@ export async function generateDocx(
         keepNext: true,
         firstLineIndent: true,
       }));
-      children.push(imageTable(model, group.photos.map((photo) => {
-        const prepared = preparedById.get(photo.id);
-        if (!prepared) throw new Error(`照片 ${photo.id} 尚未处理。`);
-        return prepared;
-      })));
+      if (group.photos.length > 0) {
+        children.push(imageTable(model, group.photos.map((photo) => {
+          const prepared = preparedById.get(photo.id);
+          if (!prepared) throw new Error(`照片 ${photo.id} 尚未处理。`);
+          return prepared;
+        })));
+      }
     }
   }
 

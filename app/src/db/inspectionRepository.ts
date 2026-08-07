@@ -64,7 +64,7 @@ function readBlobArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(reader.error ?? new Error("?????????"));
+    reader.onerror = () => reject(reader.error ?? new Error("无法读取照片数据。"));
     reader.readAsArrayBuffer(blob);
   });
 }
@@ -122,7 +122,7 @@ function findZipSignature(bytes: Uint8Array, signature: number): number {
 async function assertValidDocxPackage(packageBlob: Blob): Promise<void> {
   const docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (packageBlob.type !== docxMime || packageBlob.size < 22) {
-    throw new GraphIntegrityError("DOCX???????");
+    throw new GraphIntegrityError("DOCX打包结果无效。");
   }
 
   try {
@@ -184,13 +184,13 @@ async function assertValidDocxPackage(packageBlob: Blob): Promise<void> {
     }
   } catch (error) {
     if (error instanceof GraphIntegrityError) throw error;
-    throw new GraphIntegrityError("DOCX???????");
+    throw new GraphIntegrityError("DOCX打包结果无效。");
   }
 }
 
 function requireId(id: string, label: string): void {
   if (!id.trim()) {
-    throw new GraphIntegrityError(`${label} ID ?????`);
+    throw new GraphIntegrityError(`${label} ID 不能为空。`);
   }
 }
 
@@ -199,7 +199,7 @@ function requireUniqueIds<T extends { id: string }>(rows: T[], label: string): M
   for (const row of rows) {
     requireId(row.id, label);
     if (byId.has(row.id)) {
-      throw new GraphIntegrityError(`${label} ${row.id} ???`);
+      throw new GraphIntegrityError(`${label} ${row.id} 重复。`);
     }
     byId.set(row.id, row);
   }
@@ -208,13 +208,13 @@ function requireUniqueIds<T extends { id: string }>(rows: T[], label: string): M
 
 function requireUniqueReferences(ids: string[], label: string): void {
   if (new Set(ids).size !== ids.length) {
-    throw new GraphIntegrityError(`${label} ????????`);
+    throw new GraphIntegrityError(`${label} 中存在重复引用。`);
   }
 }
 
 function assertGroupEvaluation(group: PhotoGroup): void {
   if (!["good", "general", "reminder", "assessment"].includes(group.category)) {
-    throw new GraphIntegrityError("????????");
+    throw new GraphIntegrityError("照片组分类无效。");
   }
   const award = group.awardAssessment;
   if (!award) return;
@@ -224,10 +224,10 @@ function assertGroupEvaluation(group: PhotoGroup): void {
       ? "assessment"
       : null;
   if (!expectedType || award.type !== expectedType) {
-    throw new GraphIntegrityError("??????????????");
+    throw new GraphIntegrityError("奖考类型与照片组分类不一致。");
   }
   if (!Number.isSafeInteger(award.amount) || award.amount < 0) {
-    throw new GraphIntegrityError("???????0??????");
+    throw new GraphIntegrityError("金额必须为大于0的安全整数。");
   }
 }
 
@@ -246,16 +246,16 @@ function uniqueRouteNames(entries: InspectionEntry[]): string[] {
 
 function assertCompleteReviewRouteOrder(entries: InspectionEntry[], routeNames: string[]): void {
   if (new Set(routeNames).size !== routeNames.length) {
-    throw new GraphIntegrityError("???????????");
+    throw new GraphIntegrityError("巡检项点排序不能重复。");
   }
 
   const inspectionRouteNames = uniqueRouteNames(entries);
   const inspectionRouteNameSet = new Set(inspectionRouteNames);
   if (routeNames.some((routeName) => !inspectionRouteNameSet.has(routeName))) {
-    throw new GraphIntegrityError("?????????????");
+    throw new GraphIntegrityError("巡检项点排序包含未知项点。");
   }
   if (routeNames.length !== inspectionRouteNames.length) {
-    throw new GraphIntegrityError("????????????????????");
+    throw new GraphIntegrityError("巡检项点排序必须包含当前巡检的全部项点。");
   }
 }
 
@@ -267,27 +267,27 @@ function assertReviewRouteOrderByCategory(
   for (const routeNames of Object.values(routeOrderByCategory)) {
     if (!routeNames) continue;
     if (new Set(routeNames).size !== routeNames.length) {
-      throw new GraphIntegrityError("???????????");
+      throw new GraphIntegrityError("分类项点排序不能重复。");
     }
     if (routeNames.some((routeName) => !inspectionRouteNames.has(routeName))) {
-      throw new GraphIntegrityError("?????????????");
+      throw new GraphIntegrityError("分类项点排序包含未知项点。");
     }
   }
 }
 
 function assertGraphIntegrity(graph: InspectionGraph): void {
   const { inspection, groups, photos } = graph;
-  requireId(inspection.id, "????");
-  const entriesById = requireUniqueIds(inspection.entries, "????");
-  const groupsById = requireUniqueIds(groups, "???");
-  const photosById = requireUniqueIds(photos, "??");
+  requireId(inspection.id, "巡检记录");
+  const entriesById = requireUniqueIds(inspection.entries, "巡检条目");
+  const groupsById = requireUniqueIds(groups, "照片组");
+  const photosById = requireUniqueIds(photos, "照片");
   const photoReferenceCount = new Map<string, number>();
 
   if (
     graph.template &&
     (graph.template.id !== inspection.templateId || graph.template.version !== inspection.templateVersion)
   ) {
-    throw new GraphIntegrityError("????????????????????");
+    throw new GraphIntegrityError("巡检记录引用的模板版本与图中模板不一致。");
   }
   if (inspection.reviewRouteOrder) {
     assertCompleteReviewRouteOrder(inspection.entries, inspection.reviewRouteOrder);
@@ -298,16 +298,16 @@ function assertGraphIntegrity(graph: InspectionGraph): void {
 
   for (const entry of inspection.entries) {
     if (entry.inspectionId !== inspection.id) {
-      throw new GraphIntegrityError(`???? ${entry.id} ????? ID ????`);
+      throw new GraphIntegrityError(`巡检条目 ${entry.id} 的巡检记录 ID 不一致。`);
     }
     if (entry.itemSnapshot.id !== entry.itemId) {
-      throw new GraphIntegrityError(`???? ${entry.id} ????? ID ? itemId ????`);
+      throw new GraphIntegrityError(`巡检条目 ${entry.id} 的项点快照 ID 与 itemId 不一致。`);
     }
-    requireUniqueReferences(entry.groupIds, `???? ${entry.id} ??????`);
+    requireUniqueReferences(entry.groupIds, `巡检条目 ${entry.id} 的照片组引用`);
     for (const groupId of entry.groupIds) {
       const group = groupsById.get(groupId);
       if (!group || group.entryId !== entry.id) {
-        throw new GraphIntegrityError(`???? ${entry.id} ?????? ${groupId} ????`);
+        throw new GraphIntegrityError(`巡检条目 ${entry.id} 引用的照片组 ${groupId} 不一致。`);
       }
     }
   }
@@ -315,17 +315,17 @@ function assertGraphIntegrity(graph: InspectionGraph): void {
   for (const group of groups) {
     assertGroupEvaluation(group);
     if (group.inspectionId !== inspection.id) {
-      throw new GraphIntegrityError(`??? ${group.id} ????? ID ????`);
+      throw new GraphIntegrityError(`照片组 ${group.id} 的巡检记录 ID 不一致。`);
     }
     const entry = entriesById.get(group.entryId);
     if (!entry || !entry.groupIds.includes(group.id)) {
-      throw new GraphIntegrityError(`??? ${group.id} ???????????`);
+      throw new GraphIntegrityError(`照片组 ${group.id} 未由所属巡检条目引用。`);
     }
-    requireUniqueReferences(group.photoIds, `??? ${group.id} ?????`);
+    requireUniqueReferences(group.photoIds, `照片组 ${group.id} 的照片引用`);
     for (const photoId of group.photoIds) {
       const photo = photosById.get(photoId);
       if (!photo || photo.groupId !== group.id) {
-        throw new GraphIntegrityError(`??? ${group.id} ????? ${photoId} ????`);
+        throw new GraphIntegrityError(`照片组 ${group.id} 引用的照片 ${photoId} 不一致。`);
       }
       photoReferenceCount.set(photoId, (photoReferenceCount.get(photoId) ?? 0) + 1);
     }
@@ -333,13 +333,13 @@ function assertGraphIntegrity(graph: InspectionGraph): void {
 
   for (const photo of photos) {
     if (photo.inspectionId !== inspection.id) {
-      throw new GraphIntegrityError(`?? ${photo.id} ????? ID ????`);
+      throw new GraphIntegrityError(`照片 ${photo.id} 的巡检记录 ID 不一致。`);
     }
     if (!groupsById.has(photo.groupId)) {
-      throw new GraphIntegrityError(`?? ${photo.id} ?????? ${photo.groupId} ????`);
+      throw new GraphIntegrityError(`照片 ${photo.id} 关联的照片组 ${photo.groupId} 不存在。`);
     }
     if (photoReferenceCount.get(photo.id) !== 1) {
-      throw new GraphIntegrityError(`?? ${photo.id} ??????????????`);
+      throw new GraphIntegrityError(`照片 ${photo.id} 必须且只能由一个照片组引用。`);
     }
   }
 }
@@ -353,7 +353,7 @@ async function assertRowsOwnedByInspection<T extends { id: string; inspectionId:
   const existing = await table.bulkGet(rows.map((row) => row.id));
   for (const row of existing) {
     if (row && row.inspectionId !== inspectionId) {
-      throw new GraphIntegrityError(`${label} ${row.id} ??????????`);
+      throw new GraphIntegrityError(`${label} ${row.id} 已属于其他巡检记录。`);
     }
   }
 }
@@ -413,11 +413,11 @@ async function readGraphFromDb(db: SevenSDb, id: string): Promise<InspectionGrap
 
 async function recomputeCompletedReviewStatus(db: SevenSDb, id: string): Promise<void> {
   const storedInspection = await db.inspections.get(id);
-  if (!storedInspection) throw new GraphIntegrityError(`???? ${id} ????`);
+  if (!storedInspection) throw new GraphIntegrityError(`巡检记录 ${id} 不存在。`);
   if (storedInspection.status === "draft") return;
 
   const graph = await readGraphFromDb(db, id);
-  if (!graph) throw new GraphIntegrityError(`???? ${id} ????`);
+  if (!graph) throw new GraphIntegrityError(`巡检记录 ${id} 不存在。`);
 
   const status: InspectionStatus = validateReportReadiness(graph).length ? "draft" : "reviewed";
   const inspection = {
@@ -438,7 +438,7 @@ export class InspectionRepository {
 
   async saveGraph(graph: InspectionGraph): Promise<void> {
     if (graph.inspection.status === "generated") {
-      throw new GraphIntegrityError("???????DOCX??????");
+      throw new GraphIntegrityError("生成状态只能在DOCX成功后设置。");
     }
     assertGraphIntegrity(graph);
     const { entries, ...inspectionRecord } = graph.inspection;
@@ -450,9 +450,9 @@ export class InspectionRepository {
       this.db.photoGroups,
       this.db.photos,
       async () => {
-        await assertRowsOwnedByInspection(this.db.entries, entries, graph.inspection.id, "????");
-        await assertRowsOwnedByInspection(this.db.photoGroups, graph.groups, graph.inspection.id, "???");
-        await assertRowsOwnedByInspection(this.db.photos, graph.photos, graph.inspection.id, "??");
+        await assertRowsOwnedByInspection(this.db.entries, entries, graph.inspection.id, "巡检条目");
+        await assertRowsOwnedByInspection(this.db.photoGroups, graph.groups, graph.inspection.id, "照片组");
+        await assertRowsOwnedByInspection(this.db.photos, graph.photos, graph.inspection.id, "照片");
 
         await this.db.inspections.put(inspectionRecord);
         await this.db.entries.bulkPut(entries);
@@ -501,7 +501,7 @@ export class InspectionRepository {
       async () => {
         const inspection = await this.db.inspections.get(inspectionId);
         if (!inspection || inspection.deletedAt !== null) {
-          throw new GraphIntegrityError("????????????");
+          throw new GraphIntegrityError("巡检记录不存在或已删除。");
         }
         const entries = await this.db.entries.where("inspectionId").equals(inspectionId).toArray();
         assertCompleteReviewRouteOrder(entries, routeNames);
@@ -512,7 +512,7 @@ export class InspectionRepository {
           updatedAt,
         });
         if (updated !== 1) {
-          throw new GraphIntegrityError(`???? ${inspectionId} ?????`);
+          throw new GraphIntegrityError(`巡检记录 ${inspectionId} 更新失败。`);
         }
         return {
           ...inspection,
@@ -535,7 +535,7 @@ export class InspectionRepository {
       async () => {
         const inspection = await this.db.inspections.get(inspectionId);
         if (!inspection || inspection.deletedAt !== null) {
-          throw new GraphIntegrityError("????????????");
+          throw new GraphIntegrityError("巡检记录不存在或已删除。");
         }
         const entries = await this.db.entries.where("inspectionId").equals(inspectionId).toArray();
         assertReviewRouteOrderByCategory(entries, routeOrderByCategory);
@@ -552,7 +552,7 @@ export class InspectionRepository {
           updatedAt,
         });
         if (updated !== 1) {
-          throw new GraphIntegrityError(`???? ${inspectionId} ?????`);
+          throw new GraphIntegrityError(`巡检记录 ${inspectionId} 更新失败。`);
         }
         return {
           ...inspection,
@@ -579,14 +579,14 @@ export class InspectionRepository {
       async () => {
         const inspection = await this.db.inspections.get(inspectionId);
         if (!inspection || inspection.deletedAt !== null) {
-          throw new GraphIntegrityError("????????????");
+          throw new GraphIntegrityError("巡检记录不存在或已删除。");
         }
         const entry = await requireRow(
           await this.db.entries.get(entryId),
-          `???? ${entryId} ????`,
+          `巡检条目 ${entryId} 不存在。`,
         );
         if (entry.inspectionId !== inspectionId) {
-          throw new GraphIntegrityError(`???? ${entryId} ??????????`);
+          throw new GraphIntegrityError(`巡检条目 ${entryId} 不属于当前巡检记录。`);
         }
 
         const templateRow = await this.db.settings.get("inspection-check-template");
@@ -623,7 +623,7 @@ export class InspectionRepository {
         }
         const updated = await this.db.inspections.update(inspectionId, { status: "draft", updatedAt });
         if (updated !== 1) {
-          throw new GraphIntegrityError(`???? ${inspectionId} ?????`);
+          throw new GraphIntegrityError(`巡检记录 ${inspectionId} 更新失败。`);
         }
         return { entry: storedEntry, updatedAt, ...(createdGroup ? { group: createdGroup } : {}) };
       },
@@ -638,10 +638,10 @@ export class InspectionRepository {
     updatedAt = new Date().toISOString(),
   ): Promise<TemporaryEntryAppendResult> {
     if (!isPrefixedBrowserUuid(entryId, "temporary-entry")) {
-      throw new GraphIntegrityError("??????? ID ???");
+      throw new GraphIntegrityError("临时检查项条目 ID 无效。");
     }
     if (!isPrefixedBrowserUuid(itemId, "temporary-item")) {
-      throw new GraphIntegrityError("??????? ID ???");
+      throw new GraphIntegrityError("临时检查项快照 ID 无效。");
     }
     return this.db.transaction(
       "rw",
@@ -650,21 +650,21 @@ export class InspectionRepository {
       async () => {
         const inspection = await this.db.inspections.get(inspectionId);
         if (!inspection || inspection.deletedAt !== null) {
-          throw new GraphIntegrityError("????????????");
+          throw new GraphIntegrityError("巡检记录不存在或已删除。");
         }
 
         const normalizedName = normalizeRouteName(name);
         if (!normalizedName) {
-          throw new GraphIntegrityError("??????????");
+          throw new GraphIntegrityError("检查项名称不能为空。");
         }
 
         const entries = await this.db.entries.where("inspectionId").equals(inspectionId).toArray();
         if (entries.some((entry) =>
           normalizeRouteName(entry.itemSnapshot.routeName) === normalizedName)) {
-          throw new GraphIntegrityError("?????????????");
+          throw new GraphIntegrityError("当前巡检中已存在同名检查项");
         }
         if (entries.some((entry) => entry.itemId === itemId)) {
-          throw new GraphIntegrityError("???????????? ID?");
+          throw new GraphIntegrityError("当前巡检中已存在相同快照 ID。");
         }
 
         const order = entries.reduce((maximum, entry) => Math.max(maximum, entry.order), -1) + 1;
@@ -675,12 +675,12 @@ export class InspectionRepository {
           area: normalizedName,
           device: "",
           part: normalizedName,
-          standard: `??${normalizedName}7S??????`,
-          team: "??????",
+          standard: `检查${normalizedName}7S管理落实情况`,
+          team: "相关责任工班",
           sevenSCategory: "",
-          goodText: `${normalizedName}7S???????`,
-          reminderText: `${normalizedName}??7S???????????????`,
-          assessmentText: `${normalizedName}??7S????????`,
+          goodText: `${normalizedName}7S管理落实较好。`,
+          reminderText: `${normalizedName}存在7S管理不到位问题，本次予以提醒。`,
+          assessmentText: `${normalizedName}存在7S管理不到位问题。`,
           quickPhrases: [],
           enabled: true,
           createdAt: updatedAt,
@@ -733,7 +733,7 @@ export class InspectionRepository {
       this.db.templates,
       async () => {
         const graph = await readGraphFromDb(this.db, id);
-        if (!graph) throw new GraphIntegrityError(`???? ${id} ????`);
+        if (!graph) throw new GraphIntegrityError(`巡检记录 ${id} 不存在。`);
         const errors = validateReportReadiness(graph);
         if (errors.length > 0) throw new GraphIntegrityError(errors[0].message);
         return graph;
@@ -747,7 +747,7 @@ export class InspectionRepository {
     packageBlob: Blob,
   ): Promise<InspectionGraph> {
     if (packagedSnapshot.inspection.id !== id) {
-      throw new GraphIntegrityError("?????????????");
+      throw new GraphIntegrityError("打包快照与巡检记录不一致。");
     }
     await assertValidDocxPackage(packageBlob);
     const packagedFingerprint = await reportSnapshotFingerprint(packagedSnapshot);
@@ -760,12 +760,12 @@ export class InspectionRepository {
       this.db.templates,
       async () => {
         const graph = await readGraphFromDb(this.db, id);
-        if (!graph) throw new GraphIntegrityError(`???? ${id} ????`);
+        if (!graph) throw new GraphIntegrityError(`巡检记录 ${id} 不存在。`);
         const errors = validateReportReadiness(graph);
         if (errors.length > 0) throw new GraphIntegrityError(errors[0].message);
         const currentFingerprint = await Dexie.waitFor(reportSnapshotFingerprint(graph));
         if (currentFingerprint !== packagedFingerprint) {
-          throw new GraphIntegrityError("????????????????????");
+          throw new GraphIntegrityError("打包期间巡检内容已发生变化，请重新生成。");
         }
         const inspection = {
           ...graph.inspection,
@@ -794,13 +794,13 @@ export class InspectionRepository {
       async () => {
       const entry = await requireRow(
         await this.db.entries.get(entryId),
-        `???? ${entryId} ????`,
+        `巡检条目 ${entryId} 不存在。`,
       );
       if (photo.inspectionId !== entry.inspectionId) {
-        throw new GraphIntegrityError(`?? ${photo.id} ????? ID ????`);
+        throw new GraphIntegrityError(`照片 ${photo.id} 的巡检记录 ID 不一致。`);
       }
       if (await this.db.photos.get(photo.id)) {
-        throw new GraphIntegrityError(`?? ${photo.id} ????`);
+        throw new GraphIntegrityError(`照片 ${photo.id} 已存在。`);
       }
 
       const groups = await this.db.photoGroups.bulkGet(entry.groupIds);
@@ -817,7 +817,7 @@ export class InspectionRepository {
         order: entry.groupIds.length,
       };
       if (!group.id.trim()) {
-        throw new GraphIntegrityError("??? ID ?????");
+        throw new GraphIntegrityError("照片组 ID 不能为空。");
       }
       const storedPhoto: PhotoAsset = {
         ...photo,
@@ -849,8 +849,8 @@ export class InspectionRepository {
     updatedAt = new Date().toISOString(),
   ): Promise<EvaluationGroupAppendResult> {
     const parsedCategory = photoCategorySchema.safeParse(category);
-    if (!parsedCategory.success) throw new GraphIntegrityError("????????");
-    requireId(groupId, "???");
+    if (!parsedCategory.success) throw new GraphIntegrityError("照片组分类无效。");
+    requireId(groupId, "照片组");
 
     return this.db.transaction(
       "rw",
@@ -860,17 +860,17 @@ export class InspectionRepository {
       async () => {
         const entry = await requireRow(
           await this.db.entries.get(entryId),
-          `???? ${entryId} ????`,
+          `巡检条目 ${entryId} 不存在。`,
         );
         const inspection = await requireRow(
           await this.db.inspections.get(entry.inspectionId),
-          `???? ${entry.inspectionId} ????`,
+          `巡检记录 ${entry.inspectionId} 不存在。`,
         );
         if (inspection.deletedAt !== null) {
-          throw new GraphIntegrityError("????????");
+          throw new GraphIntegrityError("巡检记录已删除。");
         }
         if (await this.db.photoGroups.get(groupId)) {
-          throw new GraphIntegrityError(`??? ${groupId} ????`);
+          throw new GraphIntegrityError(`照片组 ${groupId} 已存在。`);
         }
 
         const group: PhotoGroup = {
@@ -892,7 +892,7 @@ export class InspectionRepository {
           updatedAt,
         });
         if (updated !== 1) {
-          throw new GraphIntegrityError(`???? ${inspection.id} ?????`);
+          throw new GraphIntegrityError(`巡检记录 ${inspection.id} 更新失败。`);
         }
         return { entry: storedEntry, group, updatedAt };
       },
@@ -910,14 +910,14 @@ export class InspectionRepository {
       async () => {
       const existing = await requireRow(
         await this.db.photos.get(photo.id),
-        `?? ${photo.id} ????`,
+        `照片 ${photo.id} 不存在。`,
       );
       if (
         photo.inspectionId !== existing.inspectionId ||
         photo.groupId !== existing.groupId ||
         photo.order !== existing.order
       ) {
-        throw new GraphIntegrityError(`?? ${photo.id} ???????????????`);
+        throw new GraphIntegrityError(`照片 ${photo.id} 的归属或顺序不能在替换时改变。`);
       }
       await this.db.photos.put(photo);
       await recomputeCompletedReviewStatus(this.db, photo.inspectionId);
@@ -935,22 +935,22 @@ export class InspectionRepository {
       async () => {
       const existing = await requireRow(
         await this.db.photoGroups.get(group.id),
-        `??? ${group.id} ????`,
+        `照片组 ${group.id} 不存在。`,
       );
       if (
         group.inspectionId !== existing.inspectionId ||
         group.entryId !== existing.entryId
       ) {
-        throw new GraphIntegrityError(`??? ${group.id} ??????????????`);
+        throw new GraphIntegrityError(`照片组 ${group.id} 的归属不能通过评价更新修改。`);
       }
       if (
         group.photoIds.length !== existing.photoIds.length ||
         group.photoIds.some((photoId, index) => photoId !== existing.photoIds[index])
       ) {
-        throw new GraphIntegrityError("???????????????");
+        throw new GraphIntegrityError("照片引用不能通过评价更新修改。");
       }
       if (group.order !== existing.order) {
-        throw new GraphIntegrityError("????????????????");
+        throw new GraphIntegrityError("照片组顺序不能通过评价更新修改。");
       }
       assertGroupEvaluation(group);
       await this.db.photoGroups.put({ ...group, photoIds: [...group.photoIds] });
@@ -970,7 +970,7 @@ export class InspectionRepository {
       async () => {
       const photo = await requireRow(
         await this.db.photos.get(photoId),
-        `?? ${photoId} ????`,
+        `照片 ${photoId} 不存在。`,
       );
       await this.db.photos.put({ ...photo, annotationJson });
       await recomputeCompletedReviewStatus(this.db, photo.inspectionId);
@@ -979,7 +979,7 @@ export class InspectionRepository {
 
   async setInspectionStatus(id: string, status: InspectionStatus): Promise<void> {
     if (status === "generated") {
-      throw new GraphIntegrityError("???????DOCX??????");
+      throw new GraphIntegrityError("生成状态只能在DOCX成功后设置。");
     }
     if (status === "reviewed") {
       await this.markReviewedIfReady(id);
@@ -991,7 +991,7 @@ export class InspectionRepository {
         updatedAt: new Date().toISOString(),
       });
       if (updated === 0) {
-        throw new GraphIntegrityError(`???? ${id} ????`);
+        throw new GraphIntegrityError(`巡检记录 ${id} 不存在。`);
       }
     });
   }
@@ -1006,7 +1006,7 @@ export class InspectionRepository {
       this.db.templates,
       async () => {
         const graph = await readGraphFromDb(this.db, id);
-        if (!graph) throw new GraphIntegrityError(`???? ${id} ????`);
+        if (!graph) throw new GraphIntegrityError(`巡检记录 ${id} 不存在。`);
         const errors = validateReportReadiness(graph);
         if (errors.length > 0) throw new GraphIntegrityError(errors[0].message);
         const inspection = {
@@ -1029,14 +1029,14 @@ export class InspectionRepository {
     photosPerRowOverride: PhotosPerRow | null,
   ): Promise<void> {
     if (!templateId.trim() || !Number.isSafeInteger(templateVersion) || templateVersion <= 0) {
-      throw new GraphIntegrityError("???????");
+      throw new GraphIntegrityError("模板版本无效。");
     }
     if (
       photoLayoutModeOverride !== null &&
       photoLayoutModeOverride !== "adaptive" &&
       photoLayoutModeOverride !== "fixed"
     ) {
-      throw new GraphIntegrityError("?????????");
+      throw new GraphIntegrityError("照片排版模式无效。");
     }
     if (
       photosPerRowOverride !== null &&
@@ -1045,7 +1045,7 @@ export class InspectionRepository {
       photosPerRowOverride !== 3 &&
       photosPerRowOverride !== 4
     ) {
-      throw new GraphIntegrityError("????????1?4??");
+      throw new GraphIntegrityError("每行照片数只能为1到4张。");
     }
     await this.db.transaction(
       "rw",
@@ -1057,10 +1057,10 @@ export class InspectionRepository {
       async () => {
       const inspection = await requireRow(
         await this.db.inspections.get(id),
-        `???? ${id} ????`,
+        `巡检记录 ${id} 不存在。`,
       );
       if (!await this.db.templates.get([templateId, templateVersion])) {
-        throw new GraphIntegrityError(`?? ${templateId} ?? ${templateVersion} ????`);
+        throw new GraphIntegrityError(`模板 ${templateId} 版本 ${templateVersion} 不存在。`);
       }
       await this.db.inspections.put({
         ...inspection,
@@ -1075,16 +1075,16 @@ export class InspectionRepository {
   }
 
   async reorderGroups(inspectionId: string, orderedGroupIds: string[]): Promise<void> {
-    requireUniqueReferences(orderedGroupIds, "?????");
+    requireUniqueReferences(orderedGroupIds, "照片组排序");
     await this.db.transaction("rw", this.db.inspections, this.db.entries, this.db.photoGroups, this.db.photos, this.db.templates, async () => {
       const storedGroups = await this.db.photoGroups.where("inspectionId").equals(inspectionId).toArray();
       if (storedGroups.length !== orderedGroupIds.length) {
-        throw new GraphIntegrityError("????????????????????");
+        throw new GraphIntegrityError("照片组排序必须包含当前巡检的全部照片组。");
       }
       const byId = new Map(storedGroups.map((group) => [group.id, group]));
       const reordered = orderedGroupIds.map((id, order) => {
         const group = byId.get(id);
-        if (!group) throw new GraphIntegrityError(`??? ${id} ????`);
+        if (!group) throw new GraphIntegrityError(`照片组 ${id} 不存在。`);
         return { ...group, order };
       });
       const entries = await this.db.entries.where("inspectionId").equals(inspectionId).toArray();
@@ -1106,21 +1106,21 @@ export class InspectionRepository {
     category: PhotoCategory,
     orderedGroupIds: string[],
   ): Promise<void> {
-    requireUniqueReferences(orderedGroupIds, "?????");
+    requireUniqueReferences(orderedGroupIds, "照片组排序");
     await this.db.transaction("rw", this.db.inspections, this.db.entries, this.db.photoGroups, this.db.photos, this.db.templates, async () => {
       const storedGroups = await this.db.photoGroups.where("inspectionId").equals(inspectionId).toArray();
       if (storedGroups.length !== orderedGroupIds.length) {
-        throw new GraphIntegrityError("????????????????????");
+        throw new GraphIntegrityError("照片组排序必须包含当前巡检的全部照片组。");
       }
       const entries = await this.db.entries.where("inspectionId").equals(inspectionId).toArray();
       const entryById = new Map(entries.map((entry) => [entry.id, entry]));
       const byId = new Map(storedGroups.map((group) => [group.id, group]));
       const reordered = orderedGroupIds.map((id, order) => {
         const group = byId.get(id);
-        if (!group) throw new GraphIntegrityError(`??? ${id} ????`);
+        if (!group) throw new GraphIntegrityError(`照片组 ${id} 不存在。`);
         if (id !== groupId) return { ...group, order };
         const entry = entryById.get(group.entryId);
-        if (!entry) throw new GraphIntegrityError(`???? ${group.entryId} ????`);
+        if (!entry) throw new GraphIntegrityError(`巡检条目 ${group.entryId} 不存在。`);
         return {
           ...group,
           category,
@@ -1130,7 +1130,7 @@ export class InspectionRepository {
           order,
         };
       });
-      if (!byId.has(groupId)) throw new GraphIntegrityError(`??? ${groupId} ????`);
+      if (!byId.has(groupId)) throw new GraphIntegrityError(`照片组 ${groupId} 不存在。`);
       const rank = new Map(orderedGroupIds.map((id, order) => [id, order]));
       await this.db.photoGroups.bulkPut(reordered);
       await this.db.entries.bulkPut(entries.map((entry) => ({
@@ -1144,17 +1144,17 @@ export class InspectionRepository {
   }
 
   async reorderPhotos(groupId: string, orderedPhotoIds: string[]): Promise<void> {
-    requireUniqueReferences(orderedPhotoIds, "????");
+    requireUniqueReferences(orderedPhotoIds, "照片排序");
     await this.db.transaction("rw", this.db.inspections, this.db.entries, this.db.photoGroups, this.db.photos, this.db.templates, async () => {
       const group = await requireRow(
         await this.db.photoGroups.get(groupId),
-        `??? ${groupId} ????`,
+        `照片组 ${groupId} 不存在。`,
       );
       if (
         group.photoIds.length !== orderedPhotoIds.length ||
         orderedPhotoIds.some((id) => !group.photoIds.includes(id))
       ) {
-        throw new GraphIntegrityError("?????????????????");
+        throw new GraphIntegrityError("照片排序必须包含照片组的全部照片。");
       }
       await this.persistPhotoOrders(orderedPhotoIds);
       await this.db.photoGroups.put({ ...group, photoIds: [...orderedPhotoIds] });
@@ -1174,7 +1174,7 @@ export class InspectionRepository {
     await this.db.transaction("rw", this.db.inspections, async () => {
       const updated = await this.db.inspections.update(id, { deletedAt });
       if (updated === 0) {
-        throw new GraphIntegrityError(`???? ${id} ????`);
+        throw new GraphIntegrityError(`巡检记录 ${id} 不存在。`);
       }
     });
   }
@@ -1190,7 +1190,7 @@ export class InspectionRepository {
       async () => {
       const photo = await requireRow(
         await this.db.photos.get(photoId),
-        `?? ${photoId} ????`,
+        `照片 ${photoId} 不存在。`,
       );
       if (photo.groupId === targetGroupId) {
         return;
@@ -1198,31 +1198,31 @@ export class InspectionRepository {
 
       const source = await requireRow(
         await this.db.photoGroups.get(photo.groupId),
-        `?? ${photoId} ?????????`,
+        `照片 ${photoId} 的原照片组不存在。`,
       );
       const target = await requireRow(
         await this.db.photoGroups.get(targetGroupId),
-        `????? ${targetGroupId} ????`,
+        `目标照片组 ${targetGroupId} 不存在。`,
       );
       if (source.inspectionId !== target.inspectionId || photo.inspectionId !== target.inspectionId) {
-        throw new GraphIntegrityError("??????????????????");
+        throw new GraphIntegrityError("照片不能移动到其他巡检记录的照片组。");
       }
       if (!source.photoIds.includes(photoId) || target.photoIds.includes(photoId)) {
-        throw new GraphIntegrityError(`?? ${photoId} ??????????`);
+        throw new GraphIntegrityError(`照片 ${photoId} 的照片组引用不一致。`);
       }
 
       const sourcePhotoIds = source.photoIds.filter((id) => id !== photoId);
       const targetPhotoIds = [...target.photoIds, photoId];
       const sourceEntry = await requireRow(
         await this.db.entries.get(source.entryId),
-        `???? ${source.entryId} ????`,
+        `巡检条目 ${source.entryId} 不存在。`,
       );
       const targetEntry =
         source.entryId === target.entryId
           ? sourceEntry
           : await requireRow(
               await this.db.entries.get(target.entryId),
-              `???? ${target.entryId} ????`,
+              `巡检条目 ${target.entryId} 不存在。`,
             );
 
       if (sourcePhotoIds.length === 0) {
@@ -1268,21 +1268,21 @@ export class InspectionRepository {
       async () => {
       const photo = await requireRow(
         await this.db.photos.get(photoId),
-        `?? ${photoId} ????`,
+        `照片 ${photoId} 不存在。`,
       );
       const source = await requireRow(
         await this.db.photoGroups.get(photo.groupId),
-        `?? ${photoId} ?????????`,
+        `照片 ${photoId} 的原照片组不存在。`,
       );
       const entry = await requireRow(
         await this.db.entries.get(source.entryId),
-        `???? ${source.entryId} ????`,
+        `巡检条目 ${source.entryId} 不存在。`,
       );
       if (source.photoIds.length <= 1) {
-        throw new GraphIntegrityError("?????????????????");
+        throw new GraphIntegrityError("单照片组不能拆分，请直接修改分类。");
       }
       if (!source.photoIds.includes(photoId)) {
-        throw new GraphIntegrityError(`?? ${photoId} ????????`);
+        throw new GraphIntegrityError(`照片 ${photoId} 不在原照片组中。`);
       }
       if (
         createdGroup.inspectionId !== source.inspectionId ||
@@ -1290,7 +1290,7 @@ export class InspectionRepository {
         createdGroup.photoIds.length !== 1 ||
         createdGroup.photoIds[0] !== photoId
       ) {
-        throw new GraphIntegrityError("?????????????????");
+        throw new GraphIntegrityError("新照片组与待拆分照片的结构不一致。");
       }
 
       const sourcePhotoIds = source.photoIds.filter((id) => id !== photoId);
@@ -1299,7 +1299,7 @@ export class InspectionRepository {
       groupIds.splice(sourceIndex + 1, 0, createdGroup.id);
 
       if (await this.db.photoGroups.get(createdGroup.id)) {
-        throw new GraphIntegrityError(`??? ${createdGroup.id} ????`);
+        throw new GraphIntegrityError(`照片组 ${createdGroup.id} 已存在。`);
       }
       const existingGroups = await this.db.photoGroups.bulkGet(entry.groupIds);
       const existingById = new Map(
@@ -1311,7 +1311,7 @@ export class InspectionRepository {
         if (groupId === createdGroup.id) return { ...createdGroup, order };
         const existing = existingById.get(groupId);
         if (!existing) {
-          throw new GraphIntegrityError(`??? ${groupId} ????`);
+          throw new GraphIntegrityError(`照片组 ${groupId} 不存在。`);
         }
         return { ...existing, order };
       });
@@ -1335,14 +1335,14 @@ export class InspectionRepository {
       async () => {
       const photo = await requireRow(
         await this.db.photos.get(photoId),
-        `?? ${photoId} ????`,
+        `照片 ${photoId} 不存在。`,
       );
       const group = await requireRow(
         await this.db.photoGroups.get(photo.groupId),
-        `?? ${photoId} ????????`,
+        `照片 ${photoId} 的照片组不存在。`,
       );
       if (!group.photoIds.includes(photoId)) {
-        throw new GraphIntegrityError(`??? ${group.id} ????? ${photoId}?`);
+        throw new GraphIntegrityError(`照片组 ${group.id} 未引用照片 ${photoId}。`);
       }
 
       const photoIds = group.photoIds.filter((id) => id !== photoId);
@@ -1356,7 +1356,7 @@ export class InspectionRepository {
 
       const entry = await requireRow(
         await this.db.entries.get(group.entryId),
-        `???? ${group.entryId} ????`,
+        `巡检条目 ${group.entryId} 不存在。`,
       );
       await this.db.photoGroups.delete(group.id);
       await this.db.entries.put({
@@ -1377,10 +1377,10 @@ export class InspectionRepository {
       async () => {
         const inspection = await this.db.inspections.get(id);
         if (!inspection) {
-          throw new GraphIntegrityError(`???? ${id} ????`);
+          throw new GraphIntegrityError(`巡检记录 ${id} 不存在。`);
         }
         if (inspection.deletedAt === null) {
-          throw new GraphIntegrityError(`???? ${id} ??????????????`);
+          throw new GraphIntegrityError(`巡检记录 ${id} 未移入回收站，不能彻底删除。`);
         }
         await this.db.entries.where("inspectionId").equals(id).delete();
         await this.db.photoGroups.where("inspectionId").equals(id).delete();
@@ -1394,7 +1394,7 @@ export class InspectionRepository {
     const photos = await this.db.photos.bulkGet(photoIds);
     const reordered: PhotoAsset[] = photos.map((photo, index) => {
       if (!photo) {
-        throw new GraphIntegrityError(`?? ${photoIds[index]} ????`);
+        throw new GraphIntegrityError(`照片 ${photoIds[index]} 不存在。`);
       }
       return { ...photo, order: index };
     });

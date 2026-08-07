@@ -131,14 +131,13 @@ export function validateReportReadiness(graph: InspectionGraph): ReportValidatio
 
     if (
       templateCategories &&
-      group.photoIds.length > 0 &&
       !templateCategories.has(group.category)
     ) {
       errors.push(error(
         group.id,
         "template.sections",
         "PHOTO_CATEGORY_NOT_IN_TEMPLATE",
-        "照片分类不在当前模板章节中，请切换至最新四分类模板。",
+        "评价分类不在当前模板章节中，请切换至最新四分类模板。",
       ));
     }
 

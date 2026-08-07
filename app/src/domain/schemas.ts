@@ -18,7 +18,7 @@ export const inspectionCheckSelectionSchema = z.object({
   value: z.string(),
   isCustom: z.boolean(),
 });
-export const sevenSCategorySchema = z.enum(["??", "??", "??", "??", "??", "??", "??", ""]);
+export const sevenSCategorySchema = z.enum(["整理", "整顿", "清扫", "清洁", "素养", "安全", "节约", ""]);
 
 export const checklistItemSchema = z.object({
   id: z.string().min(1),
@@ -54,14 +54,14 @@ export const inspectionRouteTemplateSchema = z
       context.addIssue({
         code: "custom",
         path: ["itemIds"],
-        message: "?????????",
+        message: "模板项目不能重复。",
       });
     }
     if (value.isDefault && value.name !== DEFAULT_ROUTE_TEMPLATE_NAME) {
       context.addIssue({
         code: "custom",
         path: ["name"],
-        message: `??????????${DEFAULT_ROUTE_TEMPLATE_NAME}??`,
+        message: `默认模板名称必须为“${DEFAULT_ROUTE_TEMPLATE_NAME}”。`,
       });
     }
   });
@@ -104,7 +104,7 @@ export const inspectionRecordSchema = z.object({
     context.addIssue({
       code: "custom",
       path: ["reviewRouteOrder"],
-      message: "???????????",
+      message: "巡检项点排序不能重复。",
     });
   }
   for (const [category, routeNames] of Object.entries(inspection.reviewRouteOrderByCategory ?? {})) {
@@ -112,7 +112,7 @@ export const inspectionRecordSchema = z.object({
       context.addIssue({
         code: "custom",
         path: ["reviewRouteOrderByCategory", category],
-        message: "???????????",
+        message: "分类项点排序不能重复。",
       });
     }
   }
@@ -158,7 +158,7 @@ export const settingsRecordSchema = z.object({
 
 const reportSectionSchema = z.object({
   category: photoCategorySchema,
-  title: z.string().trim().min(1, "?????????"),
+  title: z.string().trim().min(1, "章节标题不能为空。"),
   order: z.number().int().nonnegative(),
 });
 
@@ -210,7 +210,7 @@ export const reportTemplateSchema = z
       context.addIssue({
         code: "custom",
         path: ["sections"],
-        message: "?????????????????????",
+        message: "模板必须包含旧三类章节或完整四类照片章节。",
       });
     }
 
@@ -218,7 +218,7 @@ export const reportTemplateSchema = z
       context.addIssue({
         code: "custom",
         path: ["sections"],
-        message: "???????????",
+        message: "模板章节排序不能重复。",
       });
     }
   });

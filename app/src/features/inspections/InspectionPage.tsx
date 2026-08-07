@@ -66,7 +66,7 @@ interface PhotoOperation {
 }
 
 function abortError(): DOMException {
-  return new DOMException("???????", "AbortError");
+  return new DOMException("照片处理已取消", "AbortError");
 }
 
 function isCurrentInspectionRoute(inspectionId: string): boolean {
@@ -321,7 +321,7 @@ export function InspectionPage() {
       try {
         await saveCapturedPhotoToGallery(file);
       } catch {
-        setPhotoError("????????????????????????????????");
+        setPhotoError("巡检照片已保存，但未能同步到手机相册，请确认手机存储空间后重拍。");
       }
     }
     setGraph((current) => current && current.inspection.id === operation.inspectionId
@@ -340,7 +340,7 @@ export function InspectionPage() {
           await saveNewPhoto(operation, entryId, file, source);
         } catch (error) {
           if (!isCurrent(operation)) break;
-          const message = error instanceof Error ? error.message : "??????";
+          const message = error instanceof Error ? error.message : "照片处理失败";
           setFailedPhotos((current) => [
             ...current,
             { id: createBrowserUuid(), entryId, file, source, message },
@@ -365,7 +365,7 @@ export function InspectionPage() {
         setFailedPhotos((current) => current.filter((item) => item.id !== failed.id));
       } catch (error) {
         if (!isCurrent(operation)) return;
-        const message = error instanceof Error ? error.message : "??????";
+        const message = error instanceof Error ? error.message : "照片处理失败";
         setFailedPhotos((current) => current.map((item) =>
           item.id === failed.id ? { ...item, message } : item,
         ));
@@ -399,7 +399,7 @@ export function InspectionPage() {
         try {
           await saveCapturedPhotoToGallery(file);
         } catch {
-          setPhotoError("????????????????????????????????");
+          setPhotoError("巡检照片已保存，但未能同步到手机相册，请确认手机存储空间后重拍。");
         }
       }
       setGraph((current) => current && current.inspection.id === operation.inspectionId
@@ -407,7 +407,7 @@ export function InspectionPage() {
         : current);
     } catch (error) {
       if (!isCurrent(operation)) return;
-      setPhotoError(error instanceof Error ? error.message : "??????");
+      setPhotoError(error instanceof Error ? error.message : "照片处理失败");
     } finally {
       finishOperation(operation);
     }
@@ -416,7 +416,7 @@ export function InspectionPage() {
   async function changeHighQuality(photo: PhotoAsset, highQuality: boolean) {
     const file = sourceFiles.current.get(photo.id);
     if (!file) {
-      setPhotoError("???????????????????????");
+      setPhotoError("原图已不在当前页面，请通过替换或重拍重新选择。");
       return;
     }
     await replacePhoto(photo, file, highQuality);
@@ -434,7 +434,7 @@ export function InspectionPage() {
         : current);
     } catch (error) {
       if (isCurrent(operation)) {
-        setPhotoError(error instanceof Error ? error.message : "??????");
+        setPhotoError(error instanceof Error ? error.message : "照片删除失败");
       }
     } finally {
       finishOperation(operation);
@@ -449,7 +449,7 @@ export function InspectionPage() {
         ? replaceGroupInGraph(current, group)
         : current);
     } catch (error) {
-      setPhotoError(error instanceof Error ? error.message : "??????");
+      setPhotoError(error instanceof Error ? error.message : "评价保存失败");
       throw error;
     }
   }
@@ -474,7 +474,7 @@ export function InspectionPage() {
         ? splitPhotoInGraph(current, result.source, result.created, photoId)
         : current);
     } catch (error) {
-      setPhotoError(error instanceof Error ? error.message : "????????");
+      setPhotoError(error instanceof Error ? error.message : "照片分类调整失败");
       throw error;
     }
   }
@@ -487,7 +487,7 @@ export function InspectionPage() {
         ? replacePhotoInGraph(current, photo)
         : current);
     } catch (error) {
-      setPhotoError(error instanceof Error ? error.message : "????????");
+      setPhotoError(error instanceof Error ? error.message : "照片标注保存失败");
       throw error;
     }
   }
@@ -588,7 +588,7 @@ export function InspectionPage() {
 
   async function createEvaluationGroup(entryId: string, category: PhotoCategory) {
     if (processing || savingEntryIds.has(entryId)) {
-      throw new Error("?????????????");
+      throw new Error("当前项点正在保存，请稍候。");
     }
     const generation = inspectionGeneration.current;
     const inspectionId = id;
@@ -614,7 +614,7 @@ export function InspectionPage() {
         inspectionId === currentInspectionId.current &&
         isCurrentInspectionRoute(inspectionId)
       ) {
-        setPhotoError(error instanceof Error ? error.message : "??????");
+        setPhotoError(error instanceof Error ? error.message : "评价保存失败");
       }
       throw error;
     } finally {
@@ -637,7 +637,7 @@ export function InspectionPage() {
     if (!graph) return grouped;
     for (const entry of graph.inspection.entries.filter((item) => matchesSearch(item, query))) {
       const route = grouped.get(entry.itemSnapshot.routeName) ?? new Map();
-      const area = entry.itemSnapshot.area || entry.itemSnapshot.device || "?????";
+      const area = entry.itemSnapshot.area || entry.itemSnapshot.device || "未标注区域";
       const areaEntries = route.get(area) ?? [];
       areaEntries.push(entry);
       route.set(area, areaEntries);
@@ -664,25 +664,25 @@ export function InspectionPage() {
     if (trigger && document.contains(trigger)) trigger.focus();
   }
 
-  if (graph === undefined) return <p className="status-message" role="status">????????...</p>;
-  if (graph === null) return <p className="status-message" role="alert">????????</p>;
+  if (graph === undefined) return <p className="status-message" role="status">正在读取巡检草稿...</p>;
+  if (graph === null) return <p className="status-message" role="alert">未找到巡检记录。</p>;
 
   return (
     <section className="page-section inspection-page">
       <div className="section-heading inspection-title">
-        <p className="eyebrow">????</p>
+        <p className="eyebrow">巡检草稿</p>
         <h2>{graph.inspection.title}</h2>
       </div>
       <div className="inspection-search-toolbar">
         <label className="search-control">
           <Search aria-hidden="true" size={19} />
-          <span className="sr-only">??????</span>
+          <span className="sr-only">搜索巡检项点</span>
           <input
             type="search"
-            aria-label="??????"
+            aria-label="搜索巡检项点"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="????????????????"
+            placeholder="搜索路线、区域、设备、部位或标准"
           />
         </label>
         <button
@@ -693,29 +693,29 @@ export function InspectionPage() {
           onClick={() => setTemporaryDialogOpen(true)}
         >
           <Plus aria-hidden="true" size={18} />
-          ?????
+          新增检查项
         </button>
       </div>
-      {progress ? <p className="photo-progress" role="status">??? {progress.done}/{progress.total}</p> : null}
+      {progress ? <p className="photo-progress" role="status">已处理 {progress.done}/{progress.total}</p> : null}
       {photoError ? <p className="inline-error" role="alert">{photoError}</p> : null}
       {failedPhotos.length > 0 ? (
         <ul className="failed-photo-list">
           {failedPhotos.map((failed) => (
             <li key={failed.id}>
-              <span>{failed.file.name}?{failed.message}</span>
+              <span>{failed.file.name}：{failed.message}</span>
               <button
                 type="button"
                 disabled={processing}
-                aria-label={`?? ${failed.file.name}`}
+                aria-label={`重试 ${failed.file.name}`}
                 onClick={() => void retryPhoto(failed)}
               >
-                ??
+                重试
               </button>
             </li>
           ))}
         </ul>
       ) : null}
-      {routes.size === 0 ? <p className="empty-state">??????????</p> : null}
+      {routes.size === 0 ? <p className="empty-state">没有匹配的巡检项点。</p> : null}
       {Array.from(routes, ([routeName, areas]) => {
         const entries = Array.from(areas.values()).flat();
         const isComplete = routeIsComplete(entries, graph.groups);
@@ -728,7 +728,7 @@ export function InspectionPage() {
             {entries.length > 1 ? (
               <div className="inspection-route__heading">
                 <h3>{routeName}</h3>
-                <span className="inspection-route__status" data-complete={isComplete}>{isComplete ? "???" : "???"}</span>
+                <span className="inspection-route__status" data-complete={isComplete}>{isComplete ? "已检查" : "未完成"}</span>
               </div>
             ) : null}
             <ul className="inspection-entry-list">
@@ -753,14 +753,14 @@ export function InspectionPage() {
           onClick={() => navigate(`/inspections/${id}/review`)}
         >
           <ClipboardCheck aria-hidden="true" size={19} />
-          ?????????
+          完成检查，进入复核
         </button>
       </div>
       {temporaryDialogOpen ? (
         <CustomRouteDialog
           openerRef={temporaryOpenerRef}
-          title="???????"
-          fieldLabel="?????"
+          title="新增本次检查项"
+          fieldLabel="检查项名称"
           onCancel={() => {
             if (!temporarySaving) setTemporaryDialogOpen(false);
           }}

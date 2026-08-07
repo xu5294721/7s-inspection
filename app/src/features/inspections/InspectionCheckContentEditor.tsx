@@ -80,8 +80,8 @@ export function InspectionCheckContentEditor({
   const customRefs = useRef<Partial<Record<InspectionCheckCategory, HTMLInputElement>>>({});
   const controlsDisabled = disabled || saving;
   const summary = displayedSelections.length === 0
-    ? "????????????"
-    : `?????${formatInspectionCheckSummary(displayedSelections, "?", undefined, definitions)}`;
+    ? "检查内容：请选择检查内容"
+    : `检查内容：${formatInspectionCheckSummary(displayedSelections, "、", undefined, definitions)}`;
 
   useEffect(() => {
     setDisplayedSelections(entry.checkSelections);
@@ -145,7 +145,7 @@ export function InspectionCheckContentEditor({
     const selections = selectionsForDraft(draft, definitions);
     const invalidCustom = selections.find((selection) => selection.isCustom && !selection.value);
     if (invalidCustom) {
-      setError("???????????");
+      setError("请输入自定义检查内容。");
       setFocusCategory(invalidCustom.category);
       return;
     }
@@ -157,7 +157,7 @@ export function InspectionCheckContentEditor({
       setDisplayedSelections(selections);
       setExpanded(false);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "?????????");
+      setError(reason instanceof Error ? reason.message : "检查内容保存失败。");
       setFocusCategory(definitions[0]?.category ?? null);
     } finally {
       setSaving(false);
@@ -211,16 +211,16 @@ export function InspectionCheckContentEditor({
                     }
                   }}
                 >
-                  <option value="">???</option>
+                  <option value="">未选择</option>
                   {definition.options.map((option) => <option value={option} key={option}>{option}</option>)}
-                  <option value={CUSTOM_VALUE}>???</option>
+                  <option value={CUSTOM_VALUE}>自定义</option>
                 </select>
                 {selection.value === CUSTOM_VALUE ? (
                   <input
                     ref={(element) => { customRefs.current[definition.category] = element ?? undefined; }}
                     className="inspection-check-editor__custom"
-                    aria-label={`${definition.label}?????`}
-                    placeholder={`????${definition.label}?????`}
+                    aria-label={`${definition.label}自定义内容`}
+                    placeholder={`仅输入“${definition.label}”后的描述`}
                     disabled={controlsDisabled}
                     value={selection.customValue}
                     onChange={(event) => {
@@ -241,8 +241,8 @@ export function InspectionCheckContentEditor({
           })}
           {error ? <p className="inline-error" role="alert">{error}</p> : null}
           <div className="inspection-check-editor__actions">
-            <button type="button" disabled={controlsDisabled} onClick={() => void confirmEditor()}>??</button>
-            <button type="button" disabled={controlsDisabled} onClick={cancelEditor}>??</button>
+            <button type="button" disabled={controlsDisabled} onClick={() => void confirmEditor()}>确认</button>
+            <button type="button" disabled={controlsDisabled} onClick={cancelEditor}>取消</button>
           </div>
         </div>
       ) : null}

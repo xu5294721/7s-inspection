@@ -16,7 +16,7 @@ function PlaceholderPage({ title }: { title: string }) {
   return (
     <section className="page-section">
       <h2>{title}</h2>
-      <p className="empty-state">?????????????</p>
+      <p className="empty-state">该功能将在后续任务中提供。</p>
     </section>
   );
 }
@@ -37,7 +37,7 @@ export function AppRouter() {
       <Route path="/settings/backup" element={<BackupPage />} />
       <Route path="/settings/templates" element={<TemplateSettingsPage />} />
       <Route path="/settings/check-templates" element={<InspectionCheckTemplatePage />} />
-      <Route path="*" element={<PlaceholderPage title="?????" />} />
+      <Route path="*" element={<PlaceholderPage title="页面不存在" />} />
     </Routes>
   );
 }

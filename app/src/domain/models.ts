@@ -32,7 +32,7 @@ export interface InspectionCheckTemplate {
   updatedAt: string;
 }
 
-export type SevenSCategory = "??" | "??" | "??" | "??" | "??" | "??" | "??" | "";
+export type SevenSCategory = "整理" | "整顿" | "清扫" | "清洁" | "素养" | "安全" | "节约" | "";
 
 export interface ChecklistItem {
   id: string;

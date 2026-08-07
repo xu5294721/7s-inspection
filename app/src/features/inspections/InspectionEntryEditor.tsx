@@ -51,8 +51,8 @@ function EmptyEvaluationPicker({
   }
 
   return (
-    <div className="empty-evaluation-picker" role="radiogroup" aria-label="???????">
-      <span className="empty-evaluation-picker__label">????</span>
+    <div className="empty-evaluation-picker" role="radiogroup" aria-label="无照片评价分类">
+      <span className="empty-evaluation-picker__label">选择评价</span>
       <div className="category-segments">
         {PHOTO_CATEGORIES.map(({ id, label }) => (
           <label key={id} data-category={id}>
@@ -86,7 +86,7 @@ function PhotoThumbnail({ photo }: { photo: PhotoAsset }) {
     }
   }, [photo.thumbnailBlob]);
 
-  return source ? <img src={source} alt="???????" /> : null;
+  return source ? <img src={source} alt="巡检照片缩略图" /> : null;
 }
 
 interface PhotoActionsProps {
@@ -125,21 +125,21 @@ function PhotoActions({
           disabled={disabled}
           onChange={(event) => onHighQualityChange(event.currentTarget.checked)}
         />
-        ????
+        高清保留
       </label>
       <button type="button" disabled={disabled} onClick={() => replaceInput.current?.click()}>
-        ??
+        替换
       </button>
       <input
         ref={replaceInput}
         className="sr-only"
         type="file"
         accept="image/*"
-        aria-label={`???? ${index + 1}`}
+        aria-label={`替换照片 ${index + 1}`}
         onChange={chooseOne((file) => onReplace(file, "gallery"))}
       />
       <button type="button" disabled={disabled} onClick={() => retakeInput.current?.click()}>
-        ??
+        重拍
       </button>
       <input
         ref={retakeInput}
@@ -147,10 +147,10 @@ function PhotoActions({
         type="file"
         accept="image/*"
         capture="environment"
-        aria-label={`???? ${index + 1}`}
+        aria-label={`重拍照片 ${index + 1}`}
         onChange={chooseOne((file) => onRetake(file, "camera"))}
       />
-      <button type="button" disabled={disabled} aria-label={`???? ${index + 1}`} onClick={onDelete}>
+      <button type="button" disabled={disabled} aria-label={`删除照片 ${index + 1}`} onClick={onDelete}>
         <Trash2 aria-hidden="true" size={17} />
       </button>
     </div>
@@ -195,15 +195,15 @@ export function InspectionEntryEditor({
     >
       <div className="inspection-entry__main">
         <strong id={`entry-part-${entry.id}`}>{entry.itemSnapshot.part}</strong>
-        <span>{[entry.itemSnapshot.area, entry.itemSnapshot.device].filter(Boolean).join(" ? ")}</span>
+        <span>{[entry.itemSnapshot.area, entry.itemSnapshot.device].filter(Boolean).join(" · ")}</span>
         <InspectionCheckContentEditor
           entry={entry}
           disabled={disabled}
           onSave={saveCheckSelections}
         />
       </div>
-      <div className="inspection-entry__counts" aria-label={`??${photoCount}?`}>
-        <span>?? {photoCount}</span>
+      <div className="inspection-entry__counts" aria-label={`照片${photoCount}张`}>
+        <span>照片 {photoCount}</span>
         {PHOTO_CATEGORIES.map(({ id, label }) => (
           <span key={id} data-category={id}>
             {label} {groups

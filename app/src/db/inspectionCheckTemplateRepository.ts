@@ -5,11 +5,11 @@ const KEY = "inspection-check-template";
 
 export const DEFAULT_INSPECTION_CHECK_TEMPLATE: InspectionCheckTemplate = {
   id: KEY,
-  name: "7S??????",
+  name: "7S检查内容模板",
   definitions: [
-    { category: "environment", label: "????", options: ["????", "????", "?????", "??????"], defaultValue: "????" },
-    { category: "placement", label: "????", options: ["????", "????", "???????", "????"] },
-    { category: "equipment", label: "??????", options: ["??????", "???????", "???????", "??????"] },
+    { category: "environment", label: "环境卫生", options: ["干净整洁", "基本整洁", "清扫不到位", "存在积灰杂物"], defaultValue: "干净整洁" },
+    { category: "placement", label: "物品定置", options: ["规范有序", "基本规范", "个别物品未定置", "摆放杂乱"] },
+    { category: "equipment", label: "设备清洁保养", options: ["清洁保养良好", "表面无积灰油污", "清洁保养不到位", "存在积灰油污"] },
   ],
   itemOverrides: {},
   updatedAt: "2026-01-01T00:00:00.000Z",

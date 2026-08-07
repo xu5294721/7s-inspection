@@ -530,3 +530,55 @@ test("keeps an 80-photo DOCX media payload within the configured budget", async 
     getDocxPhotoBudget(80).targetBytes,
   );
 });
+
+test("emits only the text line for a no-photo group without a photo table", async () => {
+  const template = makeTemplate();
+  const inspection = makeInspection();
+  const entry = { ...inspection.entries[0], id: "entry-no-photo", groupIds: ["group-no-photo"] };
+  const model = buildReportModel({
+    inspection: { ...inspection, entries: [entry] },
+    groups: [
+      makePhotoGroup({ id: "group-no-photo", entryId: entry.id, description: "纯文字评价。", photoIds: [] }),
+    ],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const body = documentXml.slice(documentXml.indexOf("<w:body>"), documentXml.indexOf("</w:body>"));
+
+  expect(body).toContain("纯文字评价。");
+  expect(body).not.toContain("<w:tbl>");
+  expect(body).not.toContain("<w:drawing>");
+});
+
+test("alternates photo table and text line for a mixed section in report order", async () => {
+  const template = makeTemplate();
+  const inspection = makeInspection();
+  const photoEntry = { ...inspection.entries[0], id: "entry-photo", groupIds: ["group-photo"] };
+  const textEntry = { ...inspection.entries[0], id: "entry-text", groupIds: ["group-text"] };
+  const model = buildReportModel({
+    inspection: { ...inspection, entries: [photoEntry, textEntry] },
+    groups: [
+      makePhotoGroup({ id: "group-photo", entryId: photoEntry.id, description: "有照片项。", photoIds: ["photo-1"] }),
+      makePhotoGroup({ id: "group-text", entryId: textEntry.id, description: "纯文字项。", photoIds: [] }),
+    ],
+    photos: [makePhoto(undefined, { id: "photo-1", groupId: "group-photo" })],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const body = documentXml.slice(documentXml.indexOf("<w:body>"), documentXml.indexOf("</w:body>"));
+
+  expect(body).toContain("1. 有照片项。");
+  expect(body).toContain("2. 纯文字项。");
+  expect(body).toContain("<w:tbl>");
+  const photoTableEnd = body.indexOf("</w:tbl>");
+  const textPosition = body.indexOf("纯文字项。");
+  expect(photoTableEnd).toBeGreaterThan(0);
+  expect(textPosition).toBeGreaterThan(photoTableEnd);
+  const textTableEnd = body.indexOf("</w:tbl>", photoTableEnd + 1);
+  expect(textTableEnd).toBe(-1);
+});

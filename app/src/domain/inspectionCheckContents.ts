@@ -96,5 +96,5 @@ export function formatInspectionEvaluationDescription(
   configuredDefinitions?: readonly InspectionCheckDefinition[],
 ): string {
   const summary = formatInspectionCheckSummary(selections, "\uff0c", configuredOptions, configuredDefinitions);
-  return summary ? `${routeName}?${summary}?` : "";
+  return summary ? `${routeName}：${summary}。` : "";
 }

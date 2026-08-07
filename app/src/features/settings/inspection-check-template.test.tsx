@@ -15,12 +15,12 @@ test("adds and saves a custom top-level check category", async () => {
   await user.click(screen.getByRole("button", { name: /\u65b0\u589e\u5927\u9879/ }));
   const categoryInputs = screen.getAllByRole("textbox", { name: /\u5927\u9879\u540d\u79f0/ });
   await user.clear(categoryInputs.at(-1)!);
-  await user.type(categoryInputs.at(-1)!, "????");
+  await user.type(categoryInputs.at(-1)!, "安全用电");
   await user.click(screen.getByRole("button", { name: "\u4fdd\u5b58\u6a21\u677f" }));
 
   await waitFor(async () => {
     const saved = await new InspectionCheckTemplateRepository(database).get();
-    expect(saved.definitions.some((definition) => definition.label === "????")).toBe(true);
+    expect(saved.definitions.some((definition) => definition.label === "安全用电")).toBe(true);
   });
 });
 
