@@ -366,7 +366,7 @@ test("does not expose annex rows", () => {
   expect(model).not.toHaveProperty("annexRows");
 });
 
-test("excludes entries without photos from report body sections", () => {
+test("includes entries without photos in report body sections with empty photo list", () => {
   const template = makeTemplate();
   const inspection = makeInspection();
   const photographedEntry = {
@@ -399,7 +399,73 @@ test("excludes entries without photos from report body sections", () => {
     template,
   }, template);
 
-  expect(model.sections.flatMap((section) => section.groups.map((group) => group.text))).toEqual(["有照片项。"]);
+  expect(model.sections.flatMap((section) => section.groups.map((group) => group.text)))
+    .toEqual(["无照片项。", "有照片项。"]);
+  const noPhotoGroup = model.sections.flatMap((section) => section.groups)
+    .find((group) => group.id === "group-no-photo")!;
+  expect(noPhotoGroup.photos).toEqual([]);
+});
+
+test("numbers photo and no-photo groups consecutively within a section", () => {
+  const template = makeTemplate();
+  const inspection = makeInspection();
+  const firstEntry = { ...inspection.entries[0], id: "entry-1", groupIds: ["group-1"] };
+  const secondEntry = { ...inspection.entries[0], id: "entry-2", groupIds: ["group-2"] };
+  const model = buildReportModel({
+    inspection: { ...inspection, entries: [firstEntry, secondEntry] },
+    groups: [
+      makePhotoGroup({ id: "group-1", entryId: firstEntry.id, photoIds: ["photo-1"] }),
+      makePhotoGroup({ id: "group-2", entryId: secondEntry.id, description: "纯文字项。", photoIds: [] }),
+    ],
+    photos: [makePhoto(undefined, { id: "photo-1", groupId: "group-1" })],
+    template,
+  }, template);
+
+  const goodGroups = model.sections.find((section) => section.category === "good")!.groups;
+  expect(goodGroups.map((group) => group.number)).toEqual([1, 2]);
+  expect(goodGroups.map((group) => group.photos.length)).toEqual([1, 0]);
+});
+
+test("keeps section title for a section that only has no-photo entries", () => {
+  const template = makeTemplate();
+  const inspection = makeInspection();
+  const entry = { ...inspection.entries[0], id: "entry-only-text", groupIds: ["group-only-text"] };
+  const model = buildReportModel({
+    inspection: { ...inspection, entries: [entry] },
+    groups: [
+      makePhotoGroup({ id: "group-only-text", entryId: entry.id, description: "仅文字。", photoIds: [] }),
+    ],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  const sections = model.sections;
+  expect(sections.length).toBeGreaterThan(0);
+  expect(sections[0].title).toBe("好的方面");
+  expect(sections[0].groups).toHaveLength(1);
+});
+
+test("appends reward info to a no-photo good entry", () => {
+  const template = makeTemplate();
+  const inspection = makeInspection();
+  const entry = { ...inspection.entries[0], id: "entry-reward", groupIds: ["group-reward"] };
+  const model = buildReportModel({
+    inspection: { ...inspection, entries: [entry] },
+    groups: [
+      makePhotoGroup({
+        id: "group-reward",
+        entryId: entry.id,
+        description: "表现良好。",
+        photoIds: [],
+        awardAssessment: { type: "reward", people: "张三", amount: 50 },
+      }),
+    ],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  const group = model.sections[0].groups[0];
+  expect(group.text).toContain("（奖励：张三，50元）");
 });
 
 test("rejects a photographed group that references a missing inspection entry", () => {

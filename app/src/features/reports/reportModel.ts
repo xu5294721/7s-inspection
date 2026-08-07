@@ -113,9 +113,9 @@ export function buildReportModel(graph: InspectionGraph, template: ReportTemplat
   const photoById = new Map(graph.photos.map((photo) => [photo.id, photo]));
   const orderedTemplateSections = [...template.sections].sort((left, right) =>
     left.order - right.order || left.category.localeCompare(right.category));
-  const photographedGroups = graph.groups.filter((group) => group.photoIds.length > 0);
+  const reportGroups = graph.groups;
   const sections = orderedTemplateSections.map(({ category, title }): ReportSectionModel => {
-    const categoryGroups = photographedGroups.filter((group) => group.category === category);
+    const categoryGroups = reportGroups.filter((group) => group.category === category);
     const categoryRouteNames = categoryGroups.flatMap((group) => {
       const entry = entryById.get(group.entryId);
       return entry ? [entry.itemSnapshot.routeName] : [];
