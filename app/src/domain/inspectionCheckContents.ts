@@ -1,9 +1,10 @@
 import type { InspectionCheckCategory, InspectionCheckSelection } from "./models";
 
-interface InspectionCheckDefinition {
+export interface InspectionCheckDefinition {
   category: InspectionCheckCategory;
   label: string;
   options: readonly string[];
+  defaultValue?: string;
 }
 
 export const INSPECTION_CHECK_DEFINITIONS = [
@@ -35,23 +36,19 @@ const definitionsByCategory = new Map<InspectionCheckCategory, InspectionCheckDe
   INSPECTION_CHECK_DEFINITIONS.map((definition) => [definition.category, definition]),
 );
 
-function requireDefinition(category: InspectionCheckCategory): InspectionCheckDefinition {
-  const definition = definitionsByCategory.get(category);
-  if (!definition) {
-    throw new InspectionCheckSelectionValidationError("\u68c0\u67e5\u5185\u5bb9\u7c7b\u522b\u65e0\u6548\u3002");
-  }
-  return definition;
-}
-
 export function normalizeInspectionCheckSelections(
   selections: readonly InspectionCheckSelection[],
+  configuredOptions?: ReadonlyMap<InspectionCheckCategory, readonly string[]>,
+  configuredDefinitions?: readonly InspectionCheckDefinition[],
 ): InspectionCheckSelection[] {
   const selectionsByCategory = new Map<InspectionCheckCategory, InspectionCheckSelection>();
+  const configuredByCategory = new Map((configuredDefinitions ?? []).map((definition) => [definition.category, definition]));
 
   for (const selection of selections) {
     // Legacy backups may still contain the removed safety category.
     if (selection.category === "safety") continue;
-    const definition = requireDefinition(selection.category);
+    const definition = configuredByCategory.get(selection.category) ?? definitionsByCategory.get(selection.category);
+    if (!definition) throw new InspectionCheckSelectionValidationError("\u68c0\u67e5\u5185\u5bb9\u7c7b\u522b\u65e0\u6548\u3002");
     if (selectionsByCategory.has(definition.category)) {
       throw new InspectionCheckSelectionValidationError("\u68c0\u67e5\u5185\u5bb9\u7c7b\u522b\u4e0d\u80fd\u91cd\u590d\u3002");
     }
@@ -61,18 +58,21 @@ export function normalizeInspectionCheckSelections(
       if (!value) {
         throw new InspectionCheckSelectionValidationError("\u81ea\u5b9a\u4e49\u68c0\u67e5\u5185\u5bb9\u4e0d\u80fd\u4e3a\u7a7a\u3002");
       }
-    } else if (!definition.options.includes(value)) {
+    } else if (!definition.options.includes(value) && !(configuredOptions?.get(definition.category)?.includes(value) ?? false)) {
       throw new InspectionCheckSelectionValidationError("\u56fa\u5b9a\u68c0\u67e5\u5185\u5bb9\u65e0\u6548\u3002");
     }
 
     selectionsByCategory.set(definition.category, {
       category: definition.category,
+      ...(selection.categoryLabel ? { categoryLabel: selection.categoryLabel } : {}),
       value,
       isCustom: selection.isCustom,
     });
   }
 
-  return INSPECTION_CHECK_DEFINITIONS.flatMap((definition) => {
+  const order = [...(configuredDefinitions ?? INSPECTION_CHECK_DEFINITIONS), ...INSPECTION_CHECK_DEFINITIONS]
+    .filter((definition, index, all) => all.findIndex((item) => item.category === definition.category) === index);
+  return order.flatMap((definition) => {
     const selection = selectionsByCategory.get(definition.category);
     return selection ? [selection] : [];
   });
@@ -81,16 +81,20 @@ export function normalizeInspectionCheckSelections(
 export function formatInspectionCheckSummary(
   selections: readonly InspectionCheckSelection[],
   separator: "\u3001" | "\uff0c" = "\u3001",
+  configuredOptions?: ReadonlyMap<InspectionCheckCategory, readonly string[]>,
+  configuredDefinitions?: readonly InspectionCheckDefinition[],
 ): string {
-  return normalizeInspectionCheckSelections(selections)
-    .map((selection) => `${requireDefinition(selection.category).label}${selection.value}`)
+  return normalizeInspectionCheckSelections(selections, configuredOptions, configuredDefinitions)
+    .map((selection) => `${selection.categoryLabel ?? (configuredDefinitions?.find((item) => item.category === selection.category) ?? definitionsByCategory.get(selection.category) ?? { label: selection.category }).label}${selection.value}`)
     .join(separator);
 }
 
 export function formatInspectionEvaluationDescription(
   routeName: string,
   selections: readonly InspectionCheckSelection[],
+  configuredOptions?: ReadonlyMap<InspectionCheckCategory, readonly string[]>,
+  configuredDefinitions?: readonly InspectionCheckDefinition[],
 ): string {
-  const summary = formatInspectionCheckSummary(selections, "\uff0c");
+  const summary = formatInspectionCheckSummary(selections, "\uff0c", configuredOptions, configuredDefinitions);
   return summary ? `${routeName}：${summary}。` : "";
 }

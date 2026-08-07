@@ -15,7 +15,7 @@ import type {
 } from "../domain/models";
 import type { SevenSDb } from "./database";
 import { createInspectionEntry, descriptionForCategory, parseAnnotationJson } from "../domain/inspection";
-import { normalizeInspectionCheckSelections } from "../domain/inspectionCheckContents";
+import { formatInspectionEvaluationDescription, normalizeInspectionCheckSelections } from "../domain/inspectionCheckContents";
 import { normalizeRouteName } from "../domain/routeNames";
 import { validateReportReadiness } from "../domain/reportValidation";
 import { photoCategorySchema, reportTemplateSchema } from "../domain/schemas";
@@ -48,6 +48,7 @@ export interface TemporaryEntryAppendResult {
 export interface InspectionCheckSelectionUpdateResult {
   entry: InspectionEntry;
   updatedAt: string;
+  group?: PhotoGroup;
 }
 
 function compareOrdered(
@@ -569,11 +570,12 @@ export class InspectionRepository {
     selections: readonly InspectionCheckSelection[],
     updatedAt = new Date().toISOString(),
   ): Promise<InspectionCheckSelectionUpdateResult> {
-    const normalizedSelections = normalizeInspectionCheckSelections(selections);
     return this.db.transaction(
       "rw",
       this.db.inspections,
       this.db.entries,
+      this.db.photoGroups,
+      this.db.settings,
       async () => {
         const inspection = await this.db.inspections.get(inspectionId);
         if (!inspection || inspection.deletedAt !== null) {
@@ -587,16 +589,43 @@ export class InspectionRepository {
           throw new GraphIntegrityError(`巡检条目 ${entryId} 不属于当前巡检记录。`);
         }
 
-        const storedEntry: InspectionEntry = {
+        const templateRow = await this.db.settings.get("inspection-check-template");
+        const configuredDefinitions = ((templateRow?.value as { definitions?: Array<{ category: InspectionCheckSelection["category"] ; label?: string; options?: readonly string[] }> } | undefined)?.definitions ?? [])
+          .map((definition) => ({ category: definition.category, label: definition.label ?? definition.category, options: definition.options ?? [] }));
+        const configuredOptions = new Map(
+          configuredDefinitions
+            .map((definition) => [definition.category, definition.options] as const),
+        );
+        const normalizedSelections = normalizeInspectionCheckSelections(selections, configuredOptions, configuredDefinitions);
+
+        let storedEntry: InspectionEntry = {
           ...entry,
           checkSelections: normalizedSelections,
         };
+        let createdGroup: PhotoGroup | undefined;
         await this.db.entries.put(storedEntry);
+        if (normalizedSelections.length > 0 && storedEntry.groupIds.length === 0) {
+          const group: PhotoGroup = {
+            id: `photo-free-${storedEntry.id}`,
+            inspectionId: inspection.id,
+            entryId: storedEntry.id,
+            category: "good",
+            description: formatInspectionEvaluationDescription(storedEntry.itemSnapshot.routeName, normalizedSelections, configuredOptions, configuredDefinitions),
+            descriptionManuallyEdited: false,
+            awardAssessment: null,
+            photoIds: [],
+            order: 0,
+          };
+          await this.db.photoGroups.add(group);
+          createdGroup = group;
+          storedEntry = { ...storedEntry, groupIds: [group.id] };
+          await this.db.entries.put(storedEntry);
+        }
         const updated = await this.db.inspections.update(inspectionId, { status: "draft", updatedAt });
         if (updated !== 1) {
           throw new GraphIntegrityError(`巡检记录 ${inspectionId} 更新失败。`);
         }
-        return { entry: storedEntry, updatedAt };
+        return { entry: storedEntry, updatedAt, ...(createdGroup ? { group: createdGroup } : {}) };
       },
     );
   }

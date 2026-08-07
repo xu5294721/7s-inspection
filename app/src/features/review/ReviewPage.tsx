@@ -120,7 +120,7 @@ export function ReviewPage() {
     };
   }, [id, inspectionRepository, templateRepository]);
 
-  const visibleGroups = useMemo(() => graph?.groups.filter((group) => group.photoIds.length > 0) ?? [], [graph]);
+  const visibleGroups = useMemo(() => graph?.groups ?? [], [graph]);
   const summary = useMemo(() => buildReviewSummary(visibleGroups), [visibleGroups]);
   const errors = useMemo(() => graph ? validateReportReadiness(graph) : [], [graph]);
 
@@ -354,7 +354,7 @@ export function ReviewPage() {
     const ordered = [...graph.groups].sort((left, right) => left.order - right.order);
     let index = 0;
     const allIds = ordered.map((group) =>
-      group.category === activeCategory && group.photoIds.length > 0 ? categoryIds[index++] : group.id,
+      group.category === activeCategory ? categoryIds[index++] : group.id,
     );
     const rank = new Map(allIds.map((groupId, order) => [groupId, order]));
     const next: InspectionGraph = {
@@ -491,7 +491,7 @@ export function ReviewPage() {
   function focusError(error: ReportValidationError) {
     if (!graph) return;
     const group = error.groupId
-      ? graph.groups.find((item) => item.id === error.groupId && item.photoIds.length > 0)
+      ? graph.groups.find((item) => item.id === error.groupId)
       : undefined;
     if (group) {
       setActiveCategory(group.category);

@@ -183,9 +183,6 @@ export function InspectionEntryEditor({
 
   async function saveCheckSelections(selections: InspectionCheckSelection[]) {
     await onSaveCheckSelections(selections);
-    if (groups.length === 0 && selections.length > 0) {
-      await onCreatePhotoGroup("good");
-    }
   }
 
   return (

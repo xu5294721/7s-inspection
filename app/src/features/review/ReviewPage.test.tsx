@@ -246,6 +246,26 @@ test("disables Word generation when the inspection has no persisted photos", asy
   expect(screen.getAllByText("报告至少需要一张已归组照片。").length).toBeGreaterThan(0);
 });
 
+test("shows a photo-free evaluation group in review", async () => {
+  const database = createTestDb(`review-empty-group-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  await new TemplateRepository(database).save(makeTemplate());
+  const inspection = makeInspection({
+    entries: [{ ...makeInspection().entries[0], checkSelections: [{ category: "environment", value: "干净整洁", isCustom: false }], groupIds: ["empty-good"] }],
+  });
+  await repository.saveGraph({
+    inspection,
+    groups: [makePhotoGroup({ id: "empty-good", photoIds: [], description: "环境卫生：干净整洁" })],
+    photos: [],
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
+
+  expect(await screen.findByTestId("review-group-empty-good")).toBeVisible();
+  expect(screen.getByTestId("review-group-empty-good")).toHaveTextContent("环境卫生");
+  expect(screen.getByTestId("review-group-empty-good")).toHaveTextContent("干净整洁");
+});
+
 test("clearing a complete assessment immediately disables review and persists the incomplete draft", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`review-clear-assessment-${Date.now()}`);

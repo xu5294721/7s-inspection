@@ -566,6 +566,9 @@ export function InspectionPage() {
             entries: current.inspection.entries.map((entry) =>
               entry.id === entryId ? result.entry : entry),
           },
+          groups: result.group && !current.groups.some((group) => group.id === result.group?.id)
+            ? [...current.groups, result.group]
+            : current.groups,
         };
       });
     } finally {

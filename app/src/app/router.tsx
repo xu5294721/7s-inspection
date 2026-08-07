@@ -10,6 +10,7 @@ import { ReviewPage } from "../features/review/ReviewPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { BackupPage } from "../features/settings/BackupPage";
 import { TemplateSettingsPage } from "../features/settings/TemplateSettingsPage";
+import { InspectionCheckTemplatePage } from "../features/settings/InspectionCheckTemplatePage";
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -35,6 +36,7 @@ export function AppRouter() {
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/settings/backup" element={<BackupPage />} />
       <Route path="/settings/templates" element={<TemplateSettingsPage />} />
+      <Route path="/settings/check-templates" element={<InspectionCheckTemplatePage />} />
       <Route path="*" element={<PlaceholderPage title="页面不存在" />} />
     </Routes>
   );

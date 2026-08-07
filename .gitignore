@@ -4,6 +4,8 @@ tmp/
 .superpowers/
 .worktrees/
 .sdd-baselines/
+.reasonix/
+docs/superpowers/plans/
 __pycache__/
 
 # Local release packages and internal project context

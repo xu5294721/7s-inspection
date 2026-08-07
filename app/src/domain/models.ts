@@ -8,12 +8,28 @@ export type PhotoLayoutMode = "adaptive" | "fixed";
 
 export type PhotosPerRow = 1 | 2 | 3 | 4;
 
-export type InspectionCheckCategory = "environment" | "placement" | "equipment" | "safety";
+export type InspectionCheckCategory = string;
 
 export interface InspectionCheckSelection {
   category: InspectionCheckCategory;
+  categoryLabel?: string;
   value: string;
   isCustom: boolean;
+}
+
+export interface InspectionCheckTemplateDefinition {
+  category: InspectionCheckCategory;
+  label: string;
+  options: readonly string[];
+  defaultValue?: string;
+}
+
+export interface InspectionCheckTemplate {
+  id: string;
+  name: string;
+  definitions: InspectionCheckTemplateDefinition[];
+  itemOverrides: Record<string, InspectionCheckTemplateDefinition[]>;
+  updatedAt: string;
 }
 
 export type SevenSCategory = "整理" | "整顿" | "清扫" | "清洁" | "素养" | "安全" | "节约" | "";

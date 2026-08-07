@@ -17,6 +17,7 @@ import {
 import { ItemRepository } from "../db/itemRepository";
 import { RouteTemplateRepository } from "../db/routeTemplateRepository";
 import { TemplateRepository } from "../db/templateRepository";
+import { InspectionCheckTemplateRepository } from "../db/inspectionCheckTemplateRepository";
 import type {
   ChecklistItem,
   Inspection,
@@ -30,6 +31,7 @@ import type {
   PhotosPerRow,
   ReportSection,
   ReportTemplate,
+  InspectionCheckTemplate,
 } from "../domain/models";
 import type { ReportProgress } from "../features/reports/generateDocx";
 import type { GeneratedReport } from "../features/reports/reportGenerationService";
@@ -109,6 +111,12 @@ export interface TemplateRepositoryPort {
   seedIfMissing(template: ReportTemplate): Promise<boolean>;
 }
 
+export interface InspectionCheckTemplateRepositoryPort {
+  get(): Promise<InspectionCheckTemplate>;
+  save(template: InspectionCheckTemplate): Promise<void>;
+  updateDefinitions(definitions: InspectionCheckTemplate["definitions"], updatedAt: string): Promise<InspectionCheckTemplate>;
+}
+
 export interface RouteTemplateRepositoryPort {
   list(): Promise<InspectionRouteTemplate[]>;
   get(id: string): Promise<InspectionRouteTemplate | undefined>;
@@ -150,6 +158,7 @@ export interface AppDependencies {
   routeTemplateRepository: RouteTemplateRepositoryPort;
   inspectionRepository: InspectionRepositoryPort;
   templateRepository: TemplateRepositoryPort;
+  inspectionCheckTemplateRepository: InspectionCheckTemplateRepositoryPort;
   backupRepository: BackupRepositoryPort;
   reportGenerator: ReportGeneratorPort;
   createInspectionId(): string;
@@ -318,6 +327,7 @@ export function createAppDependencies(
     routeTemplateRepository: new RouteTemplateRepository(database),
     inspectionRepository,
     templateRepository: new TemplateRepository(database),
+    inspectionCheckTemplateRepository: new InspectionCheckTemplateRepository(database),
     backupRepository: new BackupRepository(database),
     reportGenerator: {
       generateReport: async (inspectionId, onProgress) => {

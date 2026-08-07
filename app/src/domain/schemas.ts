@@ -11,9 +11,10 @@ const reviewRouteOrderByCategorySchema = z.object({
 export const inspectionStatusSchema = z.enum(["draft", "reviewed", "generated"]);
 export const photoLayoutModeSchema = z.enum(["adaptive", "fixed"]);
 const photosPerRowSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
-export const inspectionCheckCategorySchema = z.enum(["environment", "placement", "equipment", "safety"]);
+export const inspectionCheckCategorySchema = z.string().trim().min(1);
 export const inspectionCheckSelectionSchema = z.object({
   category: inspectionCheckCategorySchema,
+  categoryLabel: z.string().optional(),
   value: z.string(),
   isCustom: z.boolean(),
 });

@@ -308,6 +308,44 @@ describe("InspectionRepository", () => {
     });
   });
 
+  test("creates an empty good evaluation group atomically for a photo-free selection", async () => {
+    const db = testDb("check-selections-empty-good-group");
+    const repository = new InspectionRepository(db);
+    const inspection = makeInspection({
+      entries: [{ ...makeInspection().entries[0], groupIds: [], checkSelections: [] }],
+    });
+    await repository.saveGraph({ inspection, groups: [], photos: [] });
+
+    await repository.updateEntryCheckSelections("inspection-1", "entry-1", [
+      { category: "environment", value: "干净整洁", isCustom: false },
+    ]);
+
+    const graph = await repository.getGraph("inspection-1");
+    expect(graph?.inspection.entries[0].groupIds).toHaveLength(1);
+    expect(graph?.groups).toEqual([
+      expect.objectContaining({
+        entryId: "entry-1",
+        category: "good",
+        photoIds: [],
+      }),
+    ]);
+  });
+
+  test("accepts an option from the saved inspection check template", async () => {
+    const db = testDb("check-template-option");
+    const repository = new InspectionRepository(db);
+    await repository.saveGraph({ inspection: makeInspection({ entries: [{ ...makeInspection().entries[0], groupIds: [] }] }), groups: [], photos: [] });
+    await db.settings.put({
+      key: "inspection-check-template",
+      value: { definitions: [{ category: "environment", label: "环境卫生", options: ["无尘无污"] }] },
+      updatedAt: "2026-08-07T00:00:00.000Z",
+    });
+
+    await expect(repository.updateEntryCheckSelections("inspection-1", "entry-1", [
+      { category: "environment", value: "无尘无污", isCustom: false },
+    ])).resolves.toMatchObject({ entry: { checkSelections: [{ value: "无尘无污" }] } });
+  });
+
   test("rejects invalid, missing, deleted, and cross-inspection selection updates without changing entries", async () => {
     const db = testDb("check-selections-validation");
     const repository = new InspectionRepository(db);
@@ -379,10 +417,10 @@ describe("InspectionRepository", () => {
     const graph = await repository.getGraph("inspection-1");
     expect(graph?.inspection.entries[0]).toMatchObject({
       checkSelections: [{ category: "environment", value: "\u5e72\u51c0\u6574\u6d01", isCustom: false }],
-      groupIds: ["group-concurrent-selection"],
+      groupIds: ["photo-free-entry-1"],
     });
-    expect(graph?.groups).toMatchObject([{ id: "group-concurrent-selection", photoIds: ["photo-concurrent-selection"] }]);
-    expect(graph?.photos).toMatchObject([{ id: "photo-concurrent-selection", groupId: "group-concurrent-selection" }]);
+    expect(graph?.groups).toMatchObject([{ id: "photo-free-entry-1", photoIds: ["photo-concurrent-selection"] }]);
+    expect(graph?.photos).toMatchObject([{ id: "photo-concurrent-selection", groupId: "photo-free-entry-1" }]);
   });
 
   test("normalizes a raw legacy IndexedDB entry without check selections", async () => {
