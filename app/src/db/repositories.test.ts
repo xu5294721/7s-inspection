@@ -64,7 +64,7 @@ function makeTwoGroupGraph(): InspectionGraph {
     makePhotoGroup({
       id: "group-2",
       category: "reminder",
-      description: "现场物品定置不到位，本次予以提醒。",
+      description: "?????????????????",
       photoIds: ["photo-3"],
       order: 1,
     }),
@@ -116,7 +116,7 @@ describe("InspectionRepository", () => {
           itemSnapshot: {
             ...makeInspection().entries[0]!.itemSnapshot,
             id: "item-2",
-            routeName: "仓库外围院子",
+            routeName: "??????",
           },
           groupIds: [],
           order: 1,
@@ -125,12 +125,12 @@ describe("InspectionRepository", () => {
     });
     await repository.saveGraph({ inspection, groups: [], photos: [] });
 
-    const updated = await repository.updateReviewRouteOrder("inspection-1", ["仓库外围院子", "焊机间"]);
+    const updated = await repository.updateReviewRouteOrder("inspection-1", ["??????", "???"]);
 
-    expect(updated.reviewRouteOrder).toEqual(["仓库外围院子", "焊机间"]);
+    expect(updated.reviewRouteOrder).toEqual(["??????", "???"]);
     expect(updated.updatedAt).not.toBe(inspection.updatedAt);
     expect((await repository.getGraph("inspection-1"))?.inspection.reviewRouteOrder)
-      .toEqual(["仓库外围院子", "焊机间"]);
+      .toEqual(["??????", "???"]);
   });
 
   test("persists separate route-title orders for the three review categories", async () => {
@@ -146,7 +146,7 @@ describe("InspectionRepository", () => {
           itemSnapshot: {
             ...makeInspection().entries[0]!.itemSnapshot,
             id: "item-2",
-            routeName: "仓库外围院子",
+            routeName: "??????",
           },
           groupIds: [],
           order: 1,
@@ -156,21 +156,21 @@ describe("InspectionRepository", () => {
     await repository.saveGraph({ inspection, groups: [], photos: [] });
 
     const updated = await repository.updateReviewRouteOrderByCategory("inspection-1", {
-      good: ["仓库外围院子", "焊机间"],
-      reminder: ["焊机间"],
+      good: ["??????", "???"],
+      reminder: ["???"],
       assessment: [],
     });
 
     expect(updated.reviewRouteOrderByCategory).toEqual({
-      good: ["仓库外围院子", "焊机间"],
-      reminder: ["焊机间"],
+      good: ["??????", "???"],
+      reminder: ["???"],
       assessment: [],
     });
     expect((await repository.getGraph("inspection-1"))?.inspection.reviewRouteOrderByCategory)
       .toEqual(updated.reviewRouteOrderByCategory);
     await expect(repository.updateReviewRouteOrderByCategory("inspection-1", {
-      good: ["焊机间", "焊机间"],
-    })).rejects.toThrow("分类项点排序不能重复。");
+      good: ["???", "???"],
+    })).rejects.toThrow("???????????");
   });
 
   test("rejects duplicate, incomplete, and unknown route-title order values", async () => {
@@ -186,7 +186,7 @@ describe("InspectionRepository", () => {
           itemSnapshot: {
             ...makeInspection().entries[0]!.itemSnapshot,
             id: "item-2",
-            routeName: "仓库外围院子",
+            routeName: "??????",
           },
           groupIds: [],
           order: 1,
@@ -195,12 +195,12 @@ describe("InspectionRepository", () => {
     });
     await repository.saveGraph({ inspection, groups: [], photos: [] });
 
-    await expect(repository.updateReviewRouteOrder("inspection-1", ["焊机间", "焊机间"]))
-      .rejects.toThrow("巡检项点排序不能重复。");
-    await expect(repository.updateReviewRouteOrder("inspection-1", ["焊机间"]))
-      .rejects.toThrow("巡检项点排序必须包含当前巡检的全部项点。");
-    await expect(repository.updateReviewRouteOrder("inspection-1", ["焊机间", "未知项点"]))
-      .rejects.toThrow("巡检项点排序包含未知项点。");
+    await expect(repository.updateReviewRouteOrder("inspection-1", ["???", "???"]))
+      .rejects.toThrow("???????????");
+    await expect(repository.updateReviewRouteOrder("inspection-1", ["???"]))
+      .rejects.toThrow("????????????????????");
+    await expect(repository.updateReviewRouteOrder("inspection-1", ["???", "????"]))
+      .rejects.toThrow("?????????????");
   });
 
   test("round trips ordered graph data and blob bytes", async () => {
@@ -211,7 +211,7 @@ describe("InspectionRepository", () => {
       ...base.entries[0],
       id: "entry-2",
       itemId: "item-2",
-      itemSnapshot: { ...base.entries[0].itemSnapshot, id: "item-2", part: "控制柜" },
+      itemSnapshot: { ...base.entries[0].itemSnapshot, id: "item-2", part: "???" },
       groupIds: ["group-2"],
       order: 1,
     };
@@ -308,6 +308,44 @@ describe("InspectionRepository", () => {
     });
   });
 
+  test("creates an empty good evaluation group atomically for a photo-free selection", async () => {
+    const db = testDb("check-selections-empty-good-group");
+    const repository = new InspectionRepository(db);
+    const inspection = makeInspection({
+      entries: [{ ...makeInspection().entries[0], groupIds: [], checkSelections: [] }],
+    });
+    await repository.saveGraph({ inspection, groups: [], photos: [] });
+
+    await repository.updateEntryCheckSelections("inspection-1", "entry-1", [
+      { category: "environment", value: "????", isCustom: false },
+    ]);
+
+    const graph = await repository.getGraph("inspection-1");
+    expect(graph?.inspection.entries[0].groupIds).toHaveLength(1);
+    expect(graph?.groups).toEqual([
+      expect.objectContaining({
+        entryId: "entry-1",
+        category: "good",
+        photoIds: [],
+      }),
+    ]);
+  });
+
+  test("accepts an option from the saved inspection check template", async () => {
+    const db = testDb("check-template-option");
+    const repository = new InspectionRepository(db);
+    await repository.saveGraph({ inspection: makeInspection({ entries: [{ ...makeInspection().entries[0], groupIds: [] }] }), groups: [], photos: [] });
+    await db.settings.put({
+      key: "inspection-check-template",
+      value: { definitions: [{ category: "environment", label: "????", options: ["????"] }] },
+      updatedAt: "2026-08-07T00:00:00.000Z",
+    });
+
+    await expect(repository.updateEntryCheckSelections("inspection-1", "entry-1", [
+      { category: "environment", value: "????", isCustom: false },
+    ])).resolves.toMatchObject({ entry: { checkSelections: [{ value: "????" }] } });
+  });
+
   test("rejects invalid, missing, deleted, and cross-inspection selection updates without changing entries", async () => {
     const db = testDb("check-selections-validation");
     const repository = new InspectionRepository(db);
@@ -379,10 +417,10 @@ describe("InspectionRepository", () => {
     const graph = await repository.getGraph("inspection-1");
     expect(graph?.inspection.entries[0]).toMatchObject({
       checkSelections: [{ category: "environment", value: "\u5e72\u51c0\u6574\u6d01", isCustom: false }],
-      groupIds: ["group-concurrent-selection"],
+      groupIds: ["photo-free-entry-1"],
     });
-    expect(graph?.groups).toMatchObject([{ id: "group-concurrent-selection", photoIds: ["photo-concurrent-selection"] }]);
-    expect(graph?.photos).toMatchObject([{ id: "photo-concurrent-selection", groupId: "group-concurrent-selection" }]);
+    expect(graph?.groups).toMatchObject([{ id: "photo-free-entry-1", photoIds: ["photo-concurrent-selection"] }]);
+    expect(graph?.photos).toMatchObject([{ id: "photo-concurrent-selection", groupId: "photo-free-entry-1" }]);
   });
 
   test("normalizes a raw legacy IndexedDB entry without check selections", async () => {
@@ -445,7 +483,7 @@ describe("InspectionRepository", () => {
 
     const result = await repository.addTemporaryEntry(
       "inspection-1",
-      "  临时配电间  ",
+      "  ?????  ",
       temporaryId("entry", 1),
       temporaryId("item", 1),
       "2026-07-30T10:00:00.000Z",
@@ -460,16 +498,16 @@ describe("InspectionRepository", () => {
         itemSnapshot: {
           id: temporaryId("item", 1),
           routeOrder: 1,
-          routeName: "临时配电间",
-          area: "临时配电间",
+          routeName: "?????",
+          area: "?????",
           device: "",
-          part: "临时配电间",
-          standard: "检查临时配电间7S管理落实情况",
-          team: "相关责任工班",
+          part: "?????",
+          standard: "???????7S??????",
+          team: "??????",
           sevenSCategory: "",
-          goodText: "临时配电间7S管理落实较好。",
-          reminderText: "临时配电间存在7S管理不到位问题，本次予以提醒。",
-          assessmentText: "临时配电间存在7S管理不到位问题。",
+          goodText: "?????7S???????",
+          reminderText: "???????7S???????????????",
+          assessmentText: "???????7S????????",
           quickPhrases: [],
         },
         checkSelections: [],
@@ -491,23 +529,23 @@ describe("InspectionRepository", () => {
     const db = testDb("temporary-entry-review-route-order");
     const repository = new InspectionRepository(db);
     const inspection = makeInspection({
-      reviewRouteOrder: ["焊机间"],
+      reviewRouteOrder: ["???"],
       entries: makeInspection().entries.map((entry) => ({ ...entry, groupIds: [] })),
     });
     await repository.saveGraph({ inspection, groups: [], photos: [] });
 
     const result = await repository.addTemporaryEntry(
       "inspection-1",
-      " 临时配电间 ",
+      " ????? ",
       temporaryId("entry", 30),
       temporaryId("item", 30),
       "2026-07-30T13:00:00.000Z",
     );
     const restored = await repository.getGraph("inspection-1");
 
-    expect(result.entry.itemSnapshot.routeName).toBe("临时配电间");
-    expect(restored?.inspection.reviewRouteOrder).toEqual(["焊机间", "临时配电间"]);
-    expect(restored?.inspection.reviewRouteOrder?.filter((name) => name === "临时配电间"))
+    expect(result.entry.itemSnapshot.routeName).toBe("?????");
+    expect(restored?.inspection.reviewRouteOrder).toEqual(["???", "?????"]);
+    expect(restored?.inspection.reviewRouteOrder?.filter((name) => name === "?????"))
       .toHaveLength(1);
     if (!restored) throw new Error("inspection graph missing");
     await expect(repository.saveGraph({
@@ -532,17 +570,17 @@ describe("InspectionRepository", () => {
 
     await expect(repository.addTemporaryEntry(
       "inspection-1", "   ", temporaryId("entry", 2), temporaryId("item", 2),
-    )).rejects.toThrow("检查项名称不能为空");
+    )).rejects.toThrow("?????????");
     await expect(repository.addTemporaryEntry(
-      "inspection-1", " 焊机间 ", temporaryId("entry", 3), temporaryId("item", 3),
-    )).rejects.toThrow("当前巡检中已存在同名检查项");
+      "inspection-1", " ??? ", temporaryId("entry", 3), temporaryId("item", 3),
+    )).rejects.toThrow("?????????????");
     await expect(repository.addTemporaryEntry(
-      "missing", "临时项", temporaryId("entry", 4), temporaryId("item", 4),
-    )).rejects.toThrow("巡检记录不存在或已删除");
+      "missing", "???", temporaryId("entry", 4), temporaryId("item", 4),
+    )).rejects.toThrow("???????????");
     await repository.moveToTrash("inspection-1", "2026-07-30T11:00:00.000Z");
     await expect(repository.addTemporaryEntry(
-      "inspection-1", "临时项", temporaryId("entry", 5), temporaryId("item", 5),
-    )).rejects.toThrow("巡检记录不存在或已删除");
+      "inspection-1", "???", temporaryId("entry", 5), temporaryId("item", 5),
+    )).rejects.toThrow("???????????");
 
     expect(await db.entries.count()).toBe(1);
   });
@@ -561,14 +599,14 @@ describe("InspectionRepository", () => {
     });
 
     await expect(repository.addTemporaryEntry(
-      "inspection-1", "临时项", "entry-invalid", temporaryId("item", 6),
-    )).rejects.toThrow("临时检查项条目 ID 无效");
+      "inspection-1", "???", "entry-invalid", temporaryId("item", 6),
+    )).rejects.toThrow("??????? ID ??");
     await expect(repository.addTemporaryEntry(
-      "inspection-1", "临时项", temporaryId("entry", 6), "item-invalid",
-    )).rejects.toThrow("临时检查项快照 ID 无效");
+      "inspection-1", "???", temporaryId("entry", 6), "item-invalid",
+    )).rejects.toThrow("??????? ID ??");
     await expect(repository.addTemporaryEntry(
-      "inspection-1", "临时项", "temporary-entry-", temporaryId("item", 7),
-    )).rejects.toThrow("临时检查项条目 ID 无效");
+      "inspection-1", "???", "temporary-entry-", temporaryId("item", 7),
+    )).rejects.toThrow("??????? ID ??");
     expect(await db.entries.count()).toBe(1);
   });
 
@@ -586,12 +624,12 @@ describe("InspectionRepository", () => {
     });
     const itemId = temporaryId("item", 8);
     await repository.addTemporaryEntry(
-      "inspection-1", "临时甲", temporaryId("entry", 8), itemId,
+      "inspection-1", "???", temporaryId("entry", 8), itemId,
     );
 
     await expect(repository.addTemporaryEntry(
-      "inspection-1", "临时乙", temporaryId("entry", 9), itemId,
-    )).rejects.toThrow("当前巡检中已存在相同快照 ID");
+      "inspection-1", "???", temporaryId("entry", 9), itemId,
+    )).rejects.toThrow("???????????? ID");
     expect((await repository.getGraph("inspection-1"))?.inspection.entries).toHaveLength(2);
   });
 
@@ -608,15 +646,15 @@ describe("InspectionRepository", () => {
       photos: [],
     });
     const before = await db.inspections.get("inspection-1");
-    vi.spyOn(db.inspections, "update").mockRejectedValueOnce(new Error("模拟巡检更新失败"));
+    vi.spyOn(db.inspections, "update").mockRejectedValueOnce(new Error("????????"));
 
     await expect(repository.addTemporaryEntry(
       "inspection-1",
-      "临时项",
+      "???",
       temporaryId("entry", 10),
       temporaryId("item", 10),
       "2026-07-30T12:00:00.000Z",
-    )).rejects.toThrow("模拟巡检更新失败");
+    )).rejects.toThrow("????????");
 
     expect(await db.inspections.get("inspection-1")).toEqual(before);
     expect(await db.entries.count()).toBe(1);
@@ -637,10 +675,10 @@ describe("InspectionRepository", () => {
 
     const results = await Promise.all([
       repository.addTemporaryEntry(
-        "inspection-1", "临时甲", temporaryId("entry", 11), temporaryId("item", 11),
+        "inspection-1", "???", temporaryId("entry", 11), temporaryId("item", 11),
       ),
       repository.addTemporaryEntry(
-        "inspection-1", "临时乙", temporaryId("entry", 12), temporaryId("item", 12),
+        "inspection-1", "???", temporaryId("entry", 12), temporaryId("item", 12),
       ),
     ]);
 
@@ -664,10 +702,10 @@ describe("InspectionRepository", () => {
 
     const results = await Promise.allSettled([
       repository.addTemporaryEntry(
-        "inspection-1", "临时配电间", temporaryId("entry", 13), temporaryId("item", 13),
+        "inspection-1", "?????", temporaryId("entry", 13), temporaryId("item", 13),
       ),
       repository.addTemporaryEntry(
-        "inspection-1", " 临时配电间 ", temporaryId("entry", 14), temporaryId("item", 14),
+        "inspection-1", " ????? ", temporaryId("entry", 14), temporaryId("item", 14),
       ),
     ]);
 
@@ -691,7 +729,7 @@ describe("InspectionRepository", () => {
 
     await Promise.all([
       repository.addTemporaryEntry(
-        "inspection-1", "临时配电间", temporaryId("entry", 15), temporaryId("item", 15),
+        "inspection-1", "?????", temporaryId("entry", 15), temporaryId("item", 15),
       ),
       repository.addPhotoToGoodGroup(
         "entry-1",
@@ -885,7 +923,7 @@ describe("InspectionRepository", () => {
 
     await expect(
       repository.saveGraph({
-        inspection: { ...original.inspection, title: "不应保留的标题" },
+        inspection: { ...original.inspection, title: "???????" },
         groups: original.groups,
         photos: [invalidPhoto, ...original.photos.slice(1)],
       }),
@@ -1003,7 +1041,7 @@ describe("InspectionRepository", () => {
       type: "text",
       x: 0.2,
       y: 0.3,
-      text: "重点",
+      text: "??",
       color: "#d12f2f",
     }]));
 
@@ -1020,7 +1058,7 @@ describe("InspectionRepository", () => {
       type: "text",
       x: 0.2,
       y: 0.3,
-      text: "重点",
+      text: "??",
       color: "#d12f2f",
     }]));
 
@@ -1068,7 +1106,7 @@ describe("InspectionRepository", () => {
     const db = testDb("review-group-order");
     const repository = new InspectionRepository(db);
     const graph = makeTwoGroupGraph();
-    const group3 = makePhotoGroup({ id: "group-3", category: "assessment", description: "考核问题", awardAssessment: { type: "assessment", people: "甲", amount: 30 }, photoIds: ["photo-4"], order: 2 });
+    const group3 = makePhotoGroup({ id: "group-3", category: "assessment", description: "????", awardAssessment: { type: "assessment", people: "?", amount: 30 }, photoIds: ["photo-4"], order: 2 });
     await repository.saveGraph({
       inspection: { ...graph.inspection, entries: [{ ...graph.inspection.entries[0], groupIds: ["group-1", "group-2", "group-3"] }] },
       groups: [...graph.groups, group3],
@@ -1092,7 +1130,7 @@ describe("InspectionRepository", () => {
       groups: [
         {
           ...graph.groups[0],
-          awardAssessment: { type: "reward", people: "甲", amount: 30 },
+          awardAssessment: { type: "reward", people: "?", amount: 30 },
         },
         graph.groups[1],
       ],
@@ -1150,7 +1188,7 @@ describe("InspectionRepository", () => {
         category: "general",
         awardAssessment: { type: "reward", people: "tester", amount: 30 },
       }, graph.groups[1]],
-    })).rejects.toThrow("奖考类型与照片组分类不一致");
+    })).rejects.toThrow("?????????????");
   });
 
   test("persists consecutive photo order and group references", async () => {
@@ -1217,11 +1255,11 @@ describe("InspectionRepository", () => {
     });
 
     await expect(repository.addEvaluationGroup("missing-entry", "good", "group-new"))
-      .rejects.toThrow("巡检条目 missing-entry 不存在");
+      .rejects.toThrow("???? missing-entry ???");
 
     await repository.addEvaluationGroup("entry-1", "good", "group-existing");
     await expect(repository.addEvaluationGroup("entry-1", "assessment", "group-existing"))
-      .rejects.toThrow("照片组 group-existing 已存在");
+      .rejects.toThrow("??? group-existing ???");
 
     const restored = await repository.getGraph("inspection-1");
     expect(restored?.groups).toHaveLength(1);
@@ -1249,7 +1287,7 @@ describe("InspectionRepository", () => {
     await repository.saveGraph({ inspection, groups: [], photos: [] });
 
     await expect(repository.getReadyGraphForGeneration("inspection-1")).rejects.toThrow(
-      "报告至少需要一张已归组照片。",
+      "??????????????",
     );
     expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
   });
@@ -1269,7 +1307,7 @@ describe("InspectionRepository", () => {
     });
 
     await expect(repository.markReviewedIfReady("inspection-1")).rejects.toThrow(
-      "考核必须填写责任人员和正数金额。",
+      "????????????????",
     );
 
     expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
@@ -1281,7 +1319,7 @@ describe("InspectionRepository", () => {
     await repository.saveGraph(makeTwoGroupGraph());
 
     await expect(repository.setInspectionStatus("inspection-1", "reviewed")).rejects.toThrow(
-      "巡检引用的报告模板版本不存在。",
+      "???????????????",
     );
 
     expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
@@ -1292,7 +1330,7 @@ describe("InspectionRepository", () => {
     await repository.saveGraph(makeTwoGroupGraph());
 
     await expect(repository.setInspectionStatus("inspection-1", "generated")).rejects.toThrow(
-      "生成状态只能在DOCX成功后设置。",
+      "???????DOCX??????",
     );
   });
 
@@ -1303,7 +1341,7 @@ describe("InspectionRepository", () => {
     await expect(repository.saveGraph({
       ...graph,
       inspection: { ...graph.inspection, status: "generated" },
-    })).rejects.toThrow("生成状态只能在DOCX成功后设置。");
+    })).rejects.toThrow("???????DOCX??????");
   });
 
   test("marks generated only through the successfully packaged persisted snapshot", async () => {
@@ -1323,7 +1361,7 @@ describe("InspectionRepository", () => {
     );
     expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("generated");
     await expect(repository.setInspectionStatus("inspection-1", "generated")).rejects.toThrow(
-      "生成状态只能在DOCX成功后设置。",
+      "???????DOCX??????",
     );
   });
 
@@ -1338,7 +1376,7 @@ describe("InspectionRepository", () => {
       "inspection-1",
       packagedSnapshot,
       new Blob([], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }),
-    )).rejects.toThrow("DOCX打包结果无效。");
+    )).rejects.toThrow("DOCX???????");
     expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
   });
 
@@ -1374,7 +1412,7 @@ describe("InspectionRepository", () => {
     const packagedSnapshot = await repository.getReadyGraphForGeneration("inspection-1");
     await repository.updatePhotoGroup({
       ...graph.groups[0],
-      description: "打包期间修改后的说明。",
+      description: "???????????",
     });
 
     await expect(
@@ -1383,7 +1421,7 @@ describe("InspectionRepository", () => {
         packagedSnapshot,
         await packageSnapshot(packagedSnapshot),
       ),
-    ).rejects.toThrow("打包期间巡检内容已发生变化，请重新生成。");
+    ).rejects.toThrow("????????????????????");
     expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
   });
 
@@ -1399,12 +1437,12 @@ describe("InspectionRepository", () => {
         type: "text",
         x: 0.2,
         y: 0.3,
-        text: "重点",
+        text: "??",
         color: "#d12f2f",
       }]));
     }],
     ["template version", async (repository: InspectionRepository, db: SevenSDb) => {
-      await new TemplateRepository(db).save(makeTemplate({ version: 2, name: "新版本模板" }));
+      await new TemplateRepository(db).save(makeTemplate({ version: 2, name: "?????" }));
       await repository.updateReviewSettings("inspection-1", "template-default", 2, "fixed", null);
     }],
   ] as const)("refuses generated when stale %s changed during packaging", async (_case, mutate) => {
@@ -1422,7 +1460,7 @@ describe("InspectionRepository", () => {
       "inspection-1",
       packagedSnapshot,
       packageBlob,
-    )).rejects.toThrow("打包期间巡检内容已发生变化，请重新生成。");
+    )).rejects.toThrow("????????????????????");
     expect((await repository.getGraph("inspection-1"))?.inspection.status).not.toBe("generated");
   });
 
@@ -1466,8 +1504,8 @@ describe("InspectionRepository", () => {
     await expect(repository.updatePhotoGroup({
       ...graph.groups[0],
       order: 1,
-      awardAssessment: { type: "reward", people: "甲", amount: 20 },
-    })).rejects.toThrow("照片组顺序不能通过评价更新修改。");
+      awardAssessment: { type: "reward", people: "?", amount: 20 },
+    })).rejects.toThrow("????????????????");
 
     expect((await repository.getGraph("inspection-1"))?.groups.map((group) => group.order)).toEqual([0, 1]);
   });
@@ -1483,7 +1521,7 @@ describe("InspectionRepository", () => {
       9,
       "fixed",
       2,
-    )).rejects.toThrow("模板 template-missing 版本 9 不存在。");
+    )).rejects.toThrow("?? template-missing ?? 9 ????");
 
     expect((await repository.getGraph("inspection-1"))?.inspection).toMatchObject({
       templateId: "template-default",
@@ -1572,8 +1610,8 @@ describe("InspectionRepository", () => {
     const created: PhotoGroup = makePhotoGroup({
       id: "group-3",
       category: "assessment",
-      description: "油缸表面积灰、油泥未清理。",
-      awardAssessment: { type: "assessment", people: "责任人", amount: 20 },
+      description: "?????????????",
+      awardAssessment: { type: "assessment", people: "???", amount: 20 },
       photoIds: ["photo-2"],
       order: 2,
     });
@@ -1711,11 +1749,11 @@ describe("InspectionRepository", () => {
 
     await expect(
       repository.saveGraph({
-        inspection: makeInspection({ title: "不应保留的标题" }),
+        inspection: makeInspection({ title: "???????" }),
         groups: [makePhotoGroup()],
         photos: [makePhoto(undefined, { groupId: "missing-group" })],
       }),
-    ).rejects.toThrow("照片 photo-1");
+    ).rejects.toThrow("?? photo-1");
 
     expect((await repository.getGraph("inspection-1"))?.inspection.title).toBe(
       makeInspection().title,
@@ -1734,16 +1772,16 @@ describe("InspectionRepository", () => {
 
     await expect(
       repository.saveGraph({ inspection, groups: [makePhotoGroup()], photos: [makePhoto()] }),
-    ).rejects.toThrow("项点快照 ID");
+    ).rejects.toThrow("???? ID");
   });
 });
 
 describe("ItemRepository", () => {
   test("lists enabled items and supports get, put, bulk put, and disable", async () => {
     const repository = new ItemRepository(testDb("items"));
-    const second = makeChecklistItem({ id: "item-2", routeOrder: 2, routeName: "轨道车间" });
+    const second = makeChecklistItem({ id: "item-2", routeOrder: 2, routeName: "????" });
     await repository.put(makeChecklistItem());
-    await repository.bulkPut([second, makeChecklistItem({ id: "item-3", routeOrder: 3, routeName: "停用区域", enabled: false })]);
+    await repository.bulkPut([second, makeChecklistItem({ id: "item-3", routeOrder: 3, routeName: "????", enabled: false })]);
 
     expect((await repository.listEnabled()).map((item) => item.id)).toEqual(["item-1", "item-2"]);
     expect(await repository.get("item-2")).toEqual(second);
@@ -1766,46 +1804,46 @@ describe("ItemRepository", () => {
 
     await itemRepository.put({
       ...item,
-      part: "已修改部位",
-      quickPhrases: ["已修改短语"],
+      part: "?????",
+      quickPhrases: ["?????"],
       updatedAt: "2026-07-28T12:00:00.000Z",
     });
 
     const restored = await inspectionRepository.getGraph("inspection-1");
-    expect(restored?.inspection.entries[0].itemSnapshot.part).toBe("油缸");
+    expect(restored?.inspection.entries[0].itemSnapshot.part).toBe("??");
     expect(restored?.inspection.entries[0].itemSnapshot.quickPhrases).toEqual([
-      "积灰未清理",
-      "油泥未清理",
+      "?????",
+      "?????",
     ]);
   });
 
   test("rejects normalized enabled-name conflicts across put, bulkPut, and seedIfEmpty", async () => {
     const putDb = testDb("item-name-put");
     const putRepository = new ItemRepository(putDb);
-    await putRepository.put(makeChecklistItem({ routeName: "焊机间" }));
+    await putRepository.put(makeChecklistItem({ routeName: "???" }));
     await expect(putRepository.put(
-      makeChecklistItem({ id: "item-2", routeName: " 焊机间 " }),
-    )).rejects.toThrow("检查项目名称已存在");
+      makeChecklistItem({ id: "item-2", routeName: " ??? " }),
+    )).rejects.toThrow("?????????");
 
     const bulkDb = testDb("item-name-bulk");
     const bulkRepository = new ItemRepository(bulkDb);
     await expect(bulkRepository.bulkPut([
-      makeChecklistItem({ routeName: "区域A" }),
-      makeChecklistItem({ id: "item-2", routeName: " 区域A " }),
-    ])).rejects.toThrow("检查项目名称已存在");
+      makeChecklistItem({ routeName: "??A" }),
+      makeChecklistItem({ id: "item-2", routeName: " ??A " }),
+    ])).rejects.toThrow("?????????");
     expect(await bulkDb.checklistItems.count()).toBe(0);
 
     const seedDb = testDb("item-name-seed");
     const seedRepository = new ItemRepository(seedDb);
     await expect(seedRepository.seedIfEmpty([
-      makeChecklistItem({ routeName: "区域B" }),
-      makeChecklistItem({ id: "item-2", routeName: "区域B" }),
-    ])).rejects.toThrow("检查项目名称已存在");
+      makeChecklistItem({ routeName: "??B" }),
+      makeChecklistItem({ id: "item-2", routeName: "??B" }),
+    ])).rejects.toThrow("?????????");
     expect(await seedDb.checklistItems.count()).toBe(0);
 
     await bulkRepository.bulkPut([
-      makeChecklistItem({ routeName: "区域C", enabled: false }),
-      makeChecklistItem({ id: "item-2", routeName: " 区域C ", enabled: false }),
+      makeChecklistItem({ routeName: "??C", enabled: false }),
+      makeChecklistItem({ id: "item-2", routeName: " ??C ", enabled: false }),
     ]);
     expect(await bulkDb.checklistItems.count()).toBe(2);
   });
@@ -1831,7 +1869,7 @@ describe("TemplateRepository", () => {
   test("stores versions under a compound key and rejects duplicate versions", async () => {
     const repository = new TemplateRepository(testDb("template-versions"));
     const version1 = makeTemplate();
-    const version2 = makeTemplate({ version: 2, name: "默认模板 v2", openingText: "新版开头。" });
+    const version2 = makeTemplate({ version: 2, name: "???? v2", openingText: "?????" });
 
     await repository.save(version1);
     await repository.save(version2);
@@ -1843,8 +1881,8 @@ describe("TemplateRepository", () => {
       1,
     ]);
     expect(await repository.getLatest("template-default")).toEqual(version2);
-    await expect(repository.save(makeTemplate({ name: "不得覆盖旧版本" }))).rejects.toThrow(
-      "模板 template-default 版本 1 已存在。",
+    await expect(repository.save(makeTemplate({ name: "???????" }))).rejects.toThrow(
+      "?? template-default ?? 1 ????",
     );
     expect(await repository.get("template-default", 1)).toEqual(version1);
   });
@@ -1854,7 +1892,7 @@ describe("TemplateRepository", () => {
     const templates = new TemplateRepository(db);
     const inspections = new InspectionRepository(db);
     const version1 = makeTemplate();
-    const version2 = makeTemplate({ version: 2, name: "默认模板 v2" });
+    const version2 = makeTemplate({ version: 2, name: "???? v2" });
     await templates.save(version1);
     await inspections.saveGraph({
       inspection: makeInspection({ entries: [] }),
@@ -1884,10 +1922,10 @@ describe("TemplateRepository", () => {
     expect(version3).toMatchObject({
       version: 3,
       sections: [
-        { category: "good", title: "好的方面", order: 0 },
-        { category: "general", title: "一般表现", order: 1 },
-        { category: "reminder", title: "提醒问题", order: 2 },
-        { category: "assessment", title: "考核问题", order: 3 },
+        { category: "good", title: "????", order: 0 },
+        { category: "general", title: "????", order: 1 },
+        { category: "reminder", title: "????", order: 2 },
+        { category: "assessment", title: "????", order: 3 },
       ],
     });
     expect(await repository.getLatest("template-default")).toEqual(version3);
@@ -1900,7 +1938,7 @@ function makeRouteTemplate(
 ): InspectionRouteTemplate {
   return {
     id: "route-template-default",
-    name: "默认模板",
+    name: "????",
     itemIds: ["core-route-01", "core-route-02"],
     isDefault: true,
     createdAt: "2026-07-29T00:00:00.000Z",
@@ -1912,7 +1950,7 @@ function makeRouteTemplate(
 function makeRouteItem(overrides: Partial<ReturnType<typeof makeChecklistItem>> = {}) {
   return makeChecklistItem({
     id: "core-route-01",
-    routeName: "焊机间",
+    routeName: "???",
     ...overrides,
   });
 }
@@ -1933,7 +1971,7 @@ describe("RouteTemplateRepository", () => {
     ).toBe(false);
     expect(
       inspectionRouteTemplateSchema.safeParse(
-        makeRouteTemplate({ name: "其他名称", isDefault: true }),
+        makeRouteTemplate({ name: "????", isDefault: true }),
       ).success,
     ).toBe(false);
   });
@@ -1943,15 +1981,15 @@ describe("RouteTemplateRepository", () => {
     const repository = new RouteTemplateRepository(db);
     await db.checklistItems.bulkAdd([
       makeRouteItem(),
-      makeRouteItem({ id: "core-route-02", routeName: "轨道车" }),
-      makeRouteItem({ id: "core-route-03", routeName: "办公区" }),
+      makeRouteItem({ id: "core-route-02", routeName: "???" }),
+      makeRouteItem({ id: "core-route-03", routeName: "???" }),
     ]);
 
-    await repository.save(makeRouteTemplate({ name: " 默认模板 " }));
+    await repository.save(makeRouteTemplate({ name: " ???? " }));
     await repository.save(
       makeRouteTemplate({
         id: "route-template-alpha",
-        name: "甲模板",
+        name: "???",
         itemIds: ["core-route-03"],
         isDefault: false,
       }),
@@ -1959,13 +1997,13 @@ describe("RouteTemplateRepository", () => {
     await repository.save(
       makeRouteTemplate({
         id: "route-template-beta",
-        name: "乙模板",
+        name: "???",
         itemIds: ["core-route-02"],
         isDefault: false,
       }),
     );
 
-    expect((await repository.get("route-template-default"))?.name).toBe("默认模板");
+    expect((await repository.get("route-template-default"))?.name).toBe("????");
     expect((await repository.list()).map((template) => template.id)).toEqual([
       "route-template-default",
       "route-template-alpha",
@@ -1975,12 +2013,12 @@ describe("RouteTemplateRepository", () => {
       repository.save(
         makeRouteTemplate({
           id: "route-template-duplicate",
-          name: "默认模板",
+          name: "????",
           itemIds: ["core-route-03"],
           isDefault: false,
         }),
       ),
-    ).rejects.toThrow(/模板名称已存在|默认模板名称仅供默认模板使用/);
+    ).rejects.toThrow(/???????|??????????????/);
   });
 
   test("rejects invalid item references and a second default template", async () => {
@@ -1988,8 +2026,8 @@ describe("RouteTemplateRepository", () => {
     const repository = new RouteTemplateRepository(db);
     await db.checklistItems.bulkAdd([
       makeRouteItem(),
-      makeRouteItem({ id: "core-route-02", routeName: "轨道车", enabled: false }),
-      makeRouteItem({ id: "core-route-03", routeName: "办公区" }),
+      makeRouteItem({ id: "core-route-02", routeName: "???", enabled: false }),
+      makeRouteItem({ id: "core-route-03", routeName: "???" }),
     ]);
     await repository.save(makeRouteTemplate({ itemIds: ["core-route-01"] }));
 
@@ -1997,16 +2035,16 @@ describe("RouteTemplateRepository", () => {
       repository.save(
         makeRouteTemplate({
           id: "route-template-missing",
-          name: "缺少项目",
+          name: "????",
           itemIds: ["missing"],
           isDefault: false,
         }),
       ),
-    ).rejects.toThrow("检查项目 missing 不存在或已停用");
+    ).rejects.toThrow("???? missing ???????");
     await repository.save(
       makeRouteTemplate({
         id: "route-template-disabled",
-        name: "停用项目",
+        name: "????",
         itemIds: ["core-route-02"],
         isDefault: false,
       }),
@@ -2016,7 +2054,7 @@ describe("RouteTemplateRepository", () => {
       repository.save(
         makeRouteTemplate({
           id: "route-template-second-default",
-          name: "第二默认模板",
+          name: "??????",
           itemIds: ["core-route-03"],
           isDefault: true,
         }),
@@ -2033,18 +2071,18 @@ describe("RouteTemplateRepository", () => {
 
     await expect(
       repository.save({ ...defaultTemplate, isDefault: false }),
-    ).rejects.toThrow("默认模板不能取消默认状态");
+    ).rejects.toThrow("????????????");
 
     expect((await repository.get(defaultTemplate.id))?.isDefault).toBe(true);
-    await expect(repository.remove(defaultTemplate.id)).rejects.toThrow("默认模板不能删除");
+    await expect(repository.remove(defaultTemplate.id)).rejects.toThrow("????????");
   });
 
-  test("rejects a default template whose name is not exactly 默认模板", async () => {
+  test("rejects a default template whose name is not exactly ????", async () => {
     const db = testDb("route-template-default-name");
     const repository = new RouteTemplateRepository(db);
     await db.checklistItems.add(makeRouteItem());
 
-    await expect(repository.save(makeRouteTemplate({ name: "已改名默认模板" }))).rejects.toBeDefined();
+    await expect(repository.save(makeRouteTemplate({ name: "???????" }))).rejects.toBeDefined();
     expect(await db.routeTemplates.count()).toBe(0);
   });
 
@@ -2053,12 +2091,12 @@ describe("RouteTemplateRepository", () => {
     const repository = new RouteTemplateRepository(db);
     await db.checklistItems.bulkAdd([
       makeRouteItem(),
-      makeRouteItem({ id: "core-route-02", routeName: " 焊机间 " }),
+      makeRouteItem({ id: "core-route-02", routeName: " ??? " }),
     ]);
 
     await expect(
       repository.save(makeRouteTemplate()),
-    ).rejects.toThrow("检查项目名称 焊机间 重复");
+    ).rejects.toThrow("?????? ??? ??");
   });
 
   test("updates a custom template and refuses to delete the default", async () => {
@@ -2066,24 +2104,24 @@ describe("RouteTemplateRepository", () => {
     const repository = new RouteTemplateRepository(db);
     await db.checklistItems.bulkAdd([
       makeRouteItem(),
-      makeRouteItem({ id: "core-route-02", routeName: "轨道车" }),
+      makeRouteItem({ id: "core-route-02", routeName: "???" }),
     ]);
     const defaultTemplate = makeRouteTemplate();
     const customTemplate = makeRouteTemplate({
       id: "route-template-custom",
-      name: "自建模板",
+      name: "????",
       itemIds: ["core-route-01"],
       isDefault: false,
     });
     await repository.save(defaultTemplate);
     await repository.save(customTemplate);
 
-    await repository.save({ ...customTemplate, name: "已修改模板", itemIds: ["core-route-02"] });
+    await repository.save({ ...customTemplate, name: "?????", itemIds: ["core-route-02"] });
     expect(await repository.get(customTemplate.id)).toMatchObject({
-      name: "已修改模板",
+      name: "?????",
       itemIds: ["core-route-02"],
     });
-    await expect(repository.remove(defaultTemplate.id)).rejects.toThrow("默认模板不能删除");
+    await expect(repository.remove(defaultTemplate.id)).rejects.toThrow("????????");
     await repository.remove(customTemplate.id);
     await expect(repository.get(customTemplate.id)).resolves.toBeUndefined();
   });
@@ -2094,20 +2132,20 @@ describe("RouteTemplateRepository", () => {
     await db.checklistItems.add(makeRouteItem());
     const template = makeRouteTemplate({
       id: "route-template-new",
-      name: "新建模板",
+      name: "????",
       itemIds: ["core-route-01", "custom-route-new"],
       isDefault: false,
     });
     const customItem = makeRouteItem({
       id: "custom-route-new",
-      routeName: "新增区域",
+      routeName: "????",
       routeOrder: 0,
     });
 
     const result = await repository.saveWithCustomItems(template, [customItem]);
 
     expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({ id: "custom-route-new", routeName: "新增区域", routeOrder: 2 });
+    expect(result.items[0]).toMatchObject({ id: "custom-route-new", routeName: "????", routeOrder: 2 });
     expect(result.template.itemIds).toEqual(["core-route-01", "custom-route-new"]);
     expect(await db.checklistItems.get("custom-route-new")).toEqual(result.items[0]);
     expect(await repository.get(template.id)).toEqual(result.template);
@@ -2120,13 +2158,13 @@ describe("RouteTemplateRepository", () => {
     await repository.save(makeRouteTemplate({ itemIds: ["core-route-01"] }));
     const customItem = makeRouteItem({
       id: "custom-route-01",
-      routeName: " 自定义区域 ",
+      routeName: " ????? ",
       routeOrder: 2,
     });
 
     await repository.addCustomItem("route-template-default", customItem);
 
-    expect((await db.checklistItems.get(customItem.id))?.routeName).toBe("自定义区域");
+    expect((await db.checklistItems.get(customItem.id))?.routeName).toBe("?????");
     expect((await repository.get("route-template-default"))?.itemIds).toEqual([
       "core-route-01",
       "custom-route-01",
@@ -2134,15 +2172,15 @@ describe("RouteTemplateRepository", () => {
     await expect(
       repository.addCustomItem(
         "route-template-default",
-        makeRouteItem({ id: "custom-route-02", routeName: "自定义区域", routeOrder: 3 }),
+        makeRouteItem({ id: "custom-route-02", routeName: "?????", routeOrder: 3 }),
       ),
-    ).rejects.toThrow("检查项目名称已存在");
+    ).rejects.toThrow("?????????");
     await expect(
       repository.addCustomItem(
         "route-template-default",
-        makeRouteItem({ id: "custom-route-disabled", routeName: "停用区域", enabled: false }),
+        makeRouteItem({ id: "custom-route-disabled", routeName: "????", enabled: false }),
       ),
-    ).rejects.toThrow("自定义检查项目必须启用");
+    ).rejects.toThrow("???????????");
     expect((await repository.get("route-template-default"))?.itemIds).toEqual([
       "core-route-01",
       "custom-route-01",
@@ -2158,7 +2196,7 @@ describe("RouteTemplateRepository", () => {
     await expect(
       repository.addCustomItem(
         "route-template-default",
-        makeRouteItem({ id: "core-route-01", routeName: "新的区域", routeOrder: 2 }),
+        makeRouteItem({ id: "core-route-01", routeName: "????", routeOrder: 2 }),
       ),
     ).rejects.toBeDefined();
 

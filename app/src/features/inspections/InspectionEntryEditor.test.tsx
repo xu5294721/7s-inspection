@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
+import { DependenciesContext } from "../../app/dependenciesContext";
 import { makeChecklistItem, makeInspection, makePhoto, makePhotoGroup } from "../../test/fixtures";
 import { InspectionEntryEditor } from "./InspectionEntryEditor";
 
@@ -30,15 +31,15 @@ test("saves selected check content and renders photo editing controls", async ()
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: "检查内容：请选择检查内容" }));
-  await user.selectOptions(screen.getByRole("combobox", { name: "环境卫生" }), "干净整洁");
-  await user.click(screen.getByRole("button", { name: "确认" }));
+  await user.click(screen.getByRole("button", { name: "????????????" }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "????" }), "????");
+  await user.click(screen.getByRole("button", { name: "??" }));
 
   expect(onSaveCheckSelections).toHaveBeenCalledWith([
-    { category: "environment", value: "干净整洁", isCustom: false },
+    { category: "environment", value: "????", isCustom: false },
   ]);
-  expect(screen.getByRole("button", { name: "保存评价" })).toBeVisible();
-  expect(screen.getByLabelText("相册文件")).toBeVisible();
+  expect(screen.getByRole("button", { name: "????" })).toBeVisible();
+  expect(screen.getByLabelText("????")).toBeVisible();
 });
 
 test("defaults a photo-free evaluation to good after saving check content", async () => {
@@ -66,14 +67,49 @@ test("defaults a photo-free evaluation to good after saving check content", asyn
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: "检查内容：请选择检查内容" }));
-  await user.selectOptions(screen.getByRole("combobox", { name: "环境卫生" }), "干净整洁");
-  await user.click(screen.getByRole("button", { name: "确认" }));
+  await user.click(screen.getByRole("button", { name: "????????????" }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "????" }), "????");
+  await user.click(screen.getByRole("button", { name: "??" }));
 
   expect(onSaveCheckSelections).toHaveBeenCalledWith([
-    { category: "environment", value: "干净整洁", isCustom: false },
+    { category: "environment", value: "????", isCustom: false },
   ]);
-  expect(onCreatePhotoGroup).toHaveBeenCalledWith("good");
+  expect(onCreatePhotoGroup).not.toHaveBeenCalled();
+});
+
+test("keeps categories unselected until each category is opened", async () => {
+  const user = userEvent.setup();
+  const entry = makeInspection().entries[0]!;
+
+  render(
+    <DependenciesContext.Provider value={{ inspectionCheckTemplateRepository: { get: async () => ({ id: "inspection-check-template", name: "??", definitions: [{ category: "environment", label: "????", options: ["????"], defaultValue: "????" }, { category: "placement", label: "????", options: ["????"], defaultValue: "????" }], itemOverrides: {}, updatedAt: "2026-01-01" }), save: async () => undefined, updateDefinitions: async () => { throw new Error("unused"); } } } as never}>
+    <InspectionEntryEditor
+      entry={{ ...entry, groupIds: [] }}
+      groups={[]}
+      photos={[]}
+      checklistItem={makeChecklistItem()}
+      disabled={false}
+      onFilesSelected={vi.fn()}
+      onSaveCheckSelections={vi.fn().mockResolvedValue(undefined)}
+      onCreatePhotoGroup={vi.fn().mockResolvedValue(undefined)}
+      onSavePhotoGroup={vi.fn().mockResolvedValue(undefined)}
+      onSplit={vi.fn().mockResolvedValue(undefined)}
+      onPhotoSave={vi.fn().mockResolvedValue(undefined)}
+      onDeletePhoto={vi.fn()}
+      onReplacePhoto={vi.fn()}
+      onHighQualityChange={vi.fn()}
+    />,
+    </DependenciesContext.Provider>,
+  );
+
+  await user.click(screen.getByRole("button", { name: "\u68c0\u67e5\u5185\u5bb9\uff1a\u8bf7\u9009\u62e9\u68c0\u67e5\u5185\u5bb9" }));
+  const environment = screen.getByRole("combobox", { name: "\u73af\u5883\u536b\u751f" });
+  const placement = screen.getByRole("combobox", { name: "\u7269\u54c1\u5b9a\u7f6e" });
+  expect(environment).toHaveValue("");
+  expect(placement).toHaveValue("");
+  await user.click(environment);
+  expect(environment).toHaveValue("\u5e72\u51c0\u6574\u6d01");
+  expect(placement).toHaveValue("");
 });
 
 test("shows all four evaluation choices when an entry has no photos or evaluation group", async () => {
@@ -100,11 +136,11 @@ test("shows all four evaluation choices when an entry has no photos or evaluatio
     />,
   );
 
-  expect(screen.getByRole("radio", { name: "好的方面" })).toBeVisible();
-  expect(screen.getByRole("radio", { name: "一般表现" })).toBeVisible();
-  expect(screen.getByRole("radio", { name: "提醒问题" })).toBeVisible();
-  expect(screen.getByRole("radio", { name: "考核问题" })).toBeVisible();
+  expect(screen.getByRole("radio", { name: "????" })).toBeVisible();
+  expect(screen.getByRole("radio", { name: "????" })).toBeVisible();
+  expect(screen.getByRole("radio", { name: "????" })).toBeVisible();
+  expect(screen.getByRole("radio", { name: "????" })).toBeVisible();
 
-  await user.click(screen.getByRole("radio", { name: "考核问题" }));
+  await user.click(screen.getByRole("radio", { name: "????" }));
   expect(onCreatePhotoGroup).toHaveBeenCalledWith("assessment");
 });

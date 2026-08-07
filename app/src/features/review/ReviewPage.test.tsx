@@ -37,7 +37,7 @@ function mockSuccessfulGeneration(
     return {
       graph,
       blob,
-      filename: "向塘钢轨焊接整修车间7月28日7S巡检通报.docx",
+      filename: "??????????7?28?7S????.docx",
     };
   });
   vi.spyOn(dependencies.reportGenerator, "shareOrDownloadReport").mockResolvedValue("shared");
@@ -52,25 +52,25 @@ test("shows selected check content instead of the legacy preset description", as
     ...base.entries[0],
     itemSnapshot: {
       ...base.entries[0].itemSnapshot,
-      routeName: "卷扬机间",
-      part: "卷扬机间",
-      goodText: "卷扬机间7S管理落实较好。",
+      routeName: "????",
+      part: "????",
+      goodText: "????7S???????",
     },
     checkSelections: [
-      { category: "environment" as const, value: "干净整洁", isCustom: false },
-      { category: "placement" as const, value: "规范有序", isCustom: false },
+      { category: "environment" as const, value: "????", isCustom: false },
+      { category: "placement" as const, value: "????", isCustom: false },
     ],
   };
   await repository.saveGraph({
     inspection: { ...base, entries: [entry] },
-    groups: [makePhotoGroup({ description: "卷扬机间7S管理落实较好。" })],
+    groups: [makePhotoGroup({ description: "????7S???????" })],
     photos: [makePhoto()],
   });
 
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  expect(await screen.findByText("卷扬机间：环境卫生干净整洁，物品定置规范有序。")).toBeVisible();
-  expect(screen.queryByText("卷扬机间7S管理落实较好。")).not.toBeInTheDocument();
+  expect(await screen.findByText("???????????????????????")).toBeVisible();
+  expect(screen.queryByText("????7S???????")).not.toBeInTheDocument();
 });
 
 test("shows the general-performance tab and its photo", async () => {
@@ -78,18 +78,18 @@ test("shows the general-performance tab and its photo", async () => {
   const repository = new InspectionRepository(database);
   await repository.saveGraph({
     inspection: makeInspection(),
-    groups: [makePhotoGroup({ category: "general", description: "油缸一般表现说明" })],
+    groups: [makePhotoGroup({ category: "general", description: "????????" })],
     photos: [makePhoto()],
   });
 
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  const tab = await screen.findByRole("tab", { name: "一般表现 1张" });
+  const tab = await screen.findByRole("tab", { name: "???? 1?" });
   await userEvent.setup().click(tab);
-  expect(screen.getByRole("tabpanel", { name: "一般表现 1张" })).toContainElement(
-    screen.getByRole("img", { name: "巡检照片 photo-1" }),
+  expect(screen.getByRole("tabpanel", { name: "???? 1?" })).toContainElement(
+    screen.getByRole("img", { name: "???? photo-1" }),
   );
-  expect(screen.getByText("油缸一般表现说明")).toBeVisible();
+  expect(screen.getByText("????????")).toBeVisible();
 });
 
 test("shows a manually edited evaluation description instead of selected check content", async () => {
@@ -98,9 +98,9 @@ test("shows a manually edited evaluation description instead of selected check c
   const base = makeInspection();
   const entry = {
     ...base.entries[0],
-    checkSelections: [{ category: "environment" as const, value: "干净整洁", isCustom: false }],
+    checkSelections: [{ category: "environment" as const, value: "????", isCustom: false }],
   };
-  const manualDescription = "焊机间：环境卫生干净整洁，补充：地沟已清理。";
+  const manualDescription = "??????????????????????";
   await repository.saveGraph({
     inspection: { ...base, entries: [entry] },
     groups: [makePhotoGroup({ description: manualDescription, descriptionManuallyEdited: true })],
@@ -121,13 +121,13 @@ test("links an incomplete assessment to its group and reviews after details are 
     ...base.entries[0],
     id: "entry-unphotographed",
     itemId: "item-unphotographed",
-    itemSnapshot: { ...base.entries[0].itemSnapshot, id: "item-unphotographed", part: "未拍固定项" },
+    itemSnapshot: { ...base.entries[0].itemSnapshot, id: "item-unphotographed", part: "?????" },
     groupIds: [],
     order: 1,
   };
   await repository.saveGraph({
     inspection: { ...base, entries: [base.entries[0], unphotographed] },
-    groups: [makePhotoGroup({ category: "assessment", description: "现场未落实要求。", awardAssessment: null })],
+    groups: [makePhotoGroup({ category: "assessment", description: "????????", awardAssessment: null })],
     photos: [makePhoto()],
   });
 
@@ -140,19 +140,19 @@ test("links an incomplete assessment to its group and reviews after details are 
     appProps: { dependencies },
   });
 
-  expect(await screen.findByRole("heading", { name: "通报复核" })).toBeVisible();
-  expect(screen.getByRole("tab", { name: "考核问题 1张" })).toBeVisible();
-  expect(screen.queryByText("未拍固定项")).not.toBeInTheDocument();
-  const generate = screen.getByRole("button", { name: "生成Word" });
+  expect(await screen.findByRole("heading", { name: "????" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "???? 1?" })).toBeVisible();
+  expect(screen.queryByText("?????")).not.toBeInTheDocument();
+  const generate = screen.getByRole("button", { name: "??Word" });
   expect(generate).toBeDisabled();
 
-  await user.click(screen.getByRole("button", { name: "考核必须填写责任人员和正数金额。" }));
+  await user.click(screen.getByRole("button", { name: "????????????????" }));
   const group = screen.getByTestId("review-group-group-1");
   expect(group).toHaveFocus();
 
-  await user.click(screen.getByRole("textbox", { name: "考核人员" }));
-  await user.paste("张三");
-  await user.click(screen.getByRole("spinbutton", { name: "考核金额" }));
+  await user.click(screen.getByRole("textbox", { name: "????" }));
+  await user.paste("??");
+  await user.click(screen.getByRole("spinbutton", { name: "????" }));
   await user.paste("50");
   await waitFor(() => expect(generate).toBeEnabled());
   await user.click(generate);
@@ -162,7 +162,7 @@ test("links an incomplete assessment to its group and reviews after details are 
     graph: { inspection: { status: "generated" } },
   });
   expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("generated");
-  expect(screen.getByText("Word已生成，可分享或下载。")).toBeVisible();
+  expect(screen.getByText("Word???????????")).toBeVisible();
 }, 30_000);
 
 test("keeps the latest complete assessment available while an older save reloads", async () => {
@@ -197,10 +197,10 @@ test("keeps the latest complete assessment available while an older save reloads
     appProps: { dependencies },
   });
 
-  await screen.findByRole("heading", { name: "通报复核" });
-  await user.click(screen.getByRole("tab", { name: "考核问题 1张" }));
-  await user.click(screen.getByRole("textbox", { name: "考核人员" }));
-  await user.paste("张三");
+  await screen.findByRole("heading", { name: "????" });
+  await user.click(screen.getByRole("tab", { name: "???? 1?" }));
+  await user.click(screen.getByRole("textbox", { name: "????" }));
+  await user.paste("??");
   await waitFor(() => expect(updatePhotoGroup).toHaveBeenCalledOnce());
   const incomplete = await repository.getGraph("inspection-1");
   const getGraph = vi.spyOn(dependencies.inspectionRepository, "getGraph")
@@ -212,9 +212,9 @@ test("keeps the latest complete assessment available while an older save reloads
   });
   await waitFor(() => expect(getGraph).toHaveBeenCalledOnce());
 
-  await user.click(screen.getByRole("spinbutton", { name: "考核金额" }));
+  await user.click(screen.getByRole("spinbutton", { name: "????" }));
   await user.paste("50");
-  const generate = screen.getByRole("button", { name: "生成Word" });
+  const generate = screen.getByRole("button", { name: "??Word" });
   expect(generate).toBeEnabled();
 
   await act(async () => {
@@ -242,8 +242,28 @@ test("disables Word generation when the inspection has no persisted photos", asy
 
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  expect(await screen.findByRole("button", { name: "生成Word" })).toBeDisabled();
-  expect(screen.getAllByText("报告至少需要一张已归组照片。").length).toBeGreaterThan(0);
+  expect(await screen.findByRole("button", { name: "??Word" })).toBeDisabled();
+  expect(screen.getAllByText("??????????????").length).toBeGreaterThan(0);
+});
+
+test("shows a photo-free evaluation group in review", async () => {
+  const database = createTestDb(`review-empty-group-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  await new TemplateRepository(database).save(makeTemplate());
+  const inspection = makeInspection({
+    entries: [{ ...makeInspection().entries[0], checkSelections: [{ category: "environment", value: "????", isCustom: false }], groupIds: ["empty-good"] }],
+  });
+  await repository.saveGraph({
+    inspection,
+    groups: [makePhotoGroup({ id: "empty-good", photoIds: [], description: "?????????" })],
+    photos: [],
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
+
+  expect(await screen.findByTestId("review-group-empty-good")).toBeVisible();
+  expect(screen.getByTestId("review-group-empty-good")).toHaveTextContent("????");
+  expect(screen.getByTestId("review-group-empty-good")).toHaveTextContent("????");
 });
 
 test("clearing a complete assessment immediately disables review and persists the incomplete draft", async () => {
@@ -255,21 +275,21 @@ test("clearing a complete assessment immediately disables review and persists th
     inspection: makeInspection(),
     groups: [makePhotoGroup({
       category: "assessment",
-      description: "现场未落实要求。",
-      awardAssessment: { type: "assessment", people: "张三", amount: 50 },
+      description: "????????",
+      awardAssessment: { type: "assessment", people: "??", amount: 50 },
     })],
     photos: [makePhoto()],
   });
   await database.inspections.update("inspection-1", { status: "generated" });
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  await user.click(await screen.findByRole("tab", { name: "考核问题 1张" }));
-  const generate = screen.getByRole("button", { name: "生成Word" });
+  await user.click(await screen.findByRole("tab", { name: "???? 1?" }));
+  const generate = screen.getByRole("button", { name: "??Word" });
   expect(generate).toBeEnabled();
-  await user.clear(screen.getByRole("textbox", { name: "考核人员" }));
+  await user.clear(screen.getByRole("textbox", { name: "????" }));
 
   expect(generate).toBeDisabled();
-  expect(screen.getAllByText("考核必须填写责任人员和正数金额。").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("????????????????").length).toBeGreaterThan(0);
   await waitFor(async () => {
     const restored = await repository.getGraph("inspection-1");
     expect(restored?.groups[0].awardAssessment).toEqual({
@@ -292,8 +312,8 @@ test("shows each photo in exactly one category tab", async () => {
     inspection,
     groups: [
       makePhotoGroup(),
-      makePhotoGroup({ id: "group-2", category: "reminder", description: "提醒问题", photoIds: ["photo-2"], order: 1 }),
-      makePhotoGroup({ id: "group-3", category: "assessment", description: "考核问题", awardAssessment: { type: "assessment", people: "李四", amount: 30 }, photoIds: ["photo-3"], order: 2 }),
+      makePhotoGroup({ id: "group-2", category: "reminder", description: "????", photoIds: ["photo-2"], order: 1 }),
+      makePhotoGroup({ id: "group-3", category: "assessment", description: "????", awardAssessment: { type: "assessment", people: "??", amount: 30 }, photoIds: ["photo-3"], order: 2 }),
     ],
     photos: [
       makePhoto(),
@@ -303,11 +323,11 @@ test("shows each photo in exactly one category tab", async () => {
   });
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  await screen.findByRole("tab", { name: "好的方面 1张" });
+  await screen.findByRole("tab", { name: "???? 1?" });
   expect(screen.getAllByRole("img")).toHaveLength(1);
-  await user.click(screen.getByRole("tab", { name: "提醒问题 1张" }));
+  await user.click(screen.getByRole("tab", { name: "???? 1?" }));
   expect(screen.getAllByRole("img")).toHaveLength(1);
-  await user.click(screen.getByRole("tab", { name: "考核问题 1张" }));
+  await user.click(screen.getByRole("tab", { name: "???? 1?" }));
   expect(screen.getAllByRole("img")).toHaveLength(1);
 });
 
@@ -321,8 +341,8 @@ test("uses roving tab focus, arrow switching, and linked tabpanel semantics", as
   });
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  const good = await screen.findByRole("tab", { name: "好的方面 1张" });
-  const general = screen.getByRole("tab", { name: "一般表现 0张" });
+  const good = await screen.findByRole("tab", { name: "???? 1?" });
+  const general = screen.getByRole("tab", { name: "???? 0?" });
   const panel = screen.getByRole("tabpanel");
   expect(good).toHaveAttribute("tabindex", "0");
   expect(general).toHaveAttribute("tabindex", "-1");
@@ -357,10 +377,10 @@ test("focuses settings and global targets for damaged non-group validation error
     appProps: { dependencies },
   });
 
-  await user.click(await screen.findByRole("button", { name: "报告模板结构无效。" }));
+  await user.click(await screen.findByRole("button", { name: "?????????" }));
   expect(screen.getByTestId("review-settings")).toHaveFocus();
-  await user.click(screen.getByRole("button", { name: "巡检项点所属巡检记录不一致。" }));
-  expect(screen.getByRole("region", { name: "复核问题" })).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "??????????????" }));
+  expect(screen.getByRole("region", { name: "????" })).toHaveFocus();
 });
 
 test("lists immutable template versions and persists the selected inspection snapshot", async () => {
@@ -368,7 +388,7 @@ test("lists immutable template versions and persists the selected inspection sna
   const database = createTestDb(`review-template-${Date.now()}`);
   const templates = new TemplateRepository(database);
   await templates.save(makeTemplate());
-  await templates.save(makeTemplate({ version: 2, name: "新版模板", photosPerRow: 2 }));
+  await templates.save(makeTemplate({ version: 2, name: "????", photosPerRow: 2 }));
   const repository = new InspectionRepository(database);
   await repository.saveGraph({
     inspection: makeInspection(),
@@ -377,17 +397,17 @@ test("lists immutable template versions and persists the selected inspection sna
   });
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  const version = await screen.findByRole("combobox", { name: "通报模板版本" });
-  expect(screen.getByRole("option", { name: "默认模板 v1" })).toBeVisible();
-  expect(screen.getByRole("option", { name: "新版模板 v2" })).toBeVisible();
+  const version = await screen.findByRole("combobox", { name: "??????" });
+  expect(screen.getByRole("option", { name: "???? v1" })).toBeVisible();
+  expect(screen.getByRole("option", { name: "???? v2" })).toBeVisible();
   await user.selectOptions(version, "2");
 
   await waitFor(async () => {
     const restored = await repository.getGraph("inspection-1");
     expect(restored?.inspection).toMatchObject({ templateId: "template-default", templateVersion: 2 });
-    expect(restored?.template?.name).toBe("新版模板");
+    expect(restored?.template?.name).toBe("????");
   });
-  expect((await templates.get("template-default", 1))?.name).toBe("默认模板");
+  expect((await templates.get("template-default", 1))?.name).toBe("????");
 });
 
 test("supports adaptive photo layout and persists the selected mode and four-photo limit", async () => {
@@ -402,8 +422,8 @@ test("supports adaptive photo layout and persists the selected mode and four-pho
 
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  const mode = await screen.findByRole("combobox", { name: "照片排版模式" });
-  const rows = screen.getByRole("combobox", { name: "每行照片数" });
+  const mode = await screen.findByRole("combobox", { name: "??????" });
+  const rows = screen.getByRole("combobox", { name: "?????" });
   expect(Array.from((rows as HTMLSelectElement).options).map((option) => option.value)).toEqual(["1", "2", "3", "4"]);
 
   await user.selectOptions(mode, "adaptive");
@@ -432,7 +452,7 @@ test("generates through repository atomic readiness and packaged snapshot transi
     appProps: { dependencies },
   });
 
-  await user.click(await screen.findByRole("button", { name: "生成Word" }));
+  await user.click(await screen.findByRole("button", { name: "??Word" }));
 
   await waitFor(() => expect(generateReport).toHaveBeenCalledWith("inspection-1", expect.any(Function)));
   expect(directStatus).not.toHaveBeenCalled();
@@ -455,7 +475,7 @@ test.each(["resolve", "reject"] as const)(
     const secondBase = makeInspection();
     const secondInspection = makeInspection({
       id: "inspection-2",
-      title: "第二条巡检保持显示",
+      title: "?????????",
       entries: [{
         ...secondBase.entries[0],
         id: "entry-second",
@@ -487,11 +507,11 @@ test.each(["resolve", "reject"] as const)(
       appProps: { dependencies },
     });
 
-    await user.click(await screen.findByRole("button", { name: "生成Word" }));
+    await user.click(await screen.findByRole("button", { name: "??Word" }));
     await waitFor(() => expect(generateReport).toHaveBeenCalledWith("inspection-1", expect.any(Function)));
     window.location.hash = "#/inspections/inspection-2/review";
     window.dispatchEvent(new HashChangeEvent("hashchange"));
-    expect(await screen.findByText("第二条巡检保持显示")).toBeVisible();
+    expect(await screen.findByText("?????????")).toBeVisible();
 
     await act(async () => {
       if (outcome === "resolve") {
@@ -504,16 +524,16 @@ test.each(["resolve", "reject"] as const)(
           filename: "route.docx",
         });
       } else {
-        completion.reject(new Error("第一条巡检复核失败"));
+        completion.reject(new Error("?????????"));
       }
       await completion.promise.catch(() => undefined);
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(screen.getByText("第二条巡检保持显示")).toBeVisible();
+    expect(screen.getByText("?????????")).toBeVisible();
     expect(screen.queryByText(firstGraph.inspection.title)).not.toBeInTheDocument();
-    expect(screen.queryByText("Word已生成，可分享或下载。")).not.toBeInTheDocument();
-    expect(screen.queryByText("第一条巡检复核失败")).not.toBeInTheDocument();
+    expect(screen.queryByText("Word???????????")).not.toBeInTheDocument();
+    expect(screen.queryByText("?????????")).not.toBeInTheDocument();
   },
 );
 
@@ -538,18 +558,18 @@ test("stops a queued save batch after failure and blocks review completion", asy
     appProps: { dependencies },
   });
 
-  const rows = await screen.findByRole("combobox", { name: "每行照片数" });
+  const rows = await screen.findByRole("combobox", { name: "?????" });
   await user.selectOptions(rows, "2");
   await user.selectOptions(rows, "3");
   expect(save).toHaveBeenCalledTimes(1);
 
-  first.reject(new Error("较早保存失败"));
-  expect(await screen.findByRole("alert")).toHaveTextContent("较早保存失败");
+  first.reject(new Error("??????"));
+  expect(await screen.findByRole("alert")).toHaveTextContent("??????");
   await new Promise((resolve) => window.setTimeout(resolve, 0));
   expect(save).toHaveBeenCalledTimes(1);
   expect((await repository.getGraph("inspection-1"))?.inspection.photosPerRowOverride).toBeNull();
   expect(rows).toHaveValue("3");
-  await user.click(screen.getByRole("button", { name: "生成Word" }));
+  await user.click(screen.getByRole("button", { name: "??Word" }));
   expect(generateReport).not.toHaveBeenCalled();
   expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
 });
@@ -594,7 +614,7 @@ test("does not apply a failed save recovery read after navigating to another ins
     appProps: { dependencies },
   });
 
-  const rows = await screen.findByRole("combobox", { name: "每行照片数" });
+  const rows = await screen.findByRole("combobox", { name: "?????" });
   vi.spyOn(dependencies.inspectionRepository, "getGraph")
     .mockImplementation((inspectionId) => inspectionId === "inspection-1" ? recoveryRead.promise : originalGetGraph(inspectionId));
   vi.spyOn(dependencies.inspectionRepository, "updateReviewSettings")
@@ -611,7 +631,7 @@ test("does not apply a failed save recovery read after navigating to another ins
   });
 
   expect(screen.getByText("Second inspection remains visible")).toBeVisible();
-  expect(screen.getByRole("combobox", { name: "每行照片数" })).toHaveValue("2");
+  expect(screen.getByRole("combobox", { name: "?????" })).toHaveValue("2");
 });
 
 test("starts a fresh save batch when editing after a failed recovery read is pending", async () => {
@@ -632,7 +652,7 @@ test("starts a fresh save batch when editing after a failed recovery read is pen
     appProps: { dependencies },
   });
 
-  const rows = await screen.findByRole("combobox", { name: "每行照片数" });
+  const rows = await screen.findByRole("combobox", { name: "?????" });
   const getGraph = vi.spyOn(dependencies.inspectionRepository, "getGraph")
     .mockImplementationOnce(() => recoveryRead.promise)
     .mockImplementation(originalGetGraph);
@@ -644,7 +664,7 @@ test("starts a fresh save batch when editing after a failed recovery read is pen
   expect(await screen.findByRole("alert")).toHaveTextContent("First save failed");
   await waitFor(() => expect(getGraph).toHaveBeenCalledOnce());
 
-  await user.selectOptions(screen.getByRole("combobox", { name: "每行照片数" }), "3");
+  await user.selectOptions(screen.getByRole("combobox", { name: "?????" }), "3");
   await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
   await waitFor(async () => {
     expect((await repository.getGraph("inspection-1"))?.inspection.photosPerRowOverride).toBe(3);
@@ -655,9 +675,9 @@ test("starts a fresh save batch when editing after a failed recovery read is pen
     await recoveryRead.promise;
   });
 
-  expect(screen.getByRole("combobox", { name: "每行照片数" })).toHaveValue("3");
+  expect(screen.getByRole("combobox", { name: "?????" })).toHaveValue("3");
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "生成Word" }));
+  await user.click(screen.getByRole("button", { name: "??Word" }));
   await waitFor(() => expect(generateReport).toHaveBeenCalledOnce());
 });
 
@@ -669,7 +689,7 @@ test("does not expose an old generated report when generation commits before a q
     inspection: makeInspection({ status: "reviewed" }),
     groups: [makePhotoGroup({
       category: "assessment",
-      awardAssessment: { type: "assessment", people: "张三", amount: 50 },
+      awardAssessment: { type: "assessment", people: "??", amount: 50 },
     })],
     photos: [makePhoto()],
   });
@@ -698,10 +718,10 @@ test("does not expose an old generated report when generation commits before a q
     appProps: { dependencies },
   });
 
-  await user.click(await screen.findByRole("tab", { name: "考核问题 1张" }));
-  await user.click(screen.getByRole("button", { name: "生成Word" }));
+  await user.click(await screen.findByRole("tab", { name: "???? 1?" }));
+  await user.click(screen.getByRole("button", { name: "??Word" }));
   await waitFor(() => expect(generate).toHaveBeenCalledOnce());
-  await user.clear(screen.getByRole("textbox", { name: "考核人员" }));
+  await user.clear(screen.getByRole("textbox", { name: "????" }));
   await waitFor(() => expect(update).toHaveBeenCalledOnce());
 
   await act(async () => {
@@ -718,9 +738,9 @@ test("does not expose an old generated report when generation commits before a q
     expect(graph?.inspection.status).toBe("draft");
     expect(graph?.groups[0].awardAssessment?.people).toBe("");
   });
-  expect(screen.queryByRole("button", { name: "分享Word" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "下载Word" })).not.toBeInTheDocument();
-  expect(screen.queryByText("Word已生成，可分享或下载。" )).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "??Word" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "??Word" })).not.toBeInTheDocument();
+  expect(screen.queryByText("Word???????????" )).not.toBeInTheDocument();
 });
 
 test("does not expose a stale generation result after an edit has already saved", async () => {
@@ -731,7 +751,7 @@ test("does not expose a stale generation result after an edit has already saved"
     inspection: makeInspection({ status: "reviewed" }),
     groups: [makePhotoGroup({
       category: "assessment",
-      awardAssessment: { type: "assessment", people: "张三", amount: 50 },
+      awardAssessment: { type: "assessment", people: "??", amount: 50 },
     })],
     photos: [makePhoto()],
   });
@@ -745,10 +765,10 @@ test("does not expose a stale generation result after an edit has already saved"
     appProps: { dependencies },
   });
 
-  await user.click(await screen.findByRole("tab", { name: "考核问题 1张" }));
-  await user.click(screen.getByRole("button", { name: "生成Word" }));
+  await user.click(await screen.findByRole("tab", { name: "???? 1?" }));
+  await user.click(screen.getByRole("button", { name: "??Word" }));
   await waitFor(() => expect(generate).toHaveBeenCalledOnce());
-  await user.clear(screen.getByRole("textbox", { name: "考核人员" }));
+  await user.clear(screen.getByRole("textbox", { name: "????" }));
   await waitFor(async () => {
     const graph = await repository.getGraph("inspection-1");
     expect(graph?.inspection.status).toBe("draft");
@@ -761,7 +781,7 @@ test("does not expose a stale generation result after an edit has already saved"
         inspection: makeInspection({ status: "generated" }),
         groups: [makePhotoGroup({
           category: "assessment",
-          awardAssessment: { type: "assessment", people: "张三", amount: 50 },
+          awardAssessment: { type: "assessment", people: "??", amount: 50 },
         })],
         photos: [makePhoto()],
         template: makeTemplate(),
@@ -772,16 +792,16 @@ test("does not expose a stale generation result after an edit has already saved"
     await completion.promise;
   });
 
-  expect(screen.queryByRole("button", { name: "分享Word" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "下载Word" })).not.toBeInTheDocument();
-  expect(screen.queryByText("Word已生成，可分享或下载。" )).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "??Word" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "??Word" })).not.toBeInTheDocument();
+  expect(screen.queryByText("Word???????????" )).not.toBeInTheDocument();
   expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
 });
 
 test.each([
-  ["shared", "Word已分享，可继续分享或下载。"],
-  ["cancelled", "已取消分享，Word仍可分享或下载。"],
-  ["unavailable", "当前设备无法分享文件，请点击下载Word。"],
+  ["shared", "Word?????????????"],
+  ["cancelled", "??????Word????????"],
+  ["unavailable", "????????????????Word?"],
 ] as const)("does not write a pending %s share result after changing routes", async (result, message) => {
   const user = userEvent.setup();
   const database = createTestDb(`review-share-route-${result}-${Date.now()}`);
@@ -822,9 +842,9 @@ test.each([
     appProps: { dependencies },
   });
 
-  await user.click(await screen.findByRole("button", { name: "生成Word" }));
-  await screen.findByRole("button", { name: "分享Word" });
-  await user.click(screen.getByRole("button", { name: "分享Word" }));
+  await user.click(await screen.findByRole("button", { name: "??Word" }));
+  await screen.findByRole("button", { name: "??Word" });
+  await user.click(screen.getByRole("button", { name: "??Word" }));
   window.location.hash = "#/inspections/inspection-2/review";
   window.dispatchEvent(new HashChangeEvent("hashchange"));
   expect(await screen.findByText("Second inspection after share")).toBeVisible();
@@ -854,22 +874,22 @@ test("clears the reviewed success message on the next edit", async () => {
     appProps: { dependencies },
   });
 
-  await user.click(await screen.findByRole("button", { name: "生成Word" }));
-  expect(await screen.findByText("Word已生成，可分享或下载。")).toBeVisible();
-  await user.selectOptions(screen.getByRole("combobox", { name: "每行照片数" }), "2");
+  await user.click(await screen.findByRole("button", { name: "??Word" }));
+  expect(await screen.findByText("Word???????????")).toBeVisible();
+  await user.selectOptions(screen.getByRole("combobox", { name: "?????" }), "2");
 
-  expect(screen.queryByText("Word已生成，可分享或下载。")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "下载Word" })).not.toBeInTheDocument();
+  expect(screen.queryByText("Word???????????")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "??Word" })).not.toBeInTheDocument();
 });
 
 test("binds template versions to the active inspection across same-component route changes", async () => {
   const database = createTestDb(`review-route-template-${Date.now()}`);
   const templates = new TemplateRepository(database);
   await templates.save(makeTemplate());
-  await templates.save(makeTemplate({ version: 2, name: "上一条巡检模板" }));
+  await templates.save(makeTemplate({ version: 2, name: "???????" }));
   await templates.save(makeTemplate({
     id: "template-other",
-    name: "第二条巡检使用的名称很长但不能撑破手机复核设置区域的模板",
+    name: "????????????????????????????",
   }));
   const repository = new InspectionRepository(database);
   await repository.saveGraph({
@@ -880,7 +900,7 @@ test("binds template versions to the active inspection across same-component rou
   const secondBase = makeInspection();
   const secondInspection = makeInspection({
     id: "inspection-2",
-    title: "第二条巡检",
+    title: "?????",
     templateId: "template-other",
     entries: [{
       ...secondBase.entries[0],
@@ -916,16 +936,16 @@ test("binds template versions to the active inspection across same-component rou
     appProps: { dependencies },
   });
 
-  expect(await screen.findByRole("option", { name: "上一条巡检模板 v2" })).toBeVisible();
+  expect(await screen.findByRole("option", { name: "??????? v2" })).toBeVisible();
   window.location.hash = "#/inspections/inspection-2/review";
   window.dispatchEvent(new HashChangeEvent("hashchange"));
-  expect(await screen.findByText("第二条巡检")).toBeVisible();
-  expect(screen.queryByRole("option", { name: "上一条巡检模板 v2" })).not.toBeInTheDocument();
+  expect(await screen.findByText("?????")).toBeVisible();
+  expect(screen.queryByRole("option", { name: "??????? v2" })).not.toBeInTheDocument();
   expect(settingsSave).not.toHaveBeenCalled();
 
   secondVersions.resolve([await templates.get("template-other", 1) as ReturnType<typeof makeTemplate>]);
   const longOption = await screen.findByRole("option", {
-    name: "第二条巡检使用的名称很长但不能撑破手机复核设置区域的模板 v1",
+    name: "???????????????????????????? v1",
   });
   const selector = longOption.closest("select")!;
   expect(selector).toHaveClass("review-template-select");
@@ -957,7 +977,7 @@ test("shows packaging progress and marks generated only after retaining the succ
       return {
         graph,
         blob: generatedBlob,
-        filename: "向塘钢轨焊接整修车间7月28日7S巡检通报.docx",
+        filename: "??????????7?28?7S????.docx",
       };
     });
   const share = vi.spyOn(dependencies.reportGenerator, "shareOrDownloadReport")
@@ -970,30 +990,30 @@ test("shows packaging progress and marks generated only after retaining the succ
     appProps: { dependencies },
   });
 
-  await user.click(await screen.findByRole("button", { name: "生成Word" }));
+  await user.click(await screen.findByRole("button", { name: "??Word" }));
 
-  expect(await screen.findByText("正在处理照片 1/1")).toBeVisible();
+  expect(await screen.findByText("?????? 1/1")).toBeVisible();
   expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
 
   packaging.resolve();
-  expect(await screen.findByText("Word已生成，可分享或下载。")).toBeVisible();
+  expect(await screen.findByText("Word???????????")).toBeVisible();
   expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("generated");
   expect(generate).toHaveBeenCalledOnce();
   expect(share).not.toHaveBeenCalled();
 
-  await user.click(screen.getByRole("button", { name: "分享Word" }));
+  await user.click(screen.getByRole("button", { name: "??Word" }));
   expect(share).toHaveBeenCalledWith(
     generatedBlob,
-    "向塘钢轨焊接整修车间7月28日7S巡检通报.docx",
+    "??????????7?28?7S????.docx",
   );
-  expect(await screen.findByText("已取消分享，Word仍可分享或下载。")).toBeVisible();
-  expect(screen.getByRole("button", { name: "分享Word" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "下载Word" })).toBeVisible();
+  expect(await screen.findByText("??????Word????????")).toBeVisible();
+  expect(screen.getByRole("button", { name: "??Word" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "??Word" })).toBeVisible();
 
-  await user.click(screen.getByRole("button", { name: "下载Word" }));
+  await user.click(screen.getByRole("button", { name: "??Word" }));
   expect(download).toHaveBeenCalledWith(
     generatedBlob,
-    "向塘钢轨焊接整修车间7月28日7S巡检通报.docx",
+    "??????????7?28?7S????.docx",
   );
 });
 
@@ -1012,7 +1032,7 @@ test("keeps status unchanged after generation failure and supports retry", async
     type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   });
   const generate = vi.spyOn(dependencies.reportGenerator, "generateReport")
-    .mockRejectedValueOnce(new Error("打包中断"))
+    .mockRejectedValueOnce(new Error("????"))
     .mockImplementationOnce(async (inspectionId) => {
       await database.inspections.update(inspectionId, { status: "generated" });
       const graph = await dependencies.inspectionRepository.getGraph(inspectionId);
@@ -1020,7 +1040,7 @@ test("keeps status unchanged after generation failure and supports retry", async
       return {
         graph,
         blob: generatedBlob,
-        filename: "向塘钢轨焊接整修车间7月28日7S巡检通报.docx",
+        filename: "??????????7?28?7S????.docx",
       };
     });
   vi.spyOn(dependencies.reportGenerator, "shareOrDownloadReport").mockResolvedValue("shared");
@@ -1030,15 +1050,15 @@ test("keeps status unchanged after generation failure and supports retry", async
     appProps: { dependencies },
   });
 
-  await user.click(await screen.findByRole("button", { name: "生成Word" }));
+  await user.click(await screen.findByRole("button", { name: "??Word" }));
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("Word生成失败，请重试。 打包中断");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Word????????? ????");
   expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("draft");
-  const retry = screen.getByRole("button", { name: "生成Word" });
+  const retry = screen.getByRole("button", { name: "??Word" });
   expect(retry).toBeEnabled();
 
   await user.click(retry);
-  expect(await screen.findByText("Word已生成，可分享或下载。")).toBeVisible();
+  expect(await screen.findByText("Word???????????")).toBeVisible();
   expect(generate).toHaveBeenCalledTimes(2);
   expect((await repository.getGraph("inspection-1"))?.inspection.status).toBe("generated");
 });
@@ -1064,9 +1084,9 @@ test("defers a requested update until report generation succeeds", async () => {
   });
   render(<PwaUpdatePrompt needRefresh updateServiceWorker={updateServiceWorker} />);
 
-  await user.click(await screen.findByRole("button", { name: "生成Word" }));
+  await user.click(await screen.findByRole("button", { name: "??Word" }));
   await waitFor(() => expect(dependencies.reportGenerator.generateReport).toHaveBeenCalledOnce());
-  await user.click(screen.getByRole("button", { name: "立即更新" }));
+  await user.click(screen.getByRole("button", { name: "????" }));
   expect(updateServiceWorker).not.toHaveBeenCalled();
 
   const graph = await repository.getGraph("inspection-1");
@@ -1074,9 +1094,9 @@ test("defers a requested update until report generation succeeds", async () => {
   await act(async () => completion.resolve({
     graph,
     blob: new Blob(["generated-docx"]),
-    filename: "向塘钢轨焊接整修车间7月28日7S巡检通报.docx",
+    filename: "??????????7?28?7S????.docx",
   }));
-  expect(await screen.findByText("Word已生成，可分享或下载。")).toBeVisible();
+  expect(await screen.findByText("Word???????????")).toBeVisible();
   await waitFor(() => expect(updateServiceWorker).toHaveBeenCalledOnce());
 });
 
@@ -1101,13 +1121,13 @@ test("keeps a requested update deferred after leaving a still-running report gen
   });
   render(<PwaUpdatePrompt needRefresh updateServiceWorker={updateServiceWorker} />);
 
-  await user.click(await screen.findByRole("button", { name: "生成Word" }));
+  await user.click(await screen.findByRole("button", { name: "??Word" }));
   await waitFor(() => expect(dependencies.reportGenerator.generateReport).toHaveBeenCalledOnce());
-  await user.click(screen.getByRole("button", { name: "立即更新" }));
+  await user.click(screen.getByRole("button", { name: "????" }));
 
   window.location.hash = "#/history";
   window.dispatchEvent(new HashChangeEvent("hashchange"));
-  expect(await screen.findByRole("heading", { name: "巡检历史" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "????" })).toBeVisible();
   expect(updateServiceWorker).not.toHaveBeenCalled();
 
   const graph = await repository.getGraph("inspection-1");
@@ -1115,7 +1135,7 @@ test("keeps a requested update deferred after leaving a still-running report gen
   await act(async () => completion.resolve({
     graph,
     blob: new Blob(["generated-docx"]),
-    filename: "向塘钢轨焊接整修车间7月28日7S巡检通报.docx",
+    filename: "??????????7?28?7S????.docx",
   }));
   await waitFor(() => expect(updateServiceWorker).toHaveBeenCalledOnce());
 });
@@ -1141,15 +1161,15 @@ test("releases a deferred update after report generation fails", async () => {
   });
   render(<PwaUpdatePrompt needRefresh updateServiceWorker={updateServiceWorker} />);
 
-  await user.click(await screen.findByRole("button", { name: "生成Word" }));
+  await user.click(await screen.findByRole("button", { name: "??Word" }));
   await waitFor(() => expect(dependencies.reportGenerator.generateReport).toHaveBeenCalledOnce());
-  await user.click(screen.getByRole("button", { name: "立即更新" }));
+  await user.click(screen.getByRole("button", { name: "????" }));
   expect(updateServiceWorker).not.toHaveBeenCalled();
 
-  await act(async () => completion.reject(new Error("打包中断")));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Word生成失败，请重试。 打包中断");
+  await act(async () => completion.reject(new Error("????")));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Word????????? ????");
   await waitFor(() => expect(updateServiceWorker).toHaveBeenCalledOnce());
-  expect(screen.getByRole("button", { name: "生成Word" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "??Word" })).toBeEnabled();
 });
 
 test("opens title sorting and editing dialogs for photographed route names", async () => {
@@ -1166,8 +1186,8 @@ test("opens title sorting and editing dialogs for photographed route names", asy
     itemSnapshot: {
       ...base.entries[0].itemSnapshot,
       id: "item-warehouse",
-      routeName: "仓库外围院子",
-      part: "仓库外围院子",
+      routeName: "??????",
+      part: "??????",
     },
   };
   const weldingEntry = {
@@ -1179,8 +1199,8 @@ test("opens title sorting and editing dialogs for photographed route names", asy
     itemSnapshot: {
       ...base.entries[0].itemSnapshot,
       id: "item-welding",
-      routeName: "焊机间",
-      part: "焊机间",
+      routeName: "???",
+      part: "???",
     },
   };
   await repository.saveGraph({
@@ -1197,16 +1217,16 @@ test("opens title sorting and editing dialogs for photographed route names", asy
 
   renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
 
-  await user.click(await screen.findByRole("button", { name: "排序" }));
-  expect(screen.getByRole("dialog", { name: "项点排序" })).toBeVisible();
-  expect(screen.getByRole("region", { name: "好的方面" })).toBeVisible();
-  expect(screen.getByRole("region", { name: "提醒问题" })).toBeVisible();
-  expect(screen.getByRole("region", { name: "考核问题" })).toBeVisible();
-  expect(screen.getAllByRole("button", { name: /拖动.*项点/ })).toHaveLength(2);
+  await user.click(await screen.findByRole("button", { name: "??" }));
+  expect(screen.getByRole("dialog", { name: "????" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "????" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "????" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "????" })).toBeVisible();
+  expect(screen.getAllByRole("button", { name: /??.*??/ })).toHaveLength(2);
 
-  await user.click(screen.getByRole("button", { name: "取消" }));
-  await user.click(screen.getByRole("button", { name: "编辑 仓库外围院子" }));
-  expect(screen.getByRole("dialog", { name: "编辑 仓库外围院子" })).toBeVisible();
-  expect(screen.getByRole("button", { name: /检查内容/ })).toBeVisible();
-  expect(screen.getByLabelText("相册文件")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "??" }));
+  await user.click(screen.getByRole("button", { name: "?? ??????" }));
+  expect(screen.getByRole("dialog", { name: "?? ??????" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /????/ })).toBeVisible();
+  expect(screen.getByLabelText("????")).toBeVisible();
 });

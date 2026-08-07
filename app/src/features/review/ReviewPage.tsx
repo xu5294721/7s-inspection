@@ -120,7 +120,7 @@ export function ReviewPage() {
     };
   }, [id, inspectionRepository, templateRepository]);
 
-  const visibleGroups = useMemo(() => graph?.groups.filter((group) => group.photoIds.length > 0) ?? [], [graph]);
+  const visibleGroups = useMemo(() => graph?.groups ?? [], [graph]);
   const summary = useMemo(() => buildReviewSummary(visibleGroups), [visibleGroups]);
   const errors = useMemo(() => graph ? validateReportReadiness(graph) : [], [graph]);
 
@@ -165,7 +165,7 @@ export function ReviewPage() {
         }
       } catch (error) {
         if (isCurrentSave()) {
-          const failure = error instanceof Error ? error : new Error("保存失败");
+          const failure = error instanceof Error ? error : new Error("????");
           batch.failure = failure;
           setSaveError(failure.message);
           const restored = await inspectionRepository.getGraph(inspectionId);
@@ -219,7 +219,7 @@ export function ReviewPage() {
       try {
         await saveCapturedPhotoToGallery(file);
       } catch {
-        setEditError("巡检照片已保存，但未能同步到手机相册，请确认手机存储空间后重拍。");
+        setEditError("????????????????????????????????");
       }
     }
     await refreshGraph();
@@ -232,7 +232,7 @@ export function ReviewPage() {
     try {
       for (const file of files) await saveNewEditPhoto(entryId, file, source);
     } catch (error) {
-      setEditError(error instanceof Error ? error.message : "照片处理失败");
+      setEditError(error instanceof Error ? error.message : "??????");
     } finally {
       setEditProcessing(false);
     }
@@ -244,7 +244,7 @@ export function ReviewPage() {
       await inspectionRepository.updateEntryCheckSelections(id, entryId, selections);
       await refreshGraph();
     } catch (error) {
-      const failure = error instanceof Error ? error : new Error("检查内容保存失败");
+      const failure = error instanceof Error ? error : new Error("????????");
       setEditError(failure.message);
       throw failure;
     }
@@ -257,7 +257,7 @@ export function ReviewPage() {
       await inspectionRepository.addEvaluationGroup(entryId, category, createBrowserUuid());
       await refreshGraph();
     } catch (error) {
-      const failure = error instanceof Error ? error : new Error("评价保存失败");
+      const failure = error instanceof Error ? error : new Error("??????");
       setEditError(failure.message);
       throw failure;
     } finally {
@@ -271,7 +271,7 @@ export function ReviewPage() {
       await inspectionRepository.updatePhotoGroup(group);
       await refreshGraph();
     } catch (error) {
-      const failure = error instanceof Error ? error : new Error("评价保存失败");
+      const failure = error instanceof Error ? error : new Error("??????");
       setEditError(failure.message);
       throw failure;
     }
@@ -284,7 +284,7 @@ export function ReviewPage() {
       await inspectionRepository.splitPhoto(photoId, result.created);
       await refreshGraph();
     } catch (error) {
-      const failure = error instanceof Error ? error : new Error("照片分类调整失败");
+      const failure = error instanceof Error ? error : new Error("????????");
       setEditError(failure.message);
       throw failure;
     }
@@ -296,7 +296,7 @@ export function ReviewPage() {
       await inspectionRepository.updatePhotoAnnotation(photo.id, photo.annotationJson);
       await refreshGraph();
     } catch (error) {
-      const failure = error instanceof Error ? error : new Error("照片标注保存失败");
+      const failure = error instanceof Error ? error : new Error("????????");
       setEditError(failure.message);
       throw failure;
     }
@@ -309,7 +309,7 @@ export function ReviewPage() {
       sourceFiles.current.delete(photoId);
       await refreshGraph();
     } catch (error) {
-      setEditError(error instanceof Error ? error.message : "照片删除失败");
+      setEditError(error instanceof Error ? error.message : "??????");
     }
   }
 
@@ -329,12 +329,12 @@ export function ReviewPage() {
         try {
           await saveCapturedPhotoToGallery(file);
         } catch {
-          setEditError("巡检照片已保存，但未能同步到手机相册，请确认手机存储空间后重拍。");
+          setEditError("????????????????????????????????");
         }
       }
       await refreshGraph();
     } catch (error) {
-      setEditError(error instanceof Error ? error.message : "照片处理失败");
+      setEditError(error instanceof Error ? error.message : "??????");
     } finally {
       setEditProcessing(false);
     }
@@ -343,7 +343,7 @@ export function ReviewPage() {
   async function changeEditPhotoHighQuality(photo: PhotoAsset, highQuality: boolean) {
     const file = sourceFiles.current.get(photo.id);
     if (!file) {
-      setEditError("原图已不在当前页面，请通过替换或重拍重新选择。");
+      setEditError("???????????????????????");
       return;
     }
     await replaceEditPhoto(photo, file, highQuality);
@@ -354,7 +354,7 @@ export function ReviewPage() {
     const ordered = [...graph.groups].sort((left, right) => left.order - right.order);
     let index = 0;
     const allIds = ordered.map((group) =>
-      group.category === activeCategory && group.photoIds.length > 0 ? categoryIds[index++] : group.id,
+      group.category === activeCategory ? categoryIds[index++] : group.id,
     );
     const rank = new Map(allIds.map((groupId, order) => [groupId, order]));
     const next: InspectionGraph = {
@@ -491,7 +491,7 @@ export function ReviewPage() {
   function focusError(error: ReportValidationError) {
     if (!graph) return;
     const group = error.groupId
-      ? graph.groups.find((item) => item.id === error.groupId && item.photoIds.length > 0)
+      ? graph.groups.find((item) => item.id === error.groupId)
       : undefined;
     if (group) {
       setActiveCategory(group.category);
@@ -548,13 +548,13 @@ export function ReviewPage() {
       setGraph(generatedReport.graph);
       setGeneratedReport({ blob: generatedReport.blob, filename: generatedReport.filename });
       setGenerationProgress(null);
-      setMessage("Word已生成，可分享或下载。");
+      setMessage("Word???????????");
     } catch (error) {
       if (!isCurrentGeneration()) return;
-      const failure = error instanceof Error ? error : new Error("复核失败");
+      const failure = error instanceof Error ? error : new Error("????");
       const restored = await inspectionRepository.getGraph(inspectionId);
       if (!isCurrentGeneration()) return;
-      setGenerationError(`Word生成失败，请重试。${failure.message ? ` ${failure.message}` : ""}`);
+      setGenerationError(`Word?????????${failure.message ? ` ${failure.message}` : ""}`);
       setGraph(restored);
       setGenerationProgress(null);
       setGeneratedReport(null);
@@ -585,13 +585,13 @@ export function ReviewPage() {
       );
       if (!isCurrentShare()) return;
       setMessage(result === "shared"
-        ? "Word已分享，可继续分享或下载。"
+        ? "Word?????????????"
         : result === "cancelled"
-          ? "已取消分享，Word仍可分享或下载。"
-          : "当前设备无法分享文件，请点击下载Word。");
+          ? "??????Word????????"
+          : "????????????????Word?");
     } catch {
       if (!isCurrentShare()) return;
-      setMessage("当前设备无法分享文件，请点击下载Word。");
+      setMessage("????????????????Word?");
     }
   }
 
@@ -599,14 +599,14 @@ export function ReviewPage() {
     if (!generatedReport) return;
     try {
       await reportGenerator.downloadReport(generatedReport.blob, generatedReport.filename);
-      setMessage("Word已保存，请在手机的下载文件夹中查看。 ");
+      setMessage("Word?????????????????? ");
     } catch {
-      setMessage("Word下载失败，请重试。 ");
+      setMessage("Word????????? ");
     }
   }
 
-  if (graph === undefined) return <p className="status-message" role="status">正在读取复核数据...</p>;
-  if (graph === null) return <p className="status-message" role="alert">未找到巡检记录。</p>;
+  if (graph === undefined) return <p className="status-message" role="status">????????...</p>;
+  if (graph === null) return <p className="status-message" role="alert">????????</p>;
 
   const activeGroups = visibleGroups.filter((group) => group.category === activeCategory).sort((a, b) => a.order - b.order);
   const effectiveMode = graph.inspection.photoLayoutModeOverride ?? graph.template?.photoLayoutMode ?? "fixed";
@@ -618,24 +618,24 @@ export function ReviewPage() {
     : [];
   return (
     <section className="page-section review-page">
-      <div className="section-heading"><p className="eyebrow">{graph.inspection.title}</p><h2>通报复核</h2></div>
-      <dl className="review-summary"><div><dt>照片</dt><dd>{summary.totalPhotos}张</dd></div><div><dt>奖励</dt><dd>{summary.rewardAmount}元</dd></div><div><dt>考核</dt><dd>{summary.assessmentAmount}元</dd></div></dl>
+      <div className="section-heading"><p className="eyebrow">{graph.inspection.title}</p><h2>????</h2></div>
+      <dl className="review-summary"><div><dt>??</dt><dd>{summary.totalPhotos}?</dd></div><div><dt>??</dt><dd>{summary.rewardAmount}?</dd></div><div><dt>??</dt><dd>{summary.assessmentAmount}?</dd></div></dl>
       <div ref={settingsElement} className="review-settings" data-testid="review-settings" tabIndex={-1}>
-        <label className="review-template-field">通报模板版本
-          <select disabled={isGenerating} className="review-template-select" aria-label="通报模板版本" value={graph.inspection.templateVersion} onChange={(event) => selectTemplate(Number(event.currentTarget.value))}>
+        <label className="review-template-field">??????
+          <select disabled={isGenerating} className="review-template-select" aria-label="??????" value={graph.inspection.templateVersion} onChange={(event) => selectTemplate(Number(event.currentTarget.value))}>
             {(templateVersions.length > 0 ? templateVersions : graph.template ? [graph.template] : []).map((template) => (
               <option key={`${template.id}-${template.version}`} value={template.version}>{template.name} v{template.version}</option>
             ))}
-            {templateVersions.length === 0 && !graph.template ? <option value={graph.inspection.templateVersion}>模板 v{graph.inspection.templateVersion}</option> : null}
+            {templateVersions.length === 0 && !graph.template ? <option value={graph.inspection.templateVersion}>?? v{graph.inspection.templateVersion}</option> : null}
           </select>
         </label>
-        <label>照片排版模式<select disabled={isGenerating} aria-label="照片排版模式" value={effectiveMode} onChange={(event) => savePhotoLayout(event.currentTarget.value as PhotoLayoutMode, effectiveRows)}><option value="adaptive">自适应</option><option value="fixed">固定</option></select></label>
-        <label>每行照片数<select disabled={isGenerating} aria-label="每行照片数" value={effectiveRows} onChange={(event) => savePhotoLayout(effectiveMode, Number(event.currentTarget.value) as PhotosPerRow)}>{PHOTO_ROW_COUNTS.map((count) => <option key={count} value={count}>{count}张</option>)}</select></label>
+        <label>??????<select disabled={isGenerating} aria-label="??????" value={effectiveMode} onChange={(event) => savePhotoLayout(event.currentTarget.value as PhotoLayoutMode, effectiveRows)}><option value="adaptive">???</option><option value="fixed">??</option></select></label>
+        <label>?????<select disabled={isGenerating} aria-label="?????" value={effectiveRows} onChange={(event) => savePhotoLayout(effectiveMode, Number(event.currentTarget.value) as PhotosPerRow)}>{PHOTO_ROW_COUNTS.map((count) => <option key={count} value={count}>{count}?</option>)}</select></label>
       </div>
-      <section className="review-route-summary" aria-label="已拍照项点">
+      <section className="review-route-summary" aria-label="?????">
         <div className="review-route-summary__header">
-          <h3>已拍照项点</h3>
-          <button type="button" className="secondary-action" disabled={!routeNames.length || isGenerating} onClick={() => setRouteSortOpen(true)}>排序</button>
+          <h3>?????</h3>
+          <button type="button" className="secondary-action" disabled={!routeNames.length || isGenerating} onClick={() => setRouteSortOpen(true)}>??</button>
         </div>
         <div className="review-route-summary__list">
           {routeNames.map((routeName) => (
@@ -644,7 +644,7 @@ export function ReviewPage() {
               ref={(element) => { if (element) routeEditElements.current.set(routeName, element); else routeEditElements.current.delete(routeName); }}
               type="button"
               className="review-route-summary__item"
-              aria-label={`编辑 ${routeName}`}
+              aria-label={`?? ${routeName}`}
               disabled={isGenerating}
               onClick={() => { setEditError(""); setEditingRouteName(routeName); }}
             >{routeName}</button>
@@ -652,21 +652,21 @@ export function ReviewPage() {
         </div>
       </section>
       <DndContext sensors={groupSensors} collisionDetection={closestCenter} onDragEnd={groupDragEnd}>
-        <div className="review-tabs" role="tablist" aria-label="照片分类">
+        <div className="review-tabs" role="tablist" aria-label="????">
           {categories.map((category) => <CategoryTab key={category.id} category={category} count={summary.photos[category.id]} active={activeCategory === category.id} onSelect={setActiveCategory} onNavigate={moveTabFocus} register={(element) => { if (element) tabElements.current.set(category.id, element); else tabElements.current.delete(category.id); }} />)}
         </div>
         <div id="review-category-panel" role="tabpanel" aria-labelledby={`review-tab-${activeCategory}`}>
-          {activeGroups.length ? <ReviewGroupList groups={activeGroups} photos={graph.photos} entries={graph.inspection.entries} errors={errors} registerGroup={(groupId, element) => { if (element) groupElements.current.set(groupId, element); else groupElements.current.delete(groupId); }} onGroupReorder={reorderCategory} onPhotoReorder={reorderPhotos} onAssessmentChange={saveAssessment} /> : <p className="empty-state">本分类暂无照片。</p>}
+          {activeGroups.length ? <ReviewGroupList groups={activeGroups} photos={graph.photos} entries={graph.inspection.entries} errors={errors} registerGroup={(groupId, element) => { if (element) groupElements.current.set(groupId, element); else groupElements.current.delete(groupId); }} onGroupReorder={reorderCategory} onPhotoReorder={reorderPhotos} onAssessmentChange={saveAssessment} /> : <p className="empty-state">????????</p>}
         </div>
       </DndContext>
-      {errors.length ? <section ref={globalErrorsElement} className="review-errors" aria-label="复核问题" tabIndex={-1}><h3>需补充内容</h3>{errors.map((item, index) => <button type="button" key={`${item.code}-${item.groupId}-${index}`} onClick={() => focusError(item)}>{item.message}</button>)}</section> : null}
+      {errors.length ? <section ref={globalErrorsElement} className="review-errors" aria-label="????" tabIndex={-1}><h3>?????</h3>{errors.map((item, index) => <button type="button" key={`${item.code}-${item.groupId}-${index}`} onClick={() => focusError(item)}>{item.message}</button>)}</section> : null}
       {saveError ? <p className="inline-error" role="alert">{saveError}</p> : null}
       {generationError ? <p className="inline-error" role="alert">{generationError}</p> : null}
-      {generationProgress ? <p className="report-progress" role="status">{generationProgress.phase === "images" ? `正在处理照片 ${generationProgress.completedImages}/${generationProgress.totalImages}` : generationProgress.phase === "document" ? "正在生成文档" : "正在保存文档"}</p> : null}
+      {generationProgress ? <p className="report-progress" role="status">{generationProgress.phase === "images" ? `?????? ${generationProgress.completedImages}/${generationProgress.totalImages}` : generationProgress.phase === "document" ? "??????" : "??????"}</p> : null}
       <div className="review-command">
-        <button type="button" className="primary-action" disabled={errors.length > 0 || Boolean(saveError) || isGenerating} onClick={() => void completeReview()}>{isGenerating ? "正在生成" : "生成Word"}</button>
-        {generatedReport ? <button type="button" className="secondary-action" onClick={() => void shareGeneratedReport()}><Share2 aria-hidden="true" size={18} />分享Word</button> : null}
-        {generatedReport ? <button type="button" className="secondary-action" onClick={() => void downloadGeneratedReport()}><Download aria-hidden="true" size={18} />下载Word</button> : null}
+        <button type="button" className="primary-action" disabled={errors.length > 0 || Boolean(saveError) || isGenerating} onClick={() => void completeReview()}>{isGenerating ? "????" : "??Word"}</button>
+        {generatedReport ? <button type="button" className="secondary-action" onClick={() => void shareGeneratedReport()}><Share2 aria-hidden="true" size={18} />??Word</button> : null}
+        {generatedReport ? <button type="button" className="secondary-action" onClick={() => void downloadGeneratedReport()}><Download aria-hidden="true" size={18} />??Word</button> : null}
         {errors[0] ? <span className="inline-error">{errors[0].message}</span> : null}
       </div>
       {message ? <p className="status-message" role="status">{message}</p> : null}
@@ -734,7 +734,7 @@ function CategoryTab({ category, count, active, onSelect, onNavigate, register }
         }
       }}
     >
-      {category.label} {count}张
+      {category.label} {count}?
     </button>
   );
 }

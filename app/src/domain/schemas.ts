@@ -11,13 +11,14 @@ const reviewRouteOrderByCategorySchema = z.object({
 export const inspectionStatusSchema = z.enum(["draft", "reviewed", "generated"]);
 export const photoLayoutModeSchema = z.enum(["adaptive", "fixed"]);
 const photosPerRowSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
-export const inspectionCheckCategorySchema = z.enum(["environment", "placement", "equipment", "safety"]);
+export const inspectionCheckCategorySchema = z.string().trim().min(1);
 export const inspectionCheckSelectionSchema = z.object({
   category: inspectionCheckCategorySchema,
+  categoryLabel: z.string().optional(),
   value: z.string(),
   isCustom: z.boolean(),
 });
-export const sevenSCategorySchema = z.enum(["整理", "整顿", "清扫", "清洁", "素养", "安全", "节约", ""]);
+export const sevenSCategorySchema = z.enum(["??", "??", "??", "??", "??", "??", "??", ""]);
 
 export const checklistItemSchema = z.object({
   id: z.string().min(1),
@@ -53,14 +54,14 @@ export const inspectionRouteTemplateSchema = z
       context.addIssue({
         code: "custom",
         path: ["itemIds"],
-        message: "模板项目不能重复。",
+        message: "?????????",
       });
     }
     if (value.isDefault && value.name !== DEFAULT_ROUTE_TEMPLATE_NAME) {
       context.addIssue({
         code: "custom",
         path: ["name"],
-        message: `默认模板名称必须为“${DEFAULT_ROUTE_TEMPLATE_NAME}”。`,
+        message: `??????????${DEFAULT_ROUTE_TEMPLATE_NAME}??`,
       });
     }
   });
@@ -103,7 +104,7 @@ export const inspectionRecordSchema = z.object({
     context.addIssue({
       code: "custom",
       path: ["reviewRouteOrder"],
-      message: "巡检项点排序不能重复。",
+      message: "???????????",
     });
   }
   for (const [category, routeNames] of Object.entries(inspection.reviewRouteOrderByCategory ?? {})) {
@@ -111,7 +112,7 @@ export const inspectionRecordSchema = z.object({
       context.addIssue({
         code: "custom",
         path: ["reviewRouteOrderByCategory", category],
-        message: "分类项点排序不能重复。",
+        message: "???????????",
       });
     }
   }
@@ -157,7 +158,7 @@ export const settingsRecordSchema = z.object({
 
 const reportSectionSchema = z.object({
   category: photoCategorySchema,
-  title: z.string().trim().min(1, "章节标题不能为空。"),
+  title: z.string().trim().min(1, "?????????"),
   order: z.number().int().nonnegative(),
 });
 
@@ -209,7 +210,7 @@ export const reportTemplateSchema = z
       context.addIssue({
         code: "custom",
         path: ["sections"],
-        message: "模板必须包含旧三类章节或完整四类照片章节。",
+        message: "?????????????????????",
       });
     }
 
@@ -217,7 +218,7 @@ export const reportTemplateSchema = z
       context.addIssue({
         code: "custom",
         path: ["sections"],
-        message: "模板章节排序不能重复。",
+        message: "???????????",
       });
     }
   });
