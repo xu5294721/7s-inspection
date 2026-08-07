@@ -530,3 +530,25 @@ test("keeps an 80-photo DOCX media payload within the configured budget", async 
     getDocxPhotoBudget(80).targetBytes,
   );
 });
+
+test("emits only the text line for a no-photo group without a photo table", async () => {
+  const template = makeTemplate();
+  const inspection = makeInspection();
+  const entry = { ...inspection.entries[0], id: "entry-no-photo", groupIds: ["group-no-photo"] };
+  const model = buildReportModel({
+    inspection: { ...inspection, entries: [entry] },
+    groups: [
+      makePhotoGroup({ id: "group-no-photo", entryId: entry.id, description: "纯文字评价。", photoIds: [] }),
+    ],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const body = documentXml.slice(documentXml.indexOf("<w:body>"), documentXml.indexOf("</w:body>"));
+
+  expect(body).toContain("纯文字评价。");
+  expect(body).not.toContain("<w:tbl>");
+  expect(body).not.toContain("<w:drawing>");
+});
