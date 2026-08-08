@@ -1533,6 +1533,199 @@ a {
   }
 }
 
+.inspection-page .inspection-search-toolbar {
+  margin-bottom: 16px;
+}
+
+.inspection-page .inspection-search-toolbar .secondary-action {
+  background: var(--color-surface-secondary);
+  color: var(--color-ink);
+}
+
+.photo-progress {
+  margin: 0 0 12px;
+  border-radius: 12px;
+  background: var(--color-accent-soft);
+  padding: 9px 12px;
+  color: var(--color-good);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 19px;
+}
+
+.failed-photo-list {
+  margin-top: 0;
+  overflow: hidden;
+  border: 1px solid rgb(178 58 58 / 18%);
+  border-radius: var(--radius-group);
+  background: #fff4f4;
+  padding: 0 12px;
+}
+
+.failed-photo-list li {
+  border-bottom-color: rgb(178 58 58 / 16%);
+  padding: 10px 0;
+}
+
+.inspection-review-command {
+  position: sticky;
+  z-index: 2;
+  bottom: calc(74px + env(safe-area-inset-bottom));
+  margin: 18px -16px -8px;
+  border-top: 1px solid rgb(60 60 67 / 12%);
+  background: rgb(255 255 255 / 96%);
+  padding: 10px 16px;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.inspection-review-command .primary-action {
+  min-height: 48px;
+}
+
+.inspection-entry__main p {
+  color: var(--color-ink);
+}
+
+.inspection-check-editor__summary {
+  border-color: transparent;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-secondary);
+  padding: 10px 12px;
+}
+
+.inspection-check-editor__summary:hover,
+.inspection-check-editor__summary:focus-visible {
+  border-color: transparent;
+  background: var(--color-accent-soft);
+}
+
+.inspection-check-editor__panel {
+  border-top-color: rgb(60 60 67 / 12%);
+}
+
+.inspection-check-editor__actions button {
+  min-height: 44px;
+  border-color: transparent;
+  background: var(--color-surface-secondary);
+}
+
+.photo-group-editor {
+  border-top-color: rgb(60 60 67 / 12%);
+}
+
+.category-segments {
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--color-surface-secondary);
+  padding: 4px;
+}
+
+.category-segments span {
+  min-height: 40px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.empty-evaluation-picker {
+  border-top-color: rgb(60 60 67 / 12%);
+}
+
+.group-description,
+.award-inputs label,
+.annotation-text-input {
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.group-description textarea,
+.award-inputs input,
+.annotation-text-input input {
+  min-height: 48px;
+  padding: 10px 12px;
+}
+
+.photo-thumbnail-list {
+  gap: 10px;
+}
+
+.photo-item__actions {
+  gap: 5px;
+  padding: 7px;
+}
+
+.photo-item__actions button {
+  min-height: 42px;
+  border-color: transparent;
+  background: var(--color-surface-secondary);
+  color: var(--color-ink);
+}
+
+.group-photo-tools button,
+.flush-evaluation,
+.annotation-dialog button {
+  border-color: transparent;
+  border-radius: 12px;
+  background: var(--color-surface-secondary);
+}
+
+.annotation-backdrop {
+  background: rgb(28 28 30 / 42%);
+}
+
+.annotation-dialog {
+  max-width: 760px;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--color-surface);
+  box-shadow: 0 -10px 36px rgb(0 0 0 / 16%);
+  padding: 18px;
+}
+
+.annotation-dialog__header {
+  border-bottom-color: rgb(60 60 67 / 12%);
+  padding-bottom: 12px;
+}
+
+.annotation-toolbar {
+  gap: 6px;
+  margin: 12px 0;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--color-surface-secondary);
+}
+
+.annotation-toolbar button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.annotation-toolbar button[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.annotation-canvas {
+  border-color: rgb(60 60 67 / 16%);
+  border-radius: var(--radius-control);
+}
+
+.annotation-dialog__footer {
+  border-top-color: rgb(60 60 67 / 12%);
+  padding-top: 12px;
+}
+
+@media (min-width: 720px) {
+  .inspection-review-command {
+    margin-right: -24px;
+    margin-left: -24px;
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+}
+
 /* Shared Apple-style visual layer. Keep business markup and handlers unchanged. */
 html {
   background: var(--color-canvas);
