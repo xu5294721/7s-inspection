@@ -451,6 +451,124 @@ test("keeps an adaptive section heading with a resized first photo group", async
   expect(extent!.height).toBeLessThan(maxAdaptiveHeightPx * 9_525);
 });
 
+test("moves an adaptive portrait photo to the next page instead of making it tiny", async () => {
+  const baseInspection = makeInspection({ templateVersion: 1 });
+  const firstEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-first-readable",
+    groupIds: ["group-first-readable"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-first-readable", routeName: "第一项点" },
+    order: 0,
+  };
+  const secondEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-second-readable",
+    groupIds: ["group-second-readable"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-second-readable", routeName: "第二项点" },
+    order: 1,
+  };
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    photosPerRow: 2,
+    requirements: Array.from({ length: 9 }, (_, index) => `第${index + 1}项要求：现场检查内容需要逐项落实。`),
+  });
+  const model = buildReportModel({
+    inspection: { ...baseInspection, entries: [firstEntry, secondEntry] },
+    groups: [
+      makePhotoGroup({
+        id: "group-first-readable",
+        entryId: firstEntry.id,
+        description: "第一项点照片。",
+        descriptionManuallyEdited: true,
+        photoIds: ["first-readable-1", "first-readable-2"],
+      }),
+      makePhotoGroup({
+        id: "group-second-readable",
+        entryId: secondEntry.id,
+        description: "第二项点照片。",
+        descriptionManuallyEdited: true,
+        photoIds: ["second-readable"],
+        order: 1,
+      }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: "first-readable-1", groupId: "group-first-readable", width: 1600, height: 900 }),
+      makePhoto(undefined, { id: "first-readable-2", groupId: "group-first-readable", width: 1600, height: 900 }),
+      makePhoto(undefined, { id: "second-readable", groupId: "group-second-readable", width: 1000, height: 4000 }),
+    ],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
+    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }));
+  const maxAdaptiveHeightPx = Math.floor(180 * 96 / 25.4);
+
+  expect(paragraphContaining(documentXml, "2. 第二项点照片。")).toContain("<w:pageBreakBefore/>");
+  expect(extents).toHaveLength(3);
+  expect(extents[2]!.height).toBe(maxAdaptiveHeightPx * 9_525);
+});
+
+test("keeps a four-photo adaptive table readable instead of shrinking all rows", async () => {
+  const baseInspection = makeInspection({ templateVersion: 1 });
+  const firstEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-first-multi-row",
+    groupIds: ["group-first-multi-row"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-first-multi-row", routeName: "第一项点" },
+    order: 0,
+  };
+  const secondEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-second-multi-row",
+    groupIds: ["group-second-multi-row"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-second-multi-row", routeName: "第二项点" },
+    order: 1,
+  };
+  const secondPhotoIds = Array.from({ length: 4 }, (_, index) => `second-multi-row-${index + 1}`);
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    photosPerRow: 2,
+    requirements: Array.from({ length: 16 }, (_, index) => `第${index + 1}项要求：现场检查内容需要逐项落实。`),
+  });
+  const model = buildReportModel({
+    inspection: { ...baseInspection, entries: [firstEntry, secondEntry] },
+    groups: [
+      makePhotoGroup({
+        id: "group-first-multi-row",
+        entryId: firstEntry.id,
+        description: "第一项点照片。",
+        descriptionManuallyEdited: true,
+        photoIds: ["first-multi-row-1", "first-multi-row-2"],
+      }),
+      makePhotoGroup({
+        id: "group-second-multi-row",
+        entryId: secondEntry.id,
+        description: "第二项点照片。",
+        descriptionManuallyEdited: true,
+        photoIds: secondPhotoIds,
+        order: 1,
+      }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: "first-multi-row-1", groupId: "group-first-multi-row", width: 1600, height: 900 }),
+      makePhoto(undefined, { id: "first-multi-row-2", groupId: "group-first-multi-row", width: 1600, height: 900 }),
+      ...secondPhotoIds.map((id) => makePhoto(undefined, { id, groupId: "group-second-multi-row", width: 1600, height: 900 })),
+    ],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
+    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }));
+
+  expect(paragraphContaining(documentXml, "2. 第二项点照片。")).toContain("<w:pageBreakBefore/>");
+  expect(extents).toHaveLength(6);
+  expect(new Set(extents.slice(2).map(({ width, height }) => `${width}x${height}`)).size).toBe(1);
+});
+
 test.each([2, 3] as const)(
   "divides the exact content width into %i columns and uses a fixed 3:4 photo frame",
   async (photosPerRow) => {

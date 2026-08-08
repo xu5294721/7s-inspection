@@ -72,6 +72,7 @@ const docxPhotoFrameAspectRatio = 3 / 4;
 const singlePhotoWidthMm = 90;
 const singlePhotoHeightMm = 120;
 const maximumAdaptivePhotoHeightMm = 180;
+const minimumAdaptivePhotoScale = 0.85;
 const pxPerMm = 96 / 25.4;
 const twipsPerPixel = 15;
 const maximumWordTwips = 2_147_483_647n;
@@ -300,6 +301,15 @@ function fitPhotoTableToHeight(layout: PhotoTableLayout, maximumHeightTwips: num
   };
 }
 
+function adaptivePhotoTableCanUseRemainingSpace(
+  layout: PhotoTableLayout,
+  availableHeightTwips: number,
+): boolean {
+  if (availableHeightTwips <= 0) return false;
+  if (layout.heightTwips <= availableHeightTwips) return true;
+  return availableHeightTwips >= Math.ceil(layout.heightTwips * minimumAdaptivePhotoScale);
+}
+
 function imageTable(model: ReportModel, photos: PreparedPhoto[], layout = photoTableLayout(model, photos)): Table {
   const gapTwips = Math.round(model.photoGapPt * 20 / 2);
   const photoRows = chunks(photos, layout.columns).map((row, rowIndex) => {
@@ -476,7 +486,10 @@ export async function generateDocx(
     const adaptiveFirstGroupCanUseRemainingSpace = Boolean(
       firstGroupLayout &&
       model.photoLayoutMode === "adaptive" &&
-      pagination.remainingPageTwips() > sectionTitleHeight + firstGroupTextHeight,
+      adaptivePhotoTableCanUseRemainingSpace(
+        firstGroupLayout,
+        pagination.remainingPageTwips() - sectionTitleHeight - firstGroupTextHeight,
+      ),
     );
     const sectionPageBreak = Boolean(
       section.title.trim() &&
@@ -505,7 +518,7 @@ export async function generateDocx(
       if (
         groupLayout &&
         model.photoLayoutMode === "adaptive" &&
-        availablePhotoHeight > 0
+        adaptivePhotoTableCanUseRemainingSpace(groupLayout, availablePhotoHeight)
       ) {
         groupLayout = fitPhotoTableToHeight(groupLayout, availablePhotoHeight);
       }
