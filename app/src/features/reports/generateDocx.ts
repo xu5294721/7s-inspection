@@ -23,7 +23,7 @@ import {
   getDocxPhotoBudget,
 } from "../../lib/images/compressDocxPhoto";
 import { renderAnnotation } from "../../lib/images/renderAnnotation";
-import type { ReportModel, ReportPhoto } from "./reportModel";
+import type { ReportGroup, ReportModel, ReportPhoto } from "./reportModel";
 import { replaceZipMediaSequentially } from "./sequentialZip";
 
 export type ReportProgressPhase = "images" | "document" | "save";
@@ -49,12 +49,31 @@ interface PreparedPhoto extends ReportPhoto {
   type: "jpg";
 }
 
+interface PhotoPlacement {
+  width: number;
+  height: number;
+}
+
+interface PhotoTableRowLayout {
+  placements: Array<PhotoPlacement | null>;
+  heightPx: number;
+}
+
+interface PhotoTableLayout {
+  columns: number;
+  columnWidths: number[];
+  rows: PhotoTableRowLayout[];
+  heightTwips: number;
+}
+
 const a4WidthMm = 210;
 const a4HeightMm = 297;
 const docxPhotoFrameAspectRatio = 3 / 4;
 const singlePhotoWidthMm = 90;
 const singlePhotoHeightMm = 120;
+const maximumAdaptivePhotoHeightMm = 180;
 const pxPerMm = 96 / 25.4;
+const twipsPerPixel = 15;
 const maximumWordTwips = 2_147_483_647n;
 
 function decimalNumeratorAndScale(value: number): { numerator: bigint; scale: bigint } {
@@ -166,6 +185,7 @@ function bodyParagraph(
     heading?: boolean;
     alignment?: (typeof AlignmentType)[keyof typeof AlignmentType];
     keepNext?: boolean;
+    pageBreakBefore?: boolean;
     firstLineIndent?: boolean;
   } = {},
 ): Paragraph {
@@ -173,6 +193,7 @@ function bodyParagraph(
     children: [textRun(model, text, options)],
     alignment: options.alignment,
     keepNext: options.keepNext,
+    pageBreakBefore: options.pageBreakBefore,
     indent: options.firstLineIndent
       ? { firstLine: firstLineIndentTwips(bodyFontHalfPoints(model) / 2, model.firstLineIndentChars) }
       : undefined,
@@ -192,7 +213,33 @@ function chunks<T>(values: T[], size: number): T[][] {
   return rows;
 }
 
-function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
+function maximumAdaptivePhotoHeightPx(model: ReportModel): number {
+  const contentHeightMm = a4HeightMm - model.marginMm.top - model.marginMm.bottom;
+  return Math.max(1, Math.floor(Math.min(
+    maximumAdaptivePhotoHeightMm,
+    Math.max(1, contentHeightMm - 30),
+  ) * pxPerMm));
+}
+
+function adaptivePhotoPlacement(
+  model: ReportModel,
+  photo: PreparedPhoto,
+  imageWidthPx: number,
+): PhotoPlacement {
+  const sourceWidth = Number.isFinite(photo.width) && photo.width > 0 ? photo.width : 1;
+  const sourceHeight = Number.isFinite(photo.height) && photo.height > 0 ? photo.height : 1;
+  const naturalHeight = Math.max(1, Math.round(imageWidthPx * sourceHeight / sourceWidth));
+  const maximumHeight = maximumAdaptivePhotoHeightPx(model);
+  if (naturalHeight <= maximumHeight) {
+    return { width: imageWidthPx, height: naturalHeight };
+  }
+  return {
+    width: Math.max(1, Math.round(maximumHeight * sourceWidth / sourceHeight)),
+    height: maximumHeight,
+  };
+}
+
+function photoTableLayout(model: ReportModel, photos: PreparedPhoto[]): PhotoTableLayout {
   const isSinglePhoto = photos.length === 1;
   const fillsRowWidth = !isSinglePhoto || model.photoLayoutMode === "adaptive";
   const columns = isSinglePhoto
@@ -207,25 +254,66 @@ function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
     (_, index) => baseCellWidth + (index < remainder ? 1 : 0),
   );
   const cellWidthMm = contentWidthMm / columns;
-  const gapTwips = Math.round(model.photoGapPt * 20 / 2);
   const imageWidthPx = fillsRowWidth
     ? Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm))
     : Math.round(singlePhotoWidthMm * pxPerMm);
-  const imageHeightPx = fillsRowWidth
+  const fixedImageHeightPx = fillsRowWidth
     ? Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio)
     : Math.round(singlePhotoHeightMm * pxPerMm);
-  const rows = chunks(photos, columns).map((row) => {
-    const cells = Array.from({ length: columns }, (_, index) => {
+  const placements = photos.map((photo) => model.photoLayoutMode === "adaptive"
+    ? adaptivePhotoPlacement(model, photo, imageWidthPx)
+    : { width: imageWidthPx, height: fixedImageHeightPx });
+  const rows = chunks(placements, columns).map((row) => {
+    const rowPlacements = Array.from({ length: columns }, (_, index) => row[index] ?? null);
+    return {
+      placements: rowPlacements,
+      heightPx: rowPlacements.reduce((height, placement) => Math.max(height, placement?.height ?? 0), 0),
+    };
+  });
+  return {
+    columns,
+    columnWidths,
+    rows,
+    heightTwips: rows.reduce((height, row) => height + Math.ceil(row.heightPx * twipsPerPixel), 0),
+  };
+}
+
+function fitPhotoTableToHeight(layout: PhotoTableLayout, maximumHeightTwips: number): PhotoTableLayout {
+  if (layout.heightTwips <= maximumHeightTwips || maximumHeightTwips <= 0) return layout;
+  const scale = maximumHeightTwips / layout.heightTwips;
+  const rows = layout.rows.map((row) => {
+    const placements = row.placements.map((placement) => placement
+      ? {
+        width: Math.max(1, Math.floor(placement.width * scale)),
+        height: Math.max(1, Math.floor(placement.height * scale)),
+      }
+      : null);
+    return {
+      placements,
+      heightPx: placements.reduce((height, placement) => Math.max(height, placement?.height ?? 0), 0),
+    };
+  });
+  return {
+    ...layout,
+    rows,
+    heightTwips: rows.reduce((height, row) => height + Math.ceil(row.heightPx * twipsPerPixel), 0),
+  };
+}
+
+function imageTable(model: ReportModel, photos: PreparedPhoto[], layout = photoTableLayout(model, photos)): Table {
+  const gapTwips = Math.round(model.photoGapPt * 20 / 2);
+  const photoRows = chunks(photos, layout.columns).map((row, rowIndex) => {
+    const rowLayout = layout.rows[rowIndex];
+    const cells = Array.from({ length: layout.columns }, (_, index) => {
       const photo = row[index];
-      const cellWidthTwips = columnWidths[index];
-      if (!photo) {
+      const placement = rowLayout?.placements[index];
+      const cellWidthTwips = layout.columnWidths[index];
+      if (!photo || !placement) {
         return new TableCell({
           width: { size: cellWidthTwips, type: WidthType.DXA },
           children: [new Paragraph("")],
         });
       }
-      const width = imageWidthPx;
-      const height = imageHeightPx;
       return new TableCell({
         width: { size: cellWidthTwips, type: WidthType.DXA },
         verticalAlign: VerticalAlign.CENTER,
@@ -235,7 +323,7 @@ function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
           children: [new ImageRun({
             type: photo.type,
             data: photo.data,
-            transformation: { width, height },
+            transformation: placement,
             altText: { title: photo.id, description: photo.id, name: photo.id },
           })],
           spacing: { after: 0 },
@@ -245,11 +333,77 @@ function imageTable(model: ReportModel, photos: PreparedPhoto[]): Table {
     return new TableRow({ children: cells, cantSplit: true });
   });
   return new Table({
-    rows,
-    width: { size: contentWidthTwips, type: WidthType.DXA },
-    columnWidths,
+    rows: photoRows,
+    width: { size: layout.columnWidths.reduce((total, width) => total + width, 0), type: WidthType.DXA },
+    columnWidths: layout.columnWidths,
     layout: TableLayoutType.FIXED,
     borders: TableBorders.NONE,
+  });
+}
+
+function paragraphHeightTwips(model: ReportModel, text: string, fontSizePt = model.bodyFontSizePt): number {
+  const lineTwips = Math.max(1, Math.round(model.lineSpacing * 240));
+  const contentWidthMm = Math.max(1, a4WidthMm - model.marginMm.left - model.marginMm.right);
+  const averageCharacterWidthMm = Math.max(0.5, fontSizePt * 25.4 / 72);
+  const charactersPerLine = Math.max(1, Math.floor(contentWidthMm / averageCharacterWidthMm));
+  const lines = Math.max(1, Math.ceil(Array.from(text).length / charactersPerLine));
+  return lines * lineTwips;
+}
+
+class PageLayoutEstimator {
+  private readonly pageHeightTwips: number;
+  private remainingTwips: number;
+  private hasContent = false;
+
+  constructor(model: ReportModel) {
+    this.pageHeightTwips = Math.max(1, convertMillimetersToTwip(
+      a4HeightMm - model.marginMm.top - model.marginMm.bottom,
+    ));
+    this.remainingTwips = this.pageHeightTwips;
+  }
+
+  shouldBreakBefore(heightTwips: number): boolean {
+    return this.hasContent && heightTwips <= this.pageHeightTwips && heightTwips > this.remainingTwips;
+  }
+
+  remainingPageTwips(): number {
+    return this.remainingTwips;
+  }
+
+  startNewPage(): void {
+    if (!this.hasContent) return;
+    this.remainingTwips = this.pageHeightTwips;
+    this.hasContent = false;
+  }
+
+  consume(heightTwips: number): void {
+    let remainingHeight = Math.max(0, heightTwips);
+    while (this.hasContent && remainingHeight > this.remainingTwips) {
+      remainingHeight -= this.remainingTwips;
+      this.remainingTwips = this.pageHeightTwips;
+      this.hasContent = false;
+    }
+    if (remainingHeight >= this.pageHeightTwips) {
+      const pageRemainder = remainingHeight % this.pageHeightTwips;
+      this.remainingTwips = pageRemainder === 0
+        ? this.pageHeightTwips
+        : this.pageHeightTwips - pageRemainder;
+      this.hasContent = pageRemainder !== 0;
+      return;
+    }
+    this.remainingTwips -= remainingHeight;
+    this.hasContent = true;
+  }
+}
+
+function preparedPhotosForGroup(
+  group: ReportGroup,
+  preparedById: Map<string, PreparedPhoto>,
+): PreparedPhoto[] {
+  return group.photos.map((photo) => {
+    const prepared = preparedById.get(photo.id);
+    if (!prepared) throw new Error(`照片 ${photo.id} 尚未处理。`);
+    return prepared;
   });
 }
 
@@ -283,43 +437,92 @@ export async function generateDocx(
     }),
     bodyParagraph(model, model.openingText, { firstLineIndent: true }),
   ];
+  const pagination = new PageLayoutEstimator(model);
+  pagination.consume(paragraphHeightTwips(model, model.title, model.titleFontSizePt));
+  pagination.consume(paragraphHeightTwips(model, model.openingText));
   if (model.generalHeading.trim()) {
     children.push(bodyParagraph(model, model.generalHeading, { bold: true, heading: true }));
+    pagination.consume(paragraphHeightTwips(model, model.generalHeading));
   }
-  children.push(
-    ...model.requirements.map((requirement, index) => bodyParagraph(
-      model,
-      `${index + 1}. ${requirement}`,
-      { firstLineIndent: true },
-    )),
-  );
+  for (const [index, requirement] of model.requirements.entries()) {
+    const text = `${index + 1}. ${requirement}`;
+    children.push(bodyParagraph(model, text, { firstLineIndent: true }));
+    pagination.consume(paragraphHeightTwips(model, text));
+  }
   if (model.situationHeading.trim()) {
     children.push(bodyParagraph(model, model.situationHeading, {
       bold: true,
       heading: true,
       firstLineIndent: true,
     }));
+    pagination.consume(paragraphHeightTwips(model, model.situationHeading));
   }
 
   for (const section of model.sections) {
+    const firstGroup = section.groups[0];
+    const firstGroupPhotos = firstGroup ? preparedPhotosForGroup(firstGroup, preparedById) : [];
+    const firstGroupLayout = firstGroup && firstGroupPhotos.length > 0
+      ? photoTableLayout(model, firstGroupPhotos)
+      : null;
+    const firstGroupHeight = firstGroup
+      ? paragraphHeightTwips(model, `${firstGroup.number}. ${firstGroup.text}`) + (firstGroupLayout?.heightTwips ?? 0)
+      : 0;
+    const firstGroupTextHeight = firstGroup
+      ? paragraphHeightTwips(model, `${firstGroup.number}. ${firstGroup.text}`)
+      : 0;
+    const sectionTitleHeight = section.title.trim()
+      ? paragraphHeightTwips(model, section.title)
+      : 0;
+    const adaptiveFirstGroupCanUseRemainingSpace = Boolean(
+      firstGroupLayout &&
+      model.photoLayoutMode === "adaptive" &&
+      pagination.remainingPageTwips() > sectionTitleHeight + firstGroupTextHeight,
+    );
+    const sectionPageBreak = Boolean(
+      section.title.trim() &&
+      !adaptiveFirstGroupCanUseRemainingSpace &&
+      pagination.shouldBreakBefore(sectionTitleHeight + firstGroupHeight),
+    );
     if (section.title.trim()) {
       children.push(bodyParagraph(model, section.title, {
         bold: true,
         heading: true,
         firstLineIndent: true,
+        keepNext: section.groups.length > 0,
+        pageBreakBefore: sectionPageBreak,
       }));
+      if (sectionPageBreak) pagination.startNewPage();
+      pagination.consume(sectionTitleHeight);
     }
     for (const group of section.groups) {
-      children.push(bodyParagraph(model, `${group.number}. ${group.text}`, {
-        keepNext: true,
+      const groupText = `${group.number}. ${group.text}`;
+      const preparedPhotos = preparedPhotosForGroup(group, preparedById);
+      let groupLayout = preparedPhotos.length > 0
+        ? photoTableLayout(model, preparedPhotos)
+        : null;
+      const groupTextHeight = paragraphHeightTwips(model, groupText);
+      const availablePhotoHeight = pagination.remainingPageTwips() - groupTextHeight;
+      if (
+        groupLayout &&
+        model.photoLayoutMode === "adaptive" &&
+        availablePhotoHeight > 0
+      ) {
+        groupLayout = fitPhotoTableToHeight(groupLayout, availablePhotoHeight);
+      }
+      const groupHeight = groupTextHeight + (groupLayout?.heightTwips ?? 0);
+      const groupPageBreak = Boolean(
+        preparedPhotos.length > 0 && pagination.shouldBreakBefore(groupHeight),
+      );
+      children.push(bodyParagraph(model, groupText, {
+        keepNext: preparedPhotos.length > 0,
+        pageBreakBefore: groupPageBreak,
         firstLineIndent: true,
       }));
-      if (group.photos.length > 0) {
-        children.push(imageTable(model, group.photos.map((photo) => {
-          const prepared = preparedById.get(photo.id);
-          if (!prepared) throw new Error(`照片 ${photo.id} 尚未处理。`);
-          return prepared;
-        })));
+      if (groupPageBreak) pagination.startNewPage();
+      pagination.consume(groupTextHeight);
+      if (groupLayout) {
+        children.push(imageTable(model, preparedPhotos, groupLayout));
+        pagination.consume(groupLayout.heightTwips);
       }
     }
   }
