@@ -632,9 +632,9 @@ export function ReviewPage() {
         <label>照片排版模式<select disabled={isGenerating} aria-label="照片排版模式" value={effectiveMode} onChange={(event) => savePhotoLayout(event.currentTarget.value as PhotoLayoutMode, effectiveRows)}><option value="adaptive">自适应</option><option value="fixed">固定</option></select></label>
         <label>每行照片数<select disabled={isGenerating} aria-label="每行照片数" value={effectiveRows} onChange={(event) => savePhotoLayout(effectiveMode, Number(event.currentTarget.value) as PhotosPerRow)}>{PHOTO_ROW_COUNTS.map((count) => <option key={count} value={count}>{count}张</option>)}</select></label>
       </div>
-      <section className="review-route-summary" aria-label="已拍照项点">
+      <section className="review-route-summary" aria-label="已完成项点">
         <div className="review-route-summary__header">
-          <h3>已拍照项点</h3>
+          <h3>已完成项点</h3>
           <button type="button" className="secondary-action" disabled={!routeNames.length || isGenerating} onClick={() => setRouteSortOpen(true)}>排序</button>
         </div>
         <div className="review-route-summary__list">

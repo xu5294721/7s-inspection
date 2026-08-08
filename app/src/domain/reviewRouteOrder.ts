@@ -84,7 +84,7 @@ export function sortRouteNamesForReviewByCategory(
   for (const category of Object.keys(routeNamesByCategory) as PhotoCategory[]) {
     const names = new Set<string>();
     for (const group of graph.groups) {
-      if (group.category !== category || group.photoIds.length === 0) continue;
+      if (group.category !== category) continue;
       const entry = entryById.get(group.entryId);
       if (entry) names.add(entry.itemSnapshot.routeName);
     }
@@ -99,15 +99,14 @@ export function sortRouteNamesForReviewByCategory(
 }
 
 export function sortRouteNamesForReview(graph: InspectionGraph): string[] {
-  const routeNamesWithPhotos = new Set<string>();
+  const completedRouteNames = new Set<string>();
   const entryById = new Map(graph.inspection.entries.map((entry) => [entry.id, entry]));
 
   for (const group of graph.groups) {
-    if (group.photoIds.length === 0) continue;
     const entry = entryById.get(group.entryId);
-    if (entry) routeNamesWithPhotos.add(entry.itemSnapshot.routeName);
+    if (entry) completedRouteNames.add(entry.itemSnapshot.routeName);
   }
 
   return resolveReviewRouteOrder(graph.inspection)
-    .filter((routeName) => routeNamesWithPhotos.has(routeName));
+    .filter((routeName) => completedRouteNames.has(routeName));
 }

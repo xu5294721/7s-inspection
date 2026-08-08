@@ -64,7 +64,7 @@ test("uses entry order for a legacy inspection without reviewRouteOrder", () => 
   expect(resolveReviewRouteOrder(legacy)).toEqual(["甲项点", "乙项点"]);
 });
 
-test("lists only route titles that have photos in resolved order", () => {
+test("lists completed route titles in resolved order", () => {
   const inspection = makeInspection({
     reviewRouteOrder: ["仓库外围院子", "卷扬机间", "装整工班办公室"],
     entries: [entryFor("卷扬机间", 0), entryFor("装整工班办公室", 1), entryFor("仓库外围院子", 2)],

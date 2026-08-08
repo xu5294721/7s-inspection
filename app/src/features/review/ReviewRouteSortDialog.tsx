@@ -59,7 +59,7 @@ export function ReviewRouteSortDialog({ routeNamesByCategory, onSave, onCancel }
           {PHOTO_CATEGORIES.map(({ id, label }) => (
             <section className="review-route-sort-dialog__section" key={id} aria-label={label}>
               <h4>{label}</h4>
-              {orderedRouteNames[id].length === 0 ? <p>暂无已拍照项点</p> : (
+              {orderedRouteNames[id].length === 0 ? <p>暂无已完成项点</p> : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => dragEnd(id, event)}>
                   <SortableContext items={orderedRouteNames[id]} strategy={verticalListSortingStrategy}>
                     <div className="review-route-sort-dialog__list">
