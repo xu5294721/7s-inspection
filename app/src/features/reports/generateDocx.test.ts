@@ -305,6 +305,152 @@ test("writes configured report section headings in the saved order", async () =>
   expect(documentXml.indexOf("好的章节")).toBeLessThan(documentXml.indexOf("提醒章节"));
 });
 
+test("moves an overflowing section heading before its first photo item", async () => {
+  const inspection = makeInspection({ templateVersion: 1 });
+  const template = makeTemplate({
+    requirements: Array.from(
+      { length: 18 },
+      (_, index) => `第${index + 1}项要求：现场检查内容需要逐项落实。现场检查内容需要逐项落实。`,
+    ),
+    marginMm: { top: 20, right: 20, bottom: 80, left: 20 },
+  });
+  const model = buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({ photoIds: ["photo-1"] })],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+
+  expect(paragraphContaining(documentXml, "好的方面")).toContain("<w:pageBreakBefore/>");
+});
+
+test("moves a later photo-backed item before its complete block", async () => {
+  const baseInspection = makeInspection({ templateVersion: 1 });
+  const firstEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-first",
+    groupIds: ["group-first"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-first", routeName: "第一项点" },
+    order: 0,
+  };
+  const secondEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-second",
+    groupIds: ["group-second"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-second", routeName: "第二项点" },
+    order: 1,
+  };
+  const template = makeTemplate({
+    photosPerRow: 1,
+    sections: [{ category: "good", title: "好的方面", order: 0 }],
+  });
+  const model = buildReportModel({
+    inspection: { ...baseInspection, entries: [firstEntry, secondEntry] },
+    groups: [
+      makePhotoGroup({ id: "group-first", entryId: firstEntry.id, description: "第一张照片项点。", photoIds: ["photo-first"] }),
+      makePhotoGroup({ id: "group-second", entryId: secondEntry.id, description: "第二张照片项点。", photoIds: ["photo-second"], order: 1 }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: "photo-first", groupId: "group-first" }),
+      makePhoto(undefined, { id: "photo-second", groupId: "group-second" }),
+    ],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+
+  expect(paragraphContaining(documentXml, "2. 第二张照片项点。")).toContain("<w:pageBreakBefore/>");
+});
+
+test("shrinks an overflowing adaptive photo group into the remaining page space", async () => {
+  const baseInspection = makeInspection({ templateVersion: 1 });
+  const firstEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-first-adaptive",
+    groupIds: ["group-first-adaptive"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-first-adaptive", routeName: "第一项点" },
+    order: 0,
+  };
+  const secondEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-second-adaptive",
+    groupIds: ["group-second-adaptive"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-second-adaptive", routeName: "第二项点" },
+    order: 1,
+  };
+  const template = makeTemplate({ photoLayoutMode: "adaptive", photosPerRow: 2 });
+  const model = buildReportModel({
+    inspection: { ...baseInspection, entries: [firstEntry, secondEntry] },
+    groups: [
+      makePhotoGroup({
+        id: "group-first-adaptive",
+        entryId: firstEntry.id,
+        description: "第一项点照片。",
+        descriptionManuallyEdited: true,
+        photoIds: ["first-adaptive-1", "first-adaptive-2"],
+      }),
+      makePhotoGroup({
+        id: "group-second-adaptive",
+        entryId: secondEntry.id,
+        description: "第二项点照片。",
+        descriptionManuallyEdited: true,
+        photoIds: ["second-adaptive"],
+        order: 1,
+      }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: "first-adaptive-1", groupId: "group-first-adaptive", width: 1600, height: 900 }),
+      makePhoto(undefined, { id: "first-adaptive-2", groupId: "group-first-adaptive", width: 1600, height: 900 }),
+      makePhoto(undefined, { id: "second-adaptive", groupId: "group-second-adaptive", width: 1000, height: 4000 }),
+    ],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
+    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }));
+  const emuPerPx = 9_525;
+  const maxAdaptiveHeightPx = Math.floor(180 * 96 / 25.4);
+
+  expect(paragraphContaining(documentXml, "2. 第二项点照片。")).not.toContain("<w:pageBreakBefore/>");
+  expect(extents).toHaveLength(3);
+  expect(extents[2]!.height).toBeLessThan(maxAdaptiveHeightPx * emuPerPx);
+  expect(extents[2]!.width / extents[2]!.height).toBeCloseTo(1 / 4, 2);
+});
+
+test("keeps an adaptive section heading with a resized first photo group", async () => {
+  const inspection = makeInspection({ templateVersion: 1 });
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    requirements: Array.from({ length: 7 }, (_, index) => `第${index + 1}项要求：现场检查内容需要逐项落实。`),
+  });
+  const model = buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({
+      description: "首个照片项点。",
+      descriptionManuallyEdited: true,
+      photoIds: ["first-section-photo"],
+    })],
+    photos: [makePhoto(undefined, { id: "first-section-photo", width: 1000, height: 4000 })],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extent = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
+    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }))[0];
+  const maxAdaptiveHeightPx = Math.floor(180 * 96 / 25.4);
+
+  expect(paragraphContaining(documentXml, "好的方面")).not.toContain("<w:pageBreakBefore/>");
+  expect(extent).toBeDefined();
+  expect(extent!.height).toBeLessThan(maxAdaptiveHeightPx * 9_525);
+});
+
 test.each([2, 3] as const)(
   "divides the exact content width into %i columns and uses a fixed 3:4 photo frame",
   async (photosPerRow) => {
@@ -388,8 +534,35 @@ test("fills the content width for a single photo in adaptive layout", async () =
   expect(gridWidths).toHaveLength(1);
   expect(extent).toBeDefined();
   expect(extent.width).toBe(expectedWidthPx * emuPerPx);
-  expect(extent.width / extent.height).toBeCloseTo(3 / 4, 3);
+  expect(extent.height).toBe(Math.round(expectedWidthPx * 900 / 1600) * emuPerPx);
+  expect(extent.width / extent.height).toBeCloseTo(16 / 9, 2);
   expect(extent.width).toBeGreaterThan(Math.round(90 * pxPerMm) * emuPerPx);
+});
+
+test("caps extreme portrait photos in adaptive layout without changing their ratio", async () => {
+  const inspection = makeInspection({ templateVersion: 1 });
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    marginMm: { top: 20, right: 22, bottom: 20, left: 22 },
+  });
+  const model = buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({ photoIds: ["portrait-photo"] })],
+    photos: [makePhoto(undefined, { id: "portrait-photo", width: 1000, height: 4000 })],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extent = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
+    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }))[0];
+  const emuPerPx = 9_525;
+  const maxHeightPx = Math.floor(180 * 96 / 25.4);
+
+  expect(extent).toEqual({
+    width: Math.round(maxHeightPx * 1000 / 4000) * emuPerPx,
+    height: maxHeightPx * emuPerPx,
+  });
 });
 
 test("adapts each photo group independently up to the configured limit", async () => {
@@ -574,6 +747,8 @@ test("alternates photo table and text line for a mixed section in report order",
 
   expect(body).toContain("1. 有照片项。");
   expect(body).toContain("2. 纯文字项。");
+  expect(paragraphContaining(body, "1. 有照片项。")).toContain("<w:keepNext/>");
+  expect(paragraphContaining(body, "2. 纯文字项。")).not.toContain("<w:keepNext/>");
   expect(body).toContain("<w:tbl>");
   const photoTableEnd = body.indexOf("</w:tbl>");
   const textPosition = body.indexOf("纯文字项。");
