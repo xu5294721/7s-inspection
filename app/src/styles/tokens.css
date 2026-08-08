@@ -1,15 +1,21 @@
 :root {
   color-scheme: light;
-  --color-ink: #17201d;
-  --color-muted: #66726d;
+  --color-ink: #1c1c1e;
+  --color-muted: #8e8e93;
   --color-surface: #ffffff;
-  --color-canvas: #f3f5f4;
-  --color-border: #cfd7d3;
-  --color-accent: #146b4f;
-  --color-good: #26734d;
-  --color-reminder: #a16400;
-  --color-assessment: #a33131;
-  --radius-control: 6px;
+  --color-canvas: #f2f2f7;
+  --color-border: #d1d1d6;
+  --color-accent: #087456;
+  --color-good: #2f855a;
+  --color-reminder: #b7791f;
+  --color-assessment: #b23a3a;
+  --color-accent-soft: #e5f2ed;
+  --color-surface-secondary: #f8f8fa;
+  --color-border-strong: #c7c7cc;
+  --color-bg: var(--color-canvas);
+  --radius-control: 12px;
+  --radius-group: 16px;
+  --radius-sheet: 24px;
   --tap-size: 44px;
-  font-family: "Microsoft YaHei", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
 }
