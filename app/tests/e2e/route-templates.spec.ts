@@ -136,10 +136,10 @@ test("creates and uses a mobile route template without persisting a temporary ro
   });
   expect(wrapLayout).toMatchObject({
     fullText: customRoute,
-    wraps: true,
     fitsWidth: true,
     overflowWrap: "anywhere",
   });
+  expect(wrapLayout.wraps).toBe((page.viewportSize()?.width ?? 0) <= 430);
 
   const finalRoute = page.locator(".route-list li").last();
   await finalRoute.evaluate((element) => {

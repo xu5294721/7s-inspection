@@ -1172,7 +1172,7 @@ test("releases a deferred update after report generation fails", async () => {
   expect(screen.getByRole("button", { name: "生成Word" })).toBeEnabled();
 });
 
-test("opens title sorting and editing dialogs for photographed route names", async () => {
+test("opens title sorting and editing dialogs for completed route names", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`review-route-dialogs-${Date.now()}`);
   const repository = new InspectionRepository(database);
@@ -1203,11 +1203,25 @@ test("opens title sorting and editing dialogs for photographed route names", asy
       part: "焊机间",
     },
   };
+  const officeEntry = {
+    ...base.entries[0],
+    id: "entry-office",
+    itemId: "item-office",
+    order: 2,
+    groupIds: ["group-office"],
+    itemSnapshot: {
+      ...base.entries[0].itemSnapshot,
+      id: "item-office",
+      routeName: "装整工班办公室",
+      part: "装整工班办公室",
+    },
+  };
   await repository.saveGraph({
-    inspection: { ...base, entries: [weldingEntry, warehouseEntry] },
+    inspection: { ...base, entries: [weldingEntry, warehouseEntry, officeEntry] },
     groups: [
       makePhotoGroup({ id: "group-welding", entryId: weldingEntry.id, photoIds: ["photo-welding"] }),
       makePhotoGroup({ id: "group-warehouse", entryId: warehouseEntry.id, photoIds: ["photo-warehouse"], order: 1 }),
+      makePhotoGroup({ id: "group-office", entryId: officeEntry.id, photoIds: [], order: 2 }),
     ],
     photos: [
       makePhoto(undefined, { id: "photo-welding", groupId: "group-welding" }),
@@ -1222,7 +1236,7 @@ test("opens title sorting and editing dialogs for photographed route names", asy
   expect(screen.getByRole("region", { name: "好的方面" })).toBeVisible();
   expect(screen.getByRole("region", { name: "提醒问题" })).toBeVisible();
   expect(screen.getByRole("region", { name: "考核问题" })).toBeVisible();
-  expect(screen.getAllByRole("button", { name: /拖动.*项点/ })).toHaveLength(2);
+  expect(screen.getAllByRole("button", { name: /拖动.*项点/ })).toHaveLength(3);
 
   await user.click(screen.getByRole("button", { name: "取消" }));
   await user.click(screen.getByRole("button", { name: "编辑 仓库外围院子" }));

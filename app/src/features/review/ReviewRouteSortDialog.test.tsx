@@ -13,7 +13,7 @@ test("accepts a legacy route order without general routes and saves all categori
     />,
   );
 
-  expect(screen.getByRole("region", { name: "一般表现" })).toHaveTextContent("暂无已拍照项点");
+  expect(screen.getByRole("region", { name: "一般表现" })).toHaveTextContent("暂无已完成项点");
   await userEvent.setup().click(screen.getByRole("button", { name: "保存排序" }));
 
   expect(onSave).toHaveBeenCalledWith({

@@ -40,7 +40,7 @@ test("production build emits the installable 7S inspection manifest", async () =
     name: "7S巡检",
     short_name: "7S巡检",
     display: "standalone",
-    theme_color: "#146b4f",
+    theme_color: "#087456",
     start_url: "./",
     lang: "zh-CN",
   });

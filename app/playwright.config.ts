@@ -36,12 +36,39 @@ export default defineConfig({
       },
     },
     {
+      name: "mobile-390",
+      use: {
+        browserName: "chromium",
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+      },
+    },
+    {
       name: "mobile-412",
       use: {
         browserName: "chromium",
         viewport: { width: 412, height: 915 },
         hasTouch: true,
         isMobile: true,
+      },
+    },
+    {
+      name: "mobile-430",
+      use: {
+        browserName: "chromium",
+        viewport: { width: 430, height: 932 },
+        hasTouch: true,
+        isMobile: true,
+      },
+    },
+    {
+      name: "tablet-768",
+      use: {
+        browserName: "chromium",
+        viewport: { width: 768, height: 1024 },
+        hasTouch: true,
+        isMobile: false,
       },
     },
   ],

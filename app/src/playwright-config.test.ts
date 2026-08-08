@@ -13,7 +13,7 @@ afterEach(() => {
   vi.resetModules();
 });
 
-test("uses bundled Chromium by default with the two exact mobile projects", async () => {
+test("uses bundled Chromium by default with the exact responsive projects", async () => {
   delete process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH;
   vi.resetModules();
   const { default: config } = await import("../playwright.config");
@@ -25,7 +25,10 @@ test("uses bundled Chromium by default with the two exact mobile projects", asyn
     viewport: project.use?.viewport,
   }))).toEqual([
     { name: "mobile-360", browserName: "chromium", viewport: { width: 360, height: 800 } },
+    { name: "mobile-390", browserName: "chromium", viewport: { width: 390, height: 844 } },
     { name: "mobile-412", browserName: "chromium", viewport: { width: 412, height: 915 } },
+    { name: "mobile-430", browserName: "chromium", viewport: { width: 430, height: 932 } },
+    { name: "tablet-768", browserName: "chromium", viewport: { width: 768, height: 1024 } },
   ]);
 });
 

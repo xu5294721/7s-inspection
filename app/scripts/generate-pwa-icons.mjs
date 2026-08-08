@@ -3,12 +3,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const GREEN = [20, 107, 79, 255];
+const GREEN = [8, 116, 86, 255];
 const WHITE = [255, 255, 255, 255];
-const glyphs = {
-  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
-  S: ["11111", "10000", "10000", "11111", "00001", "00001", "11111"],
-};
+const TRANSPARENT = [0, 0, 0, 0];
 
 function crc32(buffer) {
   let crc = 0xffffffff;
@@ -30,106 +27,98 @@ function chunk(type, data) {
   return Buffer.concat([length, typeBuffer, data, checksum]);
 }
 
-function setPixel(pixels, size, x, y, color = GREEN) {
+function setPixel(pixels, size, x, y, color) {
   if (x < 0 || x >= size || y < 0 || y >= size) return;
   const offset = (y * size + x) * 4;
   pixels.set(color, offset);
 }
 
-function fillRect(pixels, size, x, y, width, height, color = GREEN) {
-  for (let row = y; row < y + height; row += 1) {
-    for (let column = x; column < x + width; column += 1) {
-      setPixel(pixels, size, column, row, color);
+function fillRoundedRect(pixels, size, x, y, width, height, radius, color) {
+  const right = x + width;
+  const bottom = y + height;
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) {
+      const pointX = column + 0.5;
+      const pointY = row + 0.5;
+      const closestX = Math.max(x + radius, Math.min(pointX, right - radius));
+      const closestY = Math.max(y + radius, Math.min(pointY, bottom - radius));
+      const deltaX = pointX - closestX;
+      const deltaY = pointY - closestY;
+      if (deltaX * deltaX + deltaY * deltaY <= radius * radius) {
+        setPixel(pixels, size, column, row, color);
+      }
     }
   }
 }
 
-function thickLine(pixels, size, x0, y0, x1, y1, thickness) {
-  const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
-  const radius = Math.floor(thickness / 2);
-  for (let step = 0; step <= steps; step += 1) {
-    const x = Math.round(x0 + ((x1 - x0) * step) / steps);
-    const y = Math.round(y0 + ((y1 - y0) * step) / steps);
-    fillRect(pixels, size, x - radius, y - radius, thickness, thickness);
+function distanceToSegmentSquared(pointX, pointY, startX, startY, endX, endY) {
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  const projection = lengthSquared === 0
+    ? 0
+    : Math.max(0, Math.min(1, ((pointX - startX) * deltaX + (pointY - startY) * deltaY) / lengthSquared));
+  const closestX = startX + projection * deltaX;
+  const closestY = startY + projection * deltaY;
+  const distanceX = pointX - closestX;
+  const distanceY = pointY - closestY;
+  return distanceX * distanceX + distanceY * distanceY;
+}
+
+function drawStroke(pixels, size, points, thickness, color) {
+  const radius = thickness / 2;
+  const minX = Math.max(0, Math.floor(Math.min(...points.map(([x]) => x)) - radius));
+  const maxX = Math.min(size - 1, Math.ceil(Math.max(...points.map(([x]) => x)) + radius));
+  const minY = Math.max(0, Math.floor(Math.min(...points.map(([, y]) => y)) - radius));
+  const maxY = Math.min(size - 1, Math.ceil(Math.max(...points.map(([, y]) => y)) + radius));
+
+  for (let row = minY; row <= maxY; row += 1) {
+    for (let column = minX; column <= maxX; column += 1) {
+      const pointX = column + 0.5;
+      const pointY = row + 0.5;
+      const isInside = points.some((point, index) => {
+        if (index === points.length - 1) return false;
+        const next = points[index + 1];
+        return distanceToSegmentSquared(pointX, pointY, point[0], point[1], next[0], next[1]) <= radius * radius;
+      });
+      if (isInside) setPixel(pixels, size, column, row, color);
+    }
   }
 }
 
-function drawGlyph(pixels, size, glyph, x, y, scale) {
-  glyphs[glyph].forEach((row, rowIndex) => {
-    [...row].forEach((pixel, columnIndex) => {
-      if (pixel === "1") {
-        fillRect(
-          pixels,
-          size,
-          x + columnIndex * scale,
-          y + rowIndex * scale,
-          scale,
-          scale,
-        );
-      }
-    });
-  });
+function scalePoints(size, points) {
+  return points.map(([x, y]) => [x * size, y * size]);
 }
 
 function createIcon(size, maskable) {
   const pixels = new Uint8Array(size * size * 4);
-  for (let offset = 0; offset < pixels.length; offset += 4) pixels.set(WHITE, offset);
+  for (let offset = 0; offset < pixels.length; offset += 4) pixels.set(TRANSPARENT, offset);
 
-  const inset = Math.round(size * (maskable ? 0.22 : 0.13));
-  const railThickness = Math.max(3, Math.round(size * 0.035));
-  const sleeperThickness = Math.max(2, Math.round(size * 0.018));
-  const railLeft = inset + Math.round(size * 0.08);
-  const railRight = size - inset - Math.round(size * 0.08);
-  const railTop = inset;
-  const railBottom = Math.round(size * 0.56);
-
-  thickLine(pixels, size, railLeft, railTop, railLeft, railBottom, railThickness);
-  thickLine(pixels, size, railRight, railTop, railRight, railBottom, railThickness);
-  for (let y = railTop + railThickness; y <= railBottom; y += Math.round(size * 0.075)) {
-    fillRect(
+  if (maskable) {
+    for (let offset = 0; offset < pixels.length; offset += 4) pixels.set(GREEN, offset);
+  } else {
+    fillRoundedRect(
       pixels,
       size,
-      railLeft - railThickness,
-      y,
-      railRight - railLeft + railThickness * 2,
-      sleeperThickness,
+      size * 0.0215,
+      size * 0.0215,
+      size * 0.957,
+      size * 0.957,
+      size * 0.232,
+      GREEN,
     );
   }
 
-  thickLine(
-    pixels,
-    size,
-    Math.round(size * 0.29),
-    Math.round(size * 0.49),
-    Math.round(size * 0.42),
-    Math.round(size * 0.61),
-    railThickness,
-  );
-  thickLine(
-    pixels,
-    size,
-    Math.round(size * 0.42),
-    Math.round(size * 0.61),
-    Math.round(size * 0.71),
-    Math.round(size * 0.35),
-    railThickness,
-  );
-
-  const scale = Math.max(2, Math.floor(size * 0.032));
-  const glyphWidth = scale * 5;
-  const gap = scale * 2;
-  const textWidth = glyphWidth * 2 + gap;
-  const textX = Math.floor((size - textWidth) / 2);
-  const textY = Math.round(size * 0.68);
-  drawGlyph(pixels, size, "7", textX, textY, scale);
-  drawGlyph(pixels, size, "S", textX + glyphWidth + gap, textY, scale);
+  drawStroke(pixels, size, scalePoints(size, [[0.221, 0.373], [0.779, 0.293]]), size * 0.055, WHITE);
+  drawStroke(pixels, size, scalePoints(size, [[0.221, 0.535], [0.779, 0.455]]), size * 0.055, WHITE);
+  drawStroke(pixels, size, scalePoints(size, [[0.264, 0.467], [0.459, 0.67], [0.779, 0.301]]), size * 0.08, WHITE);
 
   const scanline = Buffer.alloc(size * 4 + 1);
   const raw = Buffer.alloc(scanline.length * size);
-  for (let y = 0; y < size; y += 1) {
+  for (let row = 0; row < size; row += 1) {
     scanline[0] = 0;
-    scanline.set(pixels.subarray(y * size * 4, (y + 1) * size * 4), 1);
-    scanline.copy(raw, y * scanline.length);
+    scanline.set(pixels.subarray(row * size * 4, (row + 1) * size * 4), 1);
+    scanline.copy(raw, row * scanline.length);
   }
   const header = Buffer.alloc(13);
   header.writeUInt32BE(size, 0);
