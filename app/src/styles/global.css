@@ -1429,6 +1429,110 @@ a {
   }
 }
 
+.new-inspection-template-controls {
+  display: grid;
+  align-items: end;
+  gap: 10px;
+  margin: 0 0 16px;
+  border: 1px solid rgb(60 60 67 / 10%);
+  border-radius: var(--radius-group);
+  background: var(--color-surface);
+  padding: 14px;
+}
+
+.new-inspection-template-controls label {
+  gap: 7px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.new-inspection-template-controls select {
+  min-height: 48px;
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+.new-inspection-template-controls a {
+  color: var(--color-accent);
+  font-size: 14px;
+}
+
+.route-selection-toolbar {
+  align-items: center;
+  margin: 0 0 16px;
+  border: 1px solid rgb(60 60 67 / 10%);
+  border-radius: var(--radius-group);
+  background: var(--color-surface);
+  padding: 12px 14px;
+}
+
+.route-selection-toolbar > span {
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.route-selection-toolbar > div {
+  gap: 6px;
+}
+
+.route-selection-toolbar .secondary-action {
+  min-height: 40px;
+  border-radius: 10px;
+  background: var(--color-surface-secondary);
+  color: var(--color-ink);
+  padding: 8px 11px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.route-selection-toolbar .secondary-action:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.new-inspection-page .page-command-bar {
+  justify-content: flex-end;
+}
+
+.new-inspection-page .page-command-bar .primary-action {
+  width: min(100%, 320px);
+}
+
+.custom-route-dialog {
+  padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+}
+
+.custom-route-dialog h3 {
+  margin-bottom: 12px;
+  font-size: 20px;
+  line-height: 27px;
+}
+
+.custom-route-dialog__field {
+  gap: 7px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.custom-route-dialog__field input {
+  min-height: 48px;
+  padding: 10px 12px;
+}
+
+@media (min-width: 720px) {
+  .new-inspection-template-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .new-inspection-template-controls a {
+    align-self: end;
+    padding-bottom: 12px;
+  }
+}
+
 /* Shared Apple-style visual layer. Keep business markup and handlers unchanged. */
 html {
   background: var(--color-canvas);
