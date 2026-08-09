@@ -1,0 +1,22 @@
+# Keep source files identical across Windows worktrees and GitHub.
+* text=auto eol=lf
+
+# Windows command files are intentionally CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets must never be passed through line-ending conversion.
+*.aar binary
+*.apk binary
+*.doc binary
+*.docx binary
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.pdf binary
+*.png binary
+*.webp binary
+*.xls binary
+*.xlsx binary
+*.zip binary
