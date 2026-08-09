@@ -63,6 +63,7 @@ interface PhotoTableLayout {
   columns: number;
   columnWidths: number[];
   rows: PhotoTableRowLayout[];
+  rowGapTwips: number;
   heightTwips: number;
 }
 
@@ -71,11 +72,24 @@ const a4HeightMm = 297;
 const docxPhotoFrameAspectRatio = 3 / 4;
 const singlePhotoWidthMm = 90;
 const singlePhotoHeightMm = 120;
-const maximumAdaptivePhotoHeightMm = 180;
-const minimumAdaptivePhotoScale = 0.85;
+const adaptiveSingleFrameWidthMm = 135;
+const adaptiveSingleFrameHeightMm = 90;
+const adaptiveGridFrameWidthMm = 78;
+const adaptiveGridFrameHeightMm = 58;
+const adaptiveTwoPhotoFrameHeightMm = 70;
+const firstPageSingleFrameWidthMm = 150;
+const firstPageSingleFrameMaxHeightMm = 120;
+const firstPageTwoFrameMaxHeightMm = 110;
+const firstPageSingleContinuationSafetyMm = 20;
+const firstPageTwoContinuationSafetyMm = 40;
+const adaptiveGridMaximumColumns = 2;
+const photoBlockSpacingMm = 4;
+const photoBlockSafetyMm = 6;
 const pxPerMm = 96 / 25.4;
 const twipsPerPixel = 15;
 const maximumWordTwips = 2_147_483_647n;
+const photoBlockSpacingTwips = convertMillimetersToTwip(photoBlockSpacingMm);
+const photoBlockSafetyTwips = convertMillimetersToTwip(photoBlockSafetyMm);
 
 function decimalNumeratorAndScale(value: number): { numerator: bigint; scale: bigint } {
   if (!Number.isFinite(value) || value < 0) throw new Error("First-line indentation value must be finite and nonnegative.");
@@ -188,6 +202,7 @@ function bodyParagraph(
     keepNext?: boolean;
     pageBreakBefore?: boolean;
     firstLineIndent?: boolean;
+    spacingAfterTwips?: number;
   } = {},
 ): Paragraph {
   return new Paragraph({
@@ -201,7 +216,7 @@ function bodyParagraph(
     spacing: {
       line: Math.round(model.lineSpacing * 240),
       lineRule: LineRuleType.AUTO,
-      after: 0,
+      after: options.spacingAfterTwips ?? 0,
     },
   });
 }
@@ -214,38 +229,34 @@ function chunks<T>(values: T[], size: number): T[][] {
   return rows;
 }
 
-function maximumAdaptivePhotoHeightPx(model: ReportModel): number {
-  const contentHeightMm = a4HeightMm - model.marginMm.top - model.marginMm.bottom;
-  return Math.max(1, Math.floor(Math.min(
-    maximumAdaptivePhotoHeightMm,
-    Math.max(1, contentHeightMm - 30),
-  ) * pxPerMm));
+function adaptiveColumnsForPhotoCount(model: ReportModel, photoCount: number): number {
+  if (photoCount <= 1 || model.photosPerRow === 1) return 1;
+  return Math.min(adaptiveGridMaximumColumns, model.photosPerRow, photoCount);
 }
 
-function adaptivePhotoPlacement(
-  model: ReportModel,
-  photo: PreparedPhoto,
-  imageWidthPx: number,
-): PhotoPlacement {
-  const sourceWidth = Number.isFinite(photo.width) && photo.width > 0 ? photo.width : 1;
-  const sourceHeight = Number.isFinite(photo.height) && photo.height > 0 ? photo.height : 1;
-  const naturalHeight = Math.max(1, Math.round(imageWidthPx * sourceHeight / sourceWidth));
-  const maximumHeight = maximumAdaptivePhotoHeightPx(model);
-  if (naturalHeight <= maximumHeight) {
-    return { width: imageWidthPx, height: naturalHeight };
-  }
+function adaptiveFrameForPhotoCount(photoCount: number): PhotoPlacement {
   return {
-    width: Math.max(1, Math.round(maximumHeight * sourceWidth / sourceHeight)),
-    height: maximumHeight,
+    width: Math.max(1, Math.round((photoCount === 1 ? adaptiveSingleFrameWidthMm : adaptiveGridFrameWidthMm) * pxPerMm)),
+    height: Math.max(1, Math.round((photoCount === 1
+      ? adaptiveSingleFrameHeightMm
+      : photoCount === 2
+        ? adaptiveTwoPhotoFrameHeightMm
+        : adaptiveGridFrameHeightMm) * pxPerMm)),
   };
 }
 
-function photoTableLayout(model: ReportModel, photos: PreparedPhoto[]): PhotoTableLayout {
+function photoTableLayout(
+  model: ReportModel,
+  photos: PreparedPhoto[],
+  adaptiveFrameOverride?: PhotoPlacement,
+): PhotoTableLayout {
   const isSinglePhoto = photos.length === 1;
-  const fillsRowWidth = !isSinglePhoto || model.photoLayoutMode === "adaptive";
-  const columns = isSinglePhoto
-    ? 1
-    : columnsForPhotoCount(model.photoLayoutMode, model.photosPerRow, photos.length);
+  const isAdaptive = model.photoLayoutMode === "adaptive";
+  const columns = isAdaptive
+    ? adaptiveColumnsForPhotoCount(model, photos.length)
+    : isSinglePhoto
+      ? 1
+      : columnsForPhotoCount(model.photoLayoutMode, model.photosPerRow, photos.length);
   const contentWidthMm = a4WidthMm - model.marginMm.left - model.marginMm.right;
   const contentWidthTwips = convertMillimetersToTwip(contentWidthMm);
   const baseCellWidth = Math.floor(contentWidthTwips / columns);
@@ -255,15 +266,15 @@ function photoTableLayout(model: ReportModel, photos: PreparedPhoto[]): PhotoTab
     (_, index) => baseCellWidth + (index < remainder ? 1 : 0),
   );
   const cellWidthMm = contentWidthMm / columns;
-  const imageWidthPx = fillsRowWidth
-    ? Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm))
-    : Math.round(singlePhotoWidthMm * pxPerMm);
-  const fixedImageHeightPx = fillsRowWidth
-    ? Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio)
-    : Math.round(singlePhotoHeightMm * pxPerMm);
-  const placements = photos.map((photo) => model.photoLayoutMode === "adaptive"
-    ? adaptivePhotoPlacement(model, photo, imageWidthPx)
-    : { width: imageWidthPx, height: fixedImageHeightPx });
+  const imageWidthPx = Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm));
+  const fixedImageHeightPx = Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio);
+  const adaptiveFrame = isAdaptive ? adaptiveFrameOverride ?? adaptiveFrameForPhotoCount(photos.length) : null;
+  const placements = photos.map(() => isAdaptive
+    ? { ...adaptiveFrame! }
+    : isSinglePhoto
+      ? { width: Math.round(singlePhotoWidthMm * pxPerMm), height: Math.round(singlePhotoHeightMm * pxPerMm) }
+      : { width: imageWidthPx, height: fixedImageHeightPx });
+  const rowGapTwips = Math.round(model.photoGapPt * 20);
   const rows = chunks(placements, columns).map((row) => {
     const rowPlacements = Array.from({ length: columns }, (_, index) => row[index] ?? null);
     return {
@@ -275,70 +286,73 @@ function photoTableLayout(model: ReportModel, photos: PreparedPhoto[]): PhotoTab
     columns,
     columnWidths,
     rows,
-    heightTwips: rows.reduce((height, row) => height + Math.ceil(row.heightPx * twipsPerPixel), 0),
+    rowGapTwips,
+    heightTwips: rows.reduce((height, row) => height + Math.ceil(row.heightPx * twipsPerPixel) + rowGapTwips, 0),
   };
-}
-
-function fitPhotoTableToHeight(layout: PhotoTableLayout, maximumHeightTwips: number): PhotoTableLayout {
-  if (layout.heightTwips <= maximumHeightTwips || maximumHeightTwips <= 0) return layout;
-  const scale = maximumHeightTwips / layout.heightTwips;
-  const rows = layout.rows.map((row) => {
-    const placements = row.placements.map((placement) => placement
-      ? {
-        width: Math.max(1, Math.floor(placement.width * scale)),
-        height: Math.max(1, Math.floor(placement.height * scale)),
-      }
-      : null);
-    return {
-      placements,
-      heightPx: placements.reduce((height, placement) => Math.max(height, placement?.height ?? 0), 0),
-    };
-  });
-  return {
-    ...layout,
-    rows,
-    heightTwips: rows.reduce((height, row) => height + Math.ceil(row.heightPx * twipsPerPixel), 0),
-  };
-}
-
-function adaptivePhotoTableCanUseRemainingSpace(
-  layout: PhotoTableLayout,
-  availableHeightTwips: number,
-): boolean {
-  if (availableHeightTwips <= 0) return false;
-  if (layout.heightTwips <= availableHeightTwips) return true;
-  return availableHeightTwips >= Math.ceil(layout.heightTwips * minimumAdaptivePhotoScale);
 }
 
 function imageTable(model: ReportModel, photos: PreparedPhoto[], layout = photoTableLayout(model, photos)): Table {
-  const gapTwips = Math.round(model.photoGapPt * 20 / 2);
+  const horizontalGapTwips = Math.round(model.photoGapPt * 20 / 2);
+  const verticalGapTwips = Math.floor(layout.rowGapTwips / 2);
+  const photoCell = (
+    photo: PreparedPhoto | undefined,
+    placement: PhotoPlacement | null | undefined,
+    cellWidthTwips: number,
+    columnSpan?: number,
+  ) => {
+    if (!photo || !placement) {
+      return new TableCell({
+        width: { size: cellWidthTwips, type: WidthType.DXA },
+        columnSpan,
+        margins: {
+          top: verticalGapTwips,
+          bottom: layout.rowGapTwips - verticalGapTwips,
+          left: horizontalGapTwips,
+          right: horizontalGapTwips,
+        },
+        children: [new Paragraph("")],
+      });
+    }
+    return new TableCell({
+      width: { size: cellWidthTwips, type: WidthType.DXA },
+      columnSpan,
+      verticalAlign: VerticalAlign.CENTER,
+      margins: {
+        top: verticalGapTwips,
+        bottom: layout.rowGapTwips - verticalGapTwips,
+        left: horizontalGapTwips,
+        right: horizontalGapTwips,
+      },
+      children: [new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new ImageRun({
+          type: photo.type,
+          data: photo.data,
+          transformation: placement,
+          altText: { title: photo.id, description: photo.id, name: photo.id },
+        })],
+        spacing: { after: 0 },
+      })],
+    });
+  };
   const photoRows = chunks(photos, layout.columns).map((row, rowIndex) => {
     const rowLayout = layout.rows[rowIndex];
+    if (row.length === 1 && layout.columns === 2) {
+      return new TableRow({
+        children: [photoCell(
+          row[0],
+          rowLayout?.placements[0],
+          layout.columnWidths.reduce((total, width) => total + width, 0),
+          2,
+        )],
+        cantSplit: true,
+      });
+    }
     const cells = Array.from({ length: layout.columns }, (_, index) => {
       const photo = row[index];
       const placement = rowLayout?.placements[index];
       const cellWidthTwips = layout.columnWidths[index];
-      if (!photo || !placement) {
-        return new TableCell({
-          width: { size: cellWidthTwips, type: WidthType.DXA },
-          children: [new Paragraph("")],
-        });
-      }
-      return new TableCell({
-        width: { size: cellWidthTwips, type: WidthType.DXA },
-        verticalAlign: VerticalAlign.CENTER,
-        margins: { left: gapTwips, right: gapTwips },
-        children: [new Paragraph({
-          alignment: AlignmentType.CENTER,
-          children: [new ImageRun({
-            type: photo.type,
-            data: photo.data,
-            transformation: placement,
-            altText: { title: photo.id, description: photo.id, name: photo.id },
-          })],
-          spacing: { after: 0 },
-        })],
-      });
+      return photoCell(photo, placement, cellWidthTwips);
     });
     return new TableRow({ children: cells, cantSplit: true });
   });
@@ -346,6 +360,97 @@ function imageTable(model: ReportModel, photos: PreparedPhoto[], layout = photoT
     rows: photoRows,
     width: { size: layout.columnWidths.reduce((total, width) => total + width, 0), type: WidthType.DXA },
     columnWidths: layout.columnWidths,
+    layout: TableLayoutType.FIXED,
+    borders: TableBorders.NONE,
+  });
+}
+
+function photoGroupBlockHeightTwips(
+  model: ReportModel,
+  groupText: string,
+  layout: PhotoTableLayout,
+): number {
+  return paragraphHeightTwips(model, groupText) + photoBlockSpacingTwips + layout.heightTwips + photoBlockSafetyTwips;
+}
+
+function firstPageAdaptiveLayout(
+  model: ReportModel,
+  groupText: string,
+  photos: PreparedPhoto[],
+  remainingPageTwips: number,
+  nextGroupHeightTwips: number | null,
+): PhotoTableLayout {
+  const normalLayout = photoTableLayout(model, photos);
+  const normalGroupHeight = photoGroupBlockHeightTwips(model, groupText, normalLayout);
+  const continuationSafetyTwips = convertMillimetersToTwip(
+    photos.length === 1
+      ? firstPageSingleContinuationSafetyMm
+      : firstPageTwoContinuationSafetyMm,
+  );
+  if (
+    model.photoLayoutMode !== "adaptive" ||
+    (photos.length !== 1 && photos.length !== 2) ||
+    normalGroupHeight > remainingPageTwips ||
+    (
+      nextGroupHeightTwips !== null &&
+      normalGroupHeight + nextGroupHeightTwips + continuationSafetyTwips <= remainingPageTwips
+    )
+  ) {
+    return normalLayout;
+  }
+  const availablePhotoTableTwips = remainingPageTwips
+    - paragraphHeightTwips(model, groupText)
+    - photoBlockSpacingTwips
+    - photoBlockSafetyTwips;
+  const availableFrameHeightPx = Math.floor(
+    (availablePhotoTableTwips - normalLayout.rowGapTwips) / twipsPerPixel,
+  );
+  const normalFrame = normalLayout.rows[0]?.placements[0];
+  if (!normalFrame || availableFrameHeightPx <= normalFrame.height) return normalLayout;
+  const maximumHeightMm = photos.length === 1
+    ? firstPageSingleFrameMaxHeightMm
+    : firstPageTwoFrameMaxHeightMm;
+  const contentWidthMm = a4WidthMm - model.marginMm.left - model.marginMm.right;
+  const frame = {
+    width: photos.length === 1
+      ? Math.round(Math.min(firstPageSingleFrameWidthMm, contentWidthMm) * pxPerMm)
+      : normalFrame.width,
+    height: Math.min(Math.round(maximumHeightMm * pxPerMm), availableFrameHeightPx),
+  };
+  const expandedLayout = photoTableLayout(model, photos, frame);
+  return photoGroupBlockHeightTwips(model, groupText, expandedLayout) <= remainingPageTwips
+    ? expandedLayout
+    : normalLayout;
+}
+
+function photoGroupBlock(
+  model: ReportModel,
+  groupText: string,
+  photos: PreparedPhoto[],
+  layout: PhotoTableLayout,
+  pageBreakBefore: boolean,
+): Table {
+  const contentWidthTwips = convertMillimetersToTwip(
+    a4WidthMm - model.marginMm.left - model.marginMm.right,
+  );
+  return new Table({
+    rows: [new TableRow({
+      cantSplit: true,
+      children: [new TableCell({
+        width: { size: contentWidthTwips, type: WidthType.DXA },
+        margins: { top: 0, right: 0, bottom: 0, left: 0 },
+        children: [
+          bodyParagraph(model, groupText, {
+            firstLineIndent: true,
+            pageBreakBefore,
+            spacingAfterTwips: photoBlockSpacingTwips,
+          }),
+          imageTable(model, photos, layout),
+        ],
+      })],
+    })],
+    width: { size: contentWidthTwips, type: WidthType.DXA },
+    columnWidths: [contentWidthTwips],
     layout: TableLayoutType.FIXED,
     borders: TableBorders.NONE,
   });
@@ -364,6 +469,7 @@ class PageLayoutEstimator {
   private readonly pageHeightTwips: number;
   private remainingTwips: number;
   private hasContent = false;
+  private firstPage = true;
 
   constructor(model: ReportModel) {
     this.pageHeightTwips = Math.max(1, convertMillimetersToTwip(
@@ -380,10 +486,15 @@ class PageLayoutEstimator {
     return this.remainingTwips;
   }
 
+  isOnFirstPage(): boolean {
+    return this.firstPage;
+  }
+
   startNewPage(): void {
     if (!this.hasContent) return;
     this.remainingTwips = this.pageHeightTwips;
     this.hasContent = false;
+    this.firstPage = false;
   }
 
   consume(heightTwips: number): void {
@@ -392,6 +503,7 @@ class PageLayoutEstimator {
       remainingHeight -= this.remainingTwips;
       this.remainingTwips = this.pageHeightTwips;
       this.hasContent = false;
+      this.firstPage = false;
     }
     if (remainingHeight >= this.pageHeightTwips) {
       const pageRemainder = remainingHeight % this.pageHeightTwips;
@@ -468,6 +580,8 @@ export async function generateDocx(
     pagination.consume(paragraphHeightTwips(model, model.situationHeading));
   }
 
+  const orderedGroups = model.sections.flatMap((section) => section.groups);
+  const firstPhotoGroupIndex = orderedGroups.findIndex((group) => group.photos.length > 0);
   for (const section of model.sections) {
     const firstGroup = section.groups[0];
     const firstGroupPhotos = firstGroup ? preparedPhotosForGroup(firstGroup, preparedById) : [];
@@ -475,25 +589,15 @@ export async function generateDocx(
       ? photoTableLayout(model, firstGroupPhotos)
       : null;
     const firstGroupHeight = firstGroup
-      ? paragraphHeightTwips(model, `${firstGroup.number}. ${firstGroup.text}`) + (firstGroupLayout?.heightTwips ?? 0)
-      : 0;
-    const firstGroupTextHeight = firstGroup
-      ? paragraphHeightTwips(model, `${firstGroup.number}. ${firstGroup.text}`)
+      ? firstGroupLayout
+        ? photoGroupBlockHeightTwips(model, `${firstGroup.number}. ${firstGroup.text}`, firstGroupLayout)
+        : paragraphHeightTwips(model, `${firstGroup.number}. ${firstGroup.text}`)
       : 0;
     const sectionTitleHeight = section.title.trim()
       ? paragraphHeightTwips(model, section.title)
       : 0;
-    const adaptiveFirstGroupCanUseRemainingSpace = Boolean(
-      firstGroupLayout &&
-      model.photoLayoutMode === "adaptive" &&
-      adaptivePhotoTableCanUseRemainingSpace(
-        firstGroupLayout,
-        pagination.remainingPageTwips() - sectionTitleHeight - firstGroupTextHeight,
-      ),
-    );
     const sectionPageBreak = Boolean(
       section.title.trim() &&
-      !adaptiveFirstGroupCanUseRemainingSpace &&
       pagination.shouldBreakBefore(sectionTitleHeight + firstGroupHeight),
     );
     if (section.title.trim()) {
@@ -510,39 +614,47 @@ export async function generateDocx(
     for (const group of section.groups) {
       const groupText = `${group.number}. ${group.text}`;
       const preparedPhotos = preparedPhotosForGroup(group, preparedById);
-      let groupLayout = preparedPhotos.length > 0
-        ? photoTableLayout(model, preparedPhotos)
+      const groupIndex = orderedGroups.indexOf(group);
+      const nextGroup = groupIndex >= 0 ? orderedGroups[groupIndex + 1] : undefined;
+      const nextGroupText = nextGroup ? `${nextGroup.number}. ${nextGroup.text}` : "";
+      const nextGroupPhotos = nextGroup ? preparedPhotosForGroup(nextGroup, preparedById) : [];
+      const nextGroupLayout = nextGroupPhotos.length > 0
+        ? photoTableLayout(model, nextGroupPhotos)
+        : null;
+      const nextGroupHeight = nextGroup
+        ? nextGroupLayout
+          ? photoGroupBlockHeightTwips(model, nextGroupText, nextGroupLayout)
+          : paragraphHeightTwips(model, nextGroupText)
+        : null;
+      const groupLayout = preparedPhotos.length > 0
+        ? groupIndex === firstPhotoGroupIndex && pagination.isOnFirstPage()
+          ? firstPageAdaptiveLayout(
+            model,
+            groupText,
+            preparedPhotos,
+            pagination.remainingPageTwips(),
+            nextGroupHeight,
+          )
+          : photoTableLayout(model, preparedPhotos)
         : null;
       const groupTextHeight = paragraphHeightTwips(model, groupText);
-      const availablePhotoHeight = pagination.remainingPageTwips() - groupTextHeight;
-      if (
-        groupLayout &&
-        model.photoLayoutMode === "adaptive" &&
-        adaptivePhotoTableCanUseRemainingSpace(groupLayout, availablePhotoHeight)
-      ) {
-        groupLayout = fitPhotoTableToHeight(groupLayout, availablePhotoHeight);
-      }
-      const groupHeight = groupTextHeight + (groupLayout?.heightTwips ?? 0);
+      const groupHeight = groupLayout
+        ? photoGroupBlockHeightTwips(model, groupText, groupLayout)
+        : groupTextHeight;
       const groupPageBreak = Boolean(
         preparedPhotos.length > 0 && pagination.shouldBreakBefore(groupHeight),
       );
-      children.push(bodyParagraph(model, groupText, {
-        keepNext: preparedPhotos.length > 0,
-        pageBreakBefore: groupPageBreak,
-        firstLineIndent: true,
-      }));
+      children.push(groupLayout
+        ? photoGroupBlock(model, groupText, preparedPhotos, groupLayout, groupPageBreak)
+        : bodyParagraph(model, groupText, { firstLineIndent: true }));
       if (groupPageBreak) pagination.startNewPage();
-      pagination.consume(groupTextHeight);
-      if (groupLayout) {
-        children.push(imageTable(model, preparedPhotos, groupLayout));
-        pagination.consume(groupLayout.heightTwips);
-      }
+      pagination.consume(groupHeight);
     }
   }
 
   children.push(
     bodyParagraph(model, model.closingText, { firstLineIndent: true }),
-    bodyParagraph(model, model.organizationName, { alignment: AlignmentType.RIGHT }),
+    bodyParagraph(model, model.organizationName, { alignment: AlignmentType.RIGHT, keepNext: true }),
     bodyParagraph(model, model.signatureDate, { alignment: AlignmentType.RIGHT }),
   );
 

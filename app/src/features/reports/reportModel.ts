@@ -181,7 +181,7 @@ export function buildReportModel(graph: InspectionGraph, template: ReportTemplat
     titleFontSizePt: template.titleFontSizePt,
     lineSpacing: template.lineSpacing,
     marginMm: { ...template.marginMm },
-    photoLayoutMode: graph.inspection.photoLayoutModeOverride ?? template.photoLayoutMode ?? "fixed",
+    photoLayoutMode: graph.inspection.photoLayoutModeOverride ?? "adaptive",
     photosPerRow: graph.inspection.photosPerRowOverride ?? template.photosPerRow,
     photoGapPt: template.photoGapPt,
   };
