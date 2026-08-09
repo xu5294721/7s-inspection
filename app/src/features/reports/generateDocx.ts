@@ -76,6 +76,7 @@ const adaptiveSingleFrameWidthMm = 135;
 const adaptiveSingleFrameHeightMm = 90;
 const adaptiveGridFrameWidthMm = 78;
 const adaptiveGridFrameHeightMm = 58;
+const adaptiveTwoPhotoFrameHeightMm = 70;
 const firstPageSingleFrameWidthMm = 150;
 const firstPageSingleFrameMaxHeightMm = 120;
 const firstPageTwoFrameMaxHeightMm = 110;
@@ -236,7 +237,11 @@ function adaptiveColumnsForPhotoCount(model: ReportModel, photoCount: number): n
 function adaptiveFrameForPhotoCount(photoCount: number): PhotoPlacement {
   return {
     width: Math.max(1, Math.round((photoCount === 1 ? adaptiveSingleFrameWidthMm : adaptiveGridFrameWidthMm) * pxPerMm)),
-    height: Math.max(1, Math.round((photoCount === 1 ? adaptiveSingleFrameHeightMm : adaptiveGridFrameHeightMm) * pxPerMm)),
+    height: Math.max(1, Math.round((photoCount === 1
+      ? adaptiveSingleFrameHeightMm
+      : photoCount === 2
+        ? adaptiveTwoPhotoFrameHeightMm
+        : adaptiveGridFrameHeightMm) * pxPerMm)),
   };
 }
 

@@ -110,6 +110,7 @@ function layoutModel(photosPerRow: 2 | 3) {
   const photoIds = dimensions.map((_, index) => `layout-photo-${index + 1}`);
   const inspection = makeInspection({
     templateVersion: 1,
+    photoLayoutModeOverride: "fixed",
     photosPerRowOverride: photosPerRow,
   });
   const template = makeTemplate({ marginMm: { top: 20, right: 22, bottom: 20, left: 22 } });
@@ -159,7 +160,7 @@ function adaptiveLayoutModel(photoCount: 2 | 3 | 4) {
 
 function firstPageFillModel(
   firstPhotoCount: 1 | 2,
-  followingPhotoCount: 1 | 4,
+  followingPhotoCount: 1 | 2 | 3 | 4,
   includeFrontMatter: boolean,
 ) {
   const baseInspection = makeInspection({ templateVersion: 1 });
@@ -928,6 +929,7 @@ test.each([2, 3] as const)(
 test("uses a centered 9 by 12 centimeter frame for a single photo", async () => {
   const inspection = makeInspection({
     templateVersion: 1,
+    photoLayoutModeOverride: "fixed",
     photosPerRowOverride: 3,
   });
   const template = makeTemplate({ marginMm: { top: 20, right: 22, bottom: 20, left: 22 } });
@@ -1055,6 +1057,23 @@ test("keeps each adaptive photo group on stable fixed frames", async () => {
   expect(new Set([`${extents[0]!.width}x${extents[0]!.height}`]).size).toBe(1);
   expect(new Set(extents.slice(1).map(({ width, height }) => `${width}x${height}`)).size).toBe(1);
   expect(`${extents[0]!.width}x${extents[0]!.height}`).not.toBe(`${extents[1]!.width}x${extents[1]!.height}`);
+});
+
+test("stretches only ordinary adaptive two-photo groups vertically", async () => {
+  const emuPerPx = 9_525;
+  const pxPerMm = 96 / 25.4;
+  const expectedWidth = Math.round(78 * pxPerMm) * emuPerPx;
+
+  for (const [photoCount, expectedHeightMm] of [[2, 70], [3, 58], [4, 58]] as const) {
+    const zip = await JSZip.loadAsync(await generateDocx(firstPageFillModel(1, photoCount, false), () => undefined));
+    const documentXml = await zip.file("word/document.xml")!.async("string");
+    const followingGroupExtents = drawingExtents(documentXml).slice(1);
+
+    expect(followingGroupExtents).toEqual(Array.from({ length: photoCount }, () => ({
+      width: expectedWidth,
+      height: Math.round(expectedHeightMm * pxPerMm) * emuPerPx,
+    })));
+  }
 });
 
 test("uses fixed 3:4 frames for extreme portrait and landscape images", async () => {

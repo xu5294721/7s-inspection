@@ -437,6 +437,21 @@ test("supports adaptive photo layout and persists the selected mode and four-pho
   expect(rows).toHaveValue("4");
 });
 
+test("defaults review photo layout to adaptive even when its template is fixed", async () => {
+  const database = createTestDb(`review-default-adaptive-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  await repository.saveGraph({
+    inspection: makeInspection(),
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+    template: makeTemplate({ photoLayoutMode: "fixed" }),
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
+
+  expect(await screen.findByRole("combobox", { name: "照片排版模式" })).toHaveValue("adaptive");
+});
+
 test("generates through repository atomic readiness and packaged snapshot transitions", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`review-atomic-completion-${Date.now()}`);
