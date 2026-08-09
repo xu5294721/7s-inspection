@@ -58,6 +58,18 @@ test("defaults a report to adaptive when the inspection has no layout override",
   expect(model.photoLayoutMode).toBe("adaptive");
 });
 
+test("defaults a report to adaptive when the inspection has no layout override", () => {
+  const template = makeTemplate({ photoLayoutMode: "fixed" });
+  const model = buildReportModel({
+    inspection: makeInspection({ photoLayoutModeOverride: null }),
+    groups: [makePhotoGroup({ photoIds: ["photo-1"] })],
+    photos: [makePhoto()],
+    template,
+  }, template);
+
+  expect(model.photoLayoutMode).toBe("adaptive");
+});
+
 test("keeps only photographed categories and distinguishes cleared from missing headings", () => {
   const template = makeTemplate({ generalHeading: "", situationHeading: "" });
   const inspection = makeInspection();
