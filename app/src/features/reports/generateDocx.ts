@@ -76,6 +76,9 @@ const adaptiveSingleFrameWidthMm = 135;
 const adaptiveSingleFrameHeightMm = 90;
 const adaptiveGridFrameWidthMm = 78;
 const adaptiveGridFrameHeightMm = 58;
+const firstPageSingleFrameWidthMm = 150;
+const firstPageSingleFrameMaxHeightMm = 120;
+const firstPageTwoFrameMaxHeightMm = 110;
 const adaptiveGridMaximumColumns = 2;
 const photoBlockSpacingMm = 4;
 const photoBlockSafetyMm = 6;
@@ -235,7 +238,11 @@ function adaptiveFrameForPhotoCount(photoCount: number): PhotoPlacement {
   };
 }
 
-function photoTableLayout(model: ReportModel, photos: PreparedPhoto[]): PhotoTableLayout {
+function photoTableLayout(
+  model: ReportModel,
+  photos: PreparedPhoto[],
+  adaptiveFrameOverride?: PhotoPlacement,
+): PhotoTableLayout {
   const isSinglePhoto = photos.length === 1;
   const isAdaptive = model.photoLayoutMode === "adaptive";
   const columns = isAdaptive
@@ -254,7 +261,7 @@ function photoTableLayout(model: ReportModel, photos: PreparedPhoto[]): PhotoTab
   const cellWidthMm = contentWidthMm / columns;
   const imageWidthPx = Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm));
   const fixedImageHeightPx = Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio);
-  const adaptiveFrame = isAdaptive ? adaptiveFrameForPhotoCount(photos.length) : null;
+  const adaptiveFrame = isAdaptive ? adaptiveFrameOverride ?? adaptiveFrameForPhotoCount(photos.length) : null;
   const placements = photos.map(() => isAdaptive
     ? { ...adaptiveFrame! }
     : isSinglePhoto
@@ -359,6 +366,48 @@ function photoGroupBlockHeightTwips(
   return paragraphHeightTwips(model, groupText) + photoBlockSpacingTwips + layout.heightTwips + photoBlockSafetyTwips;
 }
 
+function firstPageAdaptiveLayout(
+  model: ReportModel,
+  groupText: string,
+  photos: PreparedPhoto[],
+  remainingPageTwips: number,
+  nextGroupHeightTwips: number | null,
+): PhotoTableLayout {
+  const normalLayout = photoTableLayout(model, photos);
+  const normalGroupHeight = photoGroupBlockHeightTwips(model, groupText, normalLayout);
+  if (
+    model.photoLayoutMode !== "adaptive" ||
+    (photos.length !== 1 && photos.length !== 2) ||
+    normalGroupHeight > remainingPageTwips ||
+    (nextGroupHeightTwips !== null && normalGroupHeight + nextGroupHeightTwips <= remainingPageTwips)
+  ) {
+    return normalLayout;
+  }
+  const availablePhotoTableTwips = remainingPageTwips
+    - paragraphHeightTwips(model, groupText)
+    - photoBlockSpacingTwips
+    - photoBlockSafetyTwips;
+  const availableFrameHeightPx = Math.floor(
+    (availablePhotoTableTwips - normalLayout.rowGapTwips) / twipsPerPixel,
+  );
+  const normalFrame = normalLayout.rows[0]?.placements[0];
+  if (!normalFrame || availableFrameHeightPx <= normalFrame.height) return normalLayout;
+  const maximumHeightMm = photos.length === 1
+    ? firstPageSingleFrameMaxHeightMm
+    : firstPageTwoFrameMaxHeightMm;
+  const contentWidthMm = a4WidthMm - model.marginMm.left - model.marginMm.right;
+  const frame = {
+    width: photos.length === 1
+      ? Math.round(Math.min(firstPageSingleFrameWidthMm, contentWidthMm) * pxPerMm)
+      : normalFrame.width,
+    height: Math.min(Math.round(maximumHeightMm * pxPerMm), availableFrameHeightPx),
+  };
+  const expandedLayout = photoTableLayout(model, photos, frame);
+  return photoGroupBlockHeightTwips(model, groupText, expandedLayout) <= remainingPageTwips
+    ? expandedLayout
+    : normalLayout;
+}
+
 function photoGroupBlock(
   model: ReportModel,
   groupText: string,
@@ -405,6 +454,7 @@ class PageLayoutEstimator {
   private readonly pageHeightTwips: number;
   private remainingTwips: number;
   private hasContent = false;
+  private firstPage = true;
 
   constructor(model: ReportModel) {
     this.pageHeightTwips = Math.max(1, convertMillimetersToTwip(
@@ -421,10 +471,15 @@ class PageLayoutEstimator {
     return this.remainingTwips;
   }
 
+  isOnFirstPage(): boolean {
+    return this.firstPage;
+  }
+
   startNewPage(): void {
     if (!this.hasContent) return;
     this.remainingTwips = this.pageHeightTwips;
     this.hasContent = false;
+    this.firstPage = false;
   }
 
   consume(heightTwips: number): void {
@@ -433,6 +488,7 @@ class PageLayoutEstimator {
       remainingHeight -= this.remainingTwips;
       this.remainingTwips = this.pageHeightTwips;
       this.hasContent = false;
+      this.firstPage = false;
     }
     if (remainingHeight >= this.pageHeightTwips) {
       const pageRemainder = remainingHeight % this.pageHeightTwips;
@@ -509,6 +565,8 @@ export async function generateDocx(
     pagination.consume(paragraphHeightTwips(model, model.situationHeading));
   }
 
+  const orderedGroups = model.sections.flatMap((section) => section.groups);
+  const firstPhotoGroupIndex = orderedGroups.findIndex((group) => group.photos.length > 0);
   for (const section of model.sections) {
     const firstGroup = section.groups[0];
     const firstGroupPhotos = firstGroup ? preparedPhotosForGroup(firstGroup, preparedById) : [];
@@ -541,8 +599,28 @@ export async function generateDocx(
     for (const group of section.groups) {
       const groupText = `${group.number}. ${group.text}`;
       const preparedPhotos = preparedPhotosForGroup(group, preparedById);
+      const groupIndex = orderedGroups.indexOf(group);
+      const nextGroup = groupIndex >= 0 ? orderedGroups[groupIndex + 1] : undefined;
+      const nextGroupText = nextGroup ? `${nextGroup.number}. ${nextGroup.text}` : "";
+      const nextGroupPhotos = nextGroup ? preparedPhotosForGroup(nextGroup, preparedById) : [];
+      const nextGroupLayout = nextGroupPhotos.length > 0
+        ? photoTableLayout(model, nextGroupPhotos)
+        : null;
+      const nextGroupHeight = nextGroup
+        ? nextGroupLayout
+          ? photoGroupBlockHeightTwips(model, nextGroupText, nextGroupLayout)
+          : paragraphHeightTwips(model, nextGroupText)
+        : null;
       const groupLayout = preparedPhotos.length > 0
-        ? photoTableLayout(model, preparedPhotos)
+        ? groupIndex === firstPhotoGroupIndex && pagination.isOnFirstPage()
+          ? firstPageAdaptiveLayout(
+            model,
+            groupText,
+            preparedPhotos,
+            pagination.remainingPageTwips(),
+            nextGroupHeight,
+          )
+          : photoTableLayout(model, preparedPhotos)
         : null;
       const groupTextHeight = paragraphHeightTwips(model, groupText);
       const groupHeight = groupLayout

@@ -157,6 +157,83 @@ function adaptiveLayoutModel(photoCount: 2 | 3 | 4) {
   }, template);
 }
 
+function firstPageFillModel(
+  firstPhotoCount: 1 | 2,
+  followingPhotoCount: 1 | 4,
+  includeFrontMatter: boolean,
+) {
+  const baseInspection = makeInspection({ templateVersion: 1 });
+  const firstEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-first-page-fill",
+    groupIds: ["group-first-page-fill"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-first-page-fill", routeName: "首页照片项点" },
+    order: 0,
+  };
+  const followingEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-following-page-fill",
+    groupIds: ["group-following-page-fill"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-following-page-fill", routeName: "后续照片项点" },
+    order: 1,
+  };
+  const firstPhotoIds = Array.from({ length: firstPhotoCount }, (_, index) => `first-page-photo-${index + 1}`);
+  const followingPhotoIds = Array.from({ length: followingPhotoCount }, (_, index) => `following-page-photo-${index + 1}`);
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    photosPerRow: 4,
+    openingText: includeFrontMatter ? "为严格落实“7S”管理有关要求，持续夯实车间安全生产基础，现将本次巡检情况通报如下。" : "",
+    generalHeading: includeFrontMatter ? "一、“7S”巡检工作总体要求" : "",
+    situationHeading: includeFrontMatter ? "二、本次检查总体情况" : "",
+    requirements: includeFrontMatter
+      ? Array.from({ length: 4 }, (_, index) => `第${index + 1}项总体要求：规范现场作业定置管理、设备保养及环境卫生标准。`)
+      : [],
+    sections: [{ category: "good", title: includeFrontMatter ? "好的方面" : "", order: 0 }],
+    marginMm: { top: 20, right: 22, bottom: 20, left: 22 },
+  });
+  return buildReportModel({
+    inspection: {
+      ...baseInspection,
+      entries: [firstEntry, followingEntry],
+      reviewRouteOrder: ["首页照片项点", "后续照片项点"],
+    },
+    groups: [
+      makePhotoGroup({
+        id: "group-first-page-fill",
+        entryId: firstEntry.id,
+        description: "首页照片项点说明。",
+        descriptionManuallyEdited: true,
+        photoIds: firstPhotoIds,
+      }),
+      makePhotoGroup({
+        id: "group-following-page-fill",
+        entryId: followingEntry.id,
+        description: "后续照片项点说明。",
+        descriptionManuallyEdited: true,
+        photoIds: followingPhotoIds,
+        order: 1,
+      }),
+    ],
+    photos: [
+      ...firstPhotoIds.map((id, index) => makePhoto(undefined, {
+        id,
+        groupId: "group-first-page-fill",
+        order: index,
+        width: index % 2 === 0 ? 1600 : 900,
+        height: index % 2 === 0 ? 900 : 1600,
+      })),
+      ...followingPhotoIds.map((id, index) => makePhoto(undefined, {
+        id,
+        groupId: "group-following-page-fill",
+        order: index,
+        width: index % 2 === 0 ? 1600 : 900,
+        height: index % 2 === 0 ? 900 : 1600,
+      })),
+    ],
+    template,
+  }, template);
+}
+
 test("writes the current formal general section and preserves its photo relationship", async () => {
   const template = makeTemplate({
     version: 3,
@@ -477,7 +554,7 @@ test("moves an overflowing adaptive item as a complete block without shrinking i
   expect(extents[2]!.width).toBeGreaterThan(600_000);
 });
 
-test("uses one equal horizontal frame for mixed-orientation adaptive photos", async () => {
+test("uses equal first-page fill frames for mixed-orientation adaptive photos", async () => {
   const model = adaptiveLayoutModel(2);
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
@@ -485,7 +562,79 @@ test("uses one equal horizontal frame for mixed-orientation adaptive photos", as
 
   expect(extents).toHaveLength(2);
   expect(new Set(extents.map(({ width, height }) => `${width}x${height}`)).size).toBe(1);
-  expect(extents[0]!.width / extents[0]!.height).toBeGreaterThan(1.2);
+  expect(extents[0]!.width / extents[0]!.height).toBeLessThan(1);
+});
+
+test("expands a sparse first-page adaptive single photo without changing the following grid", async () => {
+  const model = firstPageFillModel(1, 4, true);
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = drawingExtents(documentXml);
+  const pxPerMm = 96 / 25.4;
+  const emuPerPx = 9_525;
+
+  expect(extents).toHaveLength(5);
+  expect(extents[0]!.width).toBeGreaterThan(Math.round(135 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.width).toBeLessThanOrEqual(Math.round(150 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeGreaterThan(Math.round(90 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeLessThanOrEqual(Math.round(120 * pxPerMm) * emuPerPx);
+  expect(new Set(extents.slice(1).map(({ width, height }) => `${width}x${height}`))).toEqual(
+    new Set([`${Math.round(78 * pxPerMm) * emuPerPx}x${Math.round(58 * pxPerMm) * emuPerPx}`]),
+  );
+});
+
+test("expands equal first-page adaptive two-photo frames without changing the following grid", async () => {
+  const model = firstPageFillModel(2, 4, true);
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = drawingExtents(documentXml);
+  const pxPerMm = 96 / 25.4;
+  const emuPerPx = 9_525;
+
+  expect(extents).toHaveLength(6);
+  expect(extents[0]).toEqual(extents[1]);
+  expect(extents[0]!.width).toBe(Math.round(78 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeGreaterThan(Math.round(58 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeLessThanOrEqual(Math.round(110 * pxPerMm) * emuPerPx);
+  expect(new Set(extents.slice(2).map(({ width, height }) => `${width}x${height}`))).toEqual(
+    new Set([`${Math.round(78 * pxPerMm) * emuPerPx}x${Math.round(58 * pxPerMm) * emuPerPx}`]),
+  );
+});
+
+test("does not expand the first page when a following photo item still fits", async () => {
+  const model = firstPageFillModel(1, 1, false);
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = drawingExtents(documentXml);
+  const pxPerMm = 96 / 25.4;
+  const emuPerPx = 9_525;
+
+  expect(extents[0]).toEqual({
+    width: Math.round(135 * pxPerMm) * emuPerPx,
+    height: Math.round(90 * pxPerMm) * emuPerPx,
+  });
+  expect(paragraphContaining(documentXml, "2. 后续照片项点说明。")).not.toContain("<w:pageBreakBefore/>");
+});
+
+test("does not expand the first photo item after the report has flowed past page one", async () => {
+  const baseModel = firstPageFillModel(1, 4, true);
+  const model = {
+    ...baseModel,
+    requirements: Array.from(
+      { length: 18 },
+      (_, index) => `第${index + 1}项前置要求：持续落实现场定置、设备保养、环境卫生和安全风险卡控要求。`,
+    ),
+  };
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const [firstExtent] = drawingExtents(documentXml);
+  const pxPerMm = 96 / 25.4;
+  const emuPerPx = 9_525;
+
+  expect(firstExtent).toEqual({
+    width: Math.round(135 * pxPerMm) * emuPerPx,
+    height: Math.round(90 * pxPerMm) * emuPerPx,
+  });
 });
 
 test("uses the same readable 2+1 frame grid for three adaptive photos", async () => {
@@ -785,7 +934,7 @@ test("uses a centered 9 by 12 centimeter frame for a single photo", async () => 
   });
 });
 
-test("uses a centered medium frame for a single photo in adaptive layout", async () => {
+test("uses a centered first-page fill frame for a single adaptive photo", async () => {
   const inspection = makeInspection({ templateVersion: 1 });
   const template = makeTemplate({
     photoLayoutMode: "adaptive",
@@ -811,12 +960,12 @@ test("uses a centered medium frame for a single photo in adaptive layout", async
   expect(gridWidths).toHaveLength(1);
   expect(extent).toBeDefined();
   expect(extent).toEqual({
-    width: Math.round(135 * pxPerMm) * emuPerPx,
-    height: Math.round(90 * pxPerMm) * emuPerPx,
+    width: Math.round(150 * pxPerMm) * emuPerPx,
+    height: Math.round(120 * pxPerMm) * emuPerPx,
   });
 });
 
-test("uses the same medium frame for extreme portrait photos in adaptive layout", async () => {
+test("uses the same first-page fill frame for extreme portrait adaptive photos", async () => {
   const inspection = makeInspection({ templateVersion: 1 });
   const template = makeTemplate({
     photoLayoutMode: "adaptive",
@@ -836,8 +985,8 @@ test("uses the same medium frame for extreme portrait photos in adaptive layout"
   const pxPerMm = 96 / 25.4;
 
   expect(extent).toEqual({
-    width: Math.round(135 * pxPerMm) * emuPerPx,
-    height: Math.round(90 * pxPerMm) * emuPerPx,
+    width: Math.round(150 * pxPerMm) * emuPerPx,
+    height: Math.round(120 * pxPerMm) * emuPerPx,
   });
 });
 
