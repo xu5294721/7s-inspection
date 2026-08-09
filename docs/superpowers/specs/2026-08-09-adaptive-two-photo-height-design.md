@@ -15,12 +15,12 @@ Make a completed inspection item with exactly two photos look fuller in a genera
 - In adaptive Word layout, an item with exactly two photos remains a two-column layout with the existing 78 mm frame width.
 - Its fixed DOCX frame height increases from 58 mm to 70 mm. The exported copy may be vertically stretched; the original stored image is never modified and images are not cropped.
 - One-photo, three-photo, four-photo, and larger adaptive layouts retain their current dimensions and pagination behavior.
-- The report review screen resolves a missing inspection-level choice and a missing template-level choice to `adaptive`. Existing explicit choices remain authoritative, so users can still choose `fixed` when wanted.
-- Legacy template records without `photoLayoutMode` also default to `adaptive` when parsed. Existing saved templates with an explicit `fixed` value are unchanged.
+- The report review screen resolves a missing inspection-level choice to `adaptive`, irrespective of the template snapshot. A user-selected inspection-level `fixed` or `adaptive` choice remains authoritative and is persisted.
+- Immutable historical template versions remain unchanged so that older local backups can still merge without a version conflict.
 
 ## Testing and verification
 
 - Add a Word-generation regression that proves two-photo adaptive frames are 78 x 70 mm and three-/four-photo frames remain 78 x 58 mm.
-- Add schema and review-page regressions for the default adaptive mode while retaining existing explicit overrides.
+- Add report-model and review-page regressions for the default adaptive mode while retaining an explicit inspection-level override.
 - Render representative two-photo, three-photo, and four-photo reports with LibreOffice and inspect the resulting pages.
 - Run focused and full tests, lint, web build, Android lint, and Android debug assembly before releasing the next APK.

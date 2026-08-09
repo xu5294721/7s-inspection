@@ -609,7 +609,7 @@ export function ReviewPage() {
   if (graph === null) return <p className="status-message" role="alert">未找到巡检记录。</p>;
 
   const activeGroups = visibleGroups.filter((group) => group.category === activeCategory).sort((a, b) => a.order - b.order);
-  const effectiveMode = graph.inspection.photoLayoutModeOverride ?? graph.template?.photoLayoutMode ?? "fixed";
+  const effectiveMode = graph.inspection.photoLayoutModeOverride ?? "adaptive";
   const effectiveRows = graph.inspection.photosPerRowOverride ?? graph.template?.photosPerRow ?? 3;
   const routeNames = sortRouteNamesForReview(graph);
   const routeNamesByCategory = sortRouteNamesForReviewByCategory(graph);
