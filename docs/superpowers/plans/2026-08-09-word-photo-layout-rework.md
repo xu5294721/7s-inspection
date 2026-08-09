@@ -17,6 +17,7 @@
 - In adaptive export, use at most two columns: 1 photo uses one centered frame, 2 photos use one row, 3 photos use 2+1, and 4+ photos use two-column rows.
 - For 1—4 photos, the item paragraph and all photos stay together; items larger than one page may continue only at complete photo-row boundaries.
 - Do not shrink an item to consume page-bottom remainder.
+- After a three-photo 2+1 item, continue with a following one- or two-photo item whenever the complete following block fits on the same page.
 - Verify actual DOCX rendering with `C:\Program Files\LibreOffice\program\soffice.exe` before changing the Android version or claiming completion.
 - Leave the existing untracked `.codex-preview/` directory untouched.
 
@@ -111,8 +112,8 @@ git commit -m "test: define coherent Word photo item layout"
 Replace the adaptive source-ratio height constants with these centralized values:
 
 ```ts
-const adaptiveSingleFrameWidthMm = 150;
-const adaptiveSingleFrameHeightMm = 100;
+const adaptiveSingleFrameWidthMm = 135;
+const adaptiveSingleFrameHeightMm = 90;
 const adaptiveGridFrameWidthMm = 78;
 const adaptiveGridFrameHeightMm = 58;
 const adaptiveGridMaximumColumns = 2;
@@ -129,7 +130,7 @@ Implement an internal helper with this exact contract:
 function adaptiveColumnsForPhotoCount(model: ReportModel, photoCount: number): number;
 ```
 
-It must return `1` when `photoCount <= 1`, return `1` when the configured row limit is `1`, and otherwise return `Math.min(2, photoCount, model.photosPerRow)`. This preserves the existing one-photo/two-photo settings while preventing 3- and 4-column adaptive grids from becoming too small.
+It must return `1` when `photoCount <= 1`, return `1` when the configured row limit is `1`, and otherwise return `Math.min(2, photoCount, model.photosPerRow)`. This preserves the existing one-photo/two-photo settings while keeping three- and four-photo grids at two columns.
 
 Implement a second helper:
 
@@ -137,7 +138,7 @@ Implement a second helper:
 function adaptiveFrameForPhotoCount(photoCount: number): { width: number; height: number };
 ```
 
-It returns the centered single frame for one photo and the equal grid frame for every photo in a multi-photo grid. Convert millimeters to pixels once and clamp both dimensions to positive integers.
+It returns the centered 135×90mm frame for one photo and the equal 78×58mm grid frame for every multi-photo group. Convert millimeters to pixels once and clamp both dimensions to positive integers.
 
 - [ ] **Step 3: Change `photoTableLayout` to use fixed adaptive placements.**
 
@@ -151,9 +152,9 @@ const placements = photos.map(() => ({ width: frame.width, height: frame.height 
 
 For fixed mode, retain the existing `photosPerRow` behavior and equal 3:4 extents. For adaptive mode, calculate the content grid width from the selected column count, center a one-column single frame, and use two equal columns for multi-photo groups. Calculate each row height from its fixed placement, plus explicit row spacing, and store the resulting total in `heightTwips`.
 
-- [ ] **Step 4: Implement the 3-photo 2+1 row shape.**
+- [ ] **Step 4: Implement the three-photo 2+1 row shape.**
 
-Keep `layout.columns === 2` for a three-photo adaptive group. In `imageTable`, create the final row with one occupied cell and one empty cell; set the occupied cell’s paragraph alignment to center and keep the empty cell borderless. Do not shrink the occupied frame to fill the second cell.
+Keep `layout.columns === 2` for a three-photo adaptive group. In `imageTable`, create the final row with one occupied cell spanning the two columns and center the photo. Do not shrink the occupied frame to fill the second cell.
 
 - [ ] **Step 5: Make `imageTable` render the shared fixed extents.**
 
@@ -326,7 +327,7 @@ Mark the run as passing only if:
 
 - no item caption is separated from its own photos;
 - a two-photo group has two equal frames;
-- a three-photo group is a balanced 2+1 grid;
+- a three-photo group is a balanced 2+1 grid using the same frame size as the four-photo grid;
 - a four-photo group has a complete 2x2 grid on one page when the block fits;
 - a mixed portrait/landscape group has equal frames with no internal blank area;
 - no single image is compressed merely because it is near the page bottom;
@@ -408,3 +409,13 @@ git commit -m "fix: rework Word inspection photo layout"
 - Edge coverage: no-photo groups remain ordinary paragraphs; 5+ photos continue at complete row boundaries; missing photo relationships remain errors; `.codex-preview/` is never included.
 - Placeholder scan: every implementation step contains concrete files, interfaces, commands, and expected outcomes.
 - Type consistency: `PhotoTableLayout` remains the shared result of `photoTableLayout`; `photoGroupBlockHeightTwips` consumes that result; `photoGroupBlock` renders the same result; `PageLayoutEstimator` consumes the same calculated height.
+
+## Execution Record (2026-08-09)
+
+- [x] Adaptive three-photo groups use the same 78×58mm frames as four-photo groups, arranged as 2+1 with the final photo centered.
+- [x] Added regression coverage for continuing with a following one-photo item when the three-photo block fits.
+- [x] Focused report tests: 32/32 passed.
+- [x] Full web tests: 50 files and 606 tests passed.
+- [x] `pnpm run lint` and `pnpm run build` passed.
+- [x] LibreOffice/PDF visual verification completed for 1, 2, 3, 4, and following-photo cases.
+- [x] Android `lintDebug assembleDebug` passed with JDK 21; APK version is 1.1.5, versionCode 17.

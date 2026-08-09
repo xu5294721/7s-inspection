@@ -22,6 +22,20 @@ function paragraphContaining(documentXml: string, text: string): string {
   return documentXml.slice(paragraphStart, paragraphEnd + "</w:p>".length);
 }
 
+function drawingExtents(documentXml: string): Array<{ width: number; height: number }> {
+  return [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
+    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }));
+}
+
+function tableContaining(documentXml: string, text: string): string {
+  const textIndex = documentXml.indexOf(text);
+  if (textIndex < 0) return "";
+  const tableStart = documentXml.lastIndexOf("<w:tbl", textIndex);
+  const tableEnd = documentXml.indexOf("</w:tbl>", textIndex);
+  if (tableStart < 0 || tableEnd < 0) return "";
+  return documentXml.slice(tableStart, tableEnd + "</w:tbl>".length);
+}
+
 async function drawingMediaReferences(blob: Blob) {
   const zip = await JSZip.loadAsync(blob);
   const documentXml = await zip.file("word/document.xml")!.async("string");
@@ -111,6 +125,36 @@ function layoutModel(photosPerRow: 2 | 3) {
       template,
     }, template),
   };
+}
+
+function adaptiveLayoutModel(photoCount: 2 | 3 | 4) {
+  const dimensions = Array.from({ length: photoCount }, (_, index) => ({
+    width: index % 2 === 0 ? 1600 : 900,
+    height: index % 2 === 0 ? 900 : 1600,
+  }));
+  const photoIds = dimensions.map((_, index) => `adaptive-layout-photo-${index + 1}`);
+  const inspection = makeInspection({
+    templateVersion: 1,
+    photosPerRowOverride: 4,
+  });
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    photosPerRow: 4,
+    marginMm: { top: 20, right: 22, bottom: 20, left: 22 },
+  });
+  return buildReportModel({
+    inspection,
+    groups: [makePhotoGroup({
+      description: "自适应照片项点。",
+      descriptionManuallyEdited: true,
+      photoIds,
+    })],
+    photos: dimensions.map((dimension, index) => makePhoto(
+      new Blob([`adaptive-layout-${index}`], { type: "image/jpeg" }),
+      { id: photoIds[index], order: index, ...dimension },
+    )),
+    template,
+  }, template);
 }
 
 test("writes the current formal general section and preserves its photo relationship", async () => {
@@ -216,6 +260,15 @@ test("applies configured body font size and first-line indentation to report bod
     }
   }
   expect(paragraphContaining(documentXml, model.generalHeading)).not.toContain("w:firstLine");
+});
+
+test("keeps the organization name with the signature date", async () => {
+  const model = fivePhotoModel();
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+
+  expect(paragraphContaining(documentXml, model.organizationName)).toContain("<w:keepNext/>");
+  expect(paragraphContaining(documentXml, model.signatureDate)).not.toContain("<w:keepNext/>");
 });
 
 test("omits empty category and explicitly cleared heading paragraphs", async () => {
@@ -366,7 +419,7 @@ test("moves a later photo-backed item before its complete block", async () => {
   expect(paragraphContaining(documentXml, "2. 第二张照片项点。")).toContain("<w:pageBreakBefore/>");
 });
 
-test("shrinks an overflowing adaptive photo group into the remaining page space", async () => {
+test("moves an overflowing adaptive item as a complete block without shrinking its frame", async () => {
   const baseInspection = makeInspection({ templateVersion: 1 });
   const firstEntry = {
     ...baseInspection.entries[0],
@@ -382,7 +435,11 @@ test("shrinks an overflowing adaptive photo group into the remaining page space"
     itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-second-adaptive", routeName: "第二项点" },
     order: 1,
   };
-  const template = makeTemplate({ photoLayoutMode: "adaptive", photosPerRow: 2 });
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    photosPerRow: 2,
+    requirements: Array.from({ length: 12 }, (_, index) => `第${index + 1}项要求：现场检查内容需要逐项落实。`),
+  });
   const model = buildReportModel({
     inspection: { ...baseInspection, entries: [firstEntry, secondEntry] },
     groups: [
@@ -412,15 +469,117 @@ test("shrinks an overflowing adaptive photo group into the remaining page space"
 
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
-  const extents = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
-    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }));
-  const emuPerPx = 9_525;
-  const maxAdaptiveHeightPx = Math.floor(180 * 96 / 25.4);
+  const extents = drawingExtents(documentXml);
 
-  expect(paragraphContaining(documentXml, "2. 第二项点照片。")).not.toContain("<w:pageBreakBefore/>");
+  expect(paragraphContaining(documentXml, "2. 第二项点照片。")).toContain("<w:pageBreakBefore/>");
   expect(extents).toHaveLength(3);
-  expect(extents[2]!.height).toBeLessThan(maxAdaptiveHeightPx * emuPerPx);
-  expect(extents[2]!.width / extents[2]!.height).toBeCloseTo(1 / 4, 2);
+  expect(new Set(extents.map(({ width, height }) => `${width}x${height}`)).size).toBe(2);
+  expect(extents[2]!.width).toBeGreaterThan(600_000);
+});
+
+test("uses one equal horizontal frame for mixed-orientation adaptive photos", async () => {
+  const model = adaptiveLayoutModel(2);
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = drawingExtents(documentXml);
+
+  expect(extents).toHaveLength(2);
+  expect(new Set(extents.map(({ width, height }) => `${width}x${height}`)).size).toBe(1);
+  expect(extents[0]!.width / extents[0]!.height).toBeGreaterThan(1.2);
+});
+
+test("uses the same readable 2+1 frame grid for three adaptive photos", async () => {
+  const model = adaptiveLayoutModel(3);
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const itemTable = tableContaining(documentXml, "1. 自适应照片项点。");
+  const extents = drawingExtents(documentXml);
+
+  expect(itemTable).toContain('<w:gridSpan w:val="2"/>');
+  expect((itemTable.match(/<w:gridCol\b/g) ?? []).length).toBe(3);
+  expect(new Set(extents.map(({ width, height }) => `${width}x${height}`)).size).toBe(1);
+});
+
+test("continues with another one-photo item when a three-photo item fits", async () => {
+  const baseInspection = makeInspection({ templateVersion: 1 });
+  const firstEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-three-photo-item",
+    groupIds: ["group-three-photo-item"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-three-photo-item", routeName: "三张照片项点" },
+    order: 0,
+  };
+  const secondEntry = {
+    ...baseInspection.entries[0],
+    id: "entry-following-one-photo-item",
+    groupIds: ["group-following-one-photo-item"],
+    itemSnapshot: { ...baseInspection.entries[0].itemSnapshot, id: "item-following-one-photo-item", routeName: "后续一张照片项点" },
+    order: 1,
+  };
+  const template = makeTemplate({
+    photoLayoutMode: "adaptive",
+    photosPerRow: 4,
+    openingText: "",
+    generalHeading: "",
+    situationHeading: "",
+    requirements: [],
+    sections: [{ category: "good", title: "", order: 0 }],
+    marginMm: { top: 10, right: 22, bottom: 10, left: 22 },
+  });
+  const model = buildReportModel({
+    inspection: { ...baseInspection, entries: [firstEntry, secondEntry] },
+    groups: [
+      makePhotoGroup({
+        id: "group-three-photo-item",
+        entryId: firstEntry.id,
+        description: "三张照片项点说明。",
+        descriptionManuallyEdited: true,
+        photoIds: ["three-photo-1", "three-photo-2", "three-photo-3"],
+      }),
+      makePhotoGroup({
+        id: "group-following-one-photo-item",
+        entryId: secondEntry.id,
+        description: "后续一张照片项点说明。",
+        descriptionManuallyEdited: true,
+        photoIds: ["following-one-photo"],
+        order: 1,
+      }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: "three-photo-1", groupId: "group-three-photo-item", width: 1600, height: 900 }),
+      makePhoto(undefined, { id: "three-photo-2", groupId: "group-three-photo-item", width: 900, height: 1600 }),
+      makePhoto(undefined, { id: "three-photo-3", groupId: "group-three-photo-item", width: 1600, height: 900 }),
+      makePhoto(undefined, { id: "following-one-photo", groupId: "group-following-one-photo-item", width: 1600, height: 900 }),
+    ],
+    template,
+  }, template);
+
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+
+  expect(paragraphContaining(documentXml, "2. 后续一张照片项点说明。")).not.toContain("<w:pageBreakBefore/>");
+});
+
+test("uses a two-column two-row adaptive grid for four photos", async () => {
+  const model = adaptiveLayoutModel(4);
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = drawingExtents(documentXml);
+  const itemTable = tableContaining(documentXml, "1. 自适应照片项点。");
+
+  expect(extents).toHaveLength(4);
+  expect(new Set(extents.map(({ width, height }) => `${width}x${height}`)).size).toBe(1);
+  expect((itemTable.match(/<w:cantSplit\/>/g) ?? []).length).toBeGreaterThanOrEqual(2);
+});
+
+test("keeps a photo-backed item paragraph and photos inside one outer block", async () => {
+  const model = adaptiveLayoutModel(2);
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const itemTable = tableContaining(documentXml, "1. 自适应照片项点。");
+
+  expect(itemTable).toContain("1. 自适应照片项点。");
+  expect(itemTable).toContain("<w:drawing>");
 });
 
 test("keeps an adaptive section heading with a resized first photo group", async () => {
@@ -501,13 +660,16 @@ test("moves an adaptive portrait photo to the next page instead of making it tin
 
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
-  const extents = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
-    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }));
-  const maxAdaptiveHeightPx = Math.floor(180 * 96 / 25.4);
+  const extents = drawingExtents(documentXml);
+  const emuPerPx = 9_525;
+  const pxPerMm = 96 / 25.4;
 
   expect(paragraphContaining(documentXml, "2. 第二项点照片。")).toContain("<w:pageBreakBefore/>");
   expect(extents).toHaveLength(3);
-  expect(extents[2]!.height).toBe(maxAdaptiveHeightPx * 9_525);
+  expect(extents[2]).toEqual({
+    width: Math.round(135 * pxPerMm) * emuPerPx,
+    height: Math.round(90 * pxPerMm) * emuPerPx,
+  });
 });
 
 test("keeps a four-photo adaptive table readable instead of shrinking all rows", async () => {
@@ -623,7 +785,7 @@ test("uses a centered 9 by 12 centimeter frame for a single photo", async () => 
   });
 });
 
-test("fills the content width for a single photo in adaptive layout", async () => {
+test("uses a centered medium frame for a single photo in adaptive layout", async () => {
   const inspection = makeInspection({ templateVersion: 1 });
   const template = makeTemplate({
     photoLayoutMode: "adaptive",
@@ -645,19 +807,16 @@ test("fills the content width for a single photo in adaptive layout", async () =
     .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }))[0];
   const pxPerMm = 96 / 25.4;
   const emuPerPx = 9_525;
-  const contentWidthMm = 210 - 22 - 22;
-  const gapMm = 6 * 25.4 / 72;
-  const expectedWidthPx = Math.floor((contentWidthMm - gapMm) * pxPerMm);
 
   expect(gridWidths).toHaveLength(1);
   expect(extent).toBeDefined();
-  expect(extent.width).toBe(expectedWidthPx * emuPerPx);
-  expect(extent.height).toBe(Math.round(expectedWidthPx * 900 / 1600) * emuPerPx);
-  expect(extent.width / extent.height).toBeCloseTo(16 / 9, 2);
-  expect(extent.width).toBeGreaterThan(Math.round(90 * pxPerMm) * emuPerPx);
+  expect(extent).toEqual({
+    width: Math.round(135 * pxPerMm) * emuPerPx,
+    height: Math.round(90 * pxPerMm) * emuPerPx,
+  });
 });
 
-test("caps extreme portrait photos in adaptive layout without changing their ratio", async () => {
+test("uses the same medium frame for extreme portrait photos in adaptive layout", async () => {
   const inspection = makeInspection({ templateVersion: 1 });
   const template = makeTemplate({
     photoLayoutMode: "adaptive",
@@ -672,18 +831,17 @@ test("caps extreme portrait photos in adaptive layout without changing their rat
 
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
-  const extent = [...documentXml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/g)]
-    .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }))[0];
+  const extent = drawingExtents(documentXml)[0];
   const emuPerPx = 9_525;
-  const maxHeightPx = Math.floor(180 * 96 / 25.4);
+  const pxPerMm = 96 / 25.4;
 
   expect(extent).toEqual({
-    width: Math.round(maxHeightPx * 1000 / 4000) * emuPerPx,
-    height: maxHeightPx * emuPerPx,
+    width: Math.round(135 * pxPerMm) * emuPerPx,
+    height: Math.round(90 * pxPerMm) * emuPerPx,
   });
 });
 
-test("adapts each photo group independently up to the configured limit", async () => {
+test("keeps each adaptive photo group on stable fixed frames", async () => {
   const baseInspection = makeInspection();
   const firstEntry = {
     ...baseInspection.entries[0],
@@ -721,12 +879,12 @@ test("adapts each photo group independently up to the configured limit", async (
 
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
-  const photoTables = [...documentXml.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g)]
-    .map((match) => match[0])
-    .filter((table) => table.includes("<w:drawing>"));
-  const columnCounts = photoTables.map((table) => [...table.matchAll(/<w:gridCol w:w="(\d+)"\/>/g)].length);
+  const extents = drawingExtents(documentXml);
 
-  expect(columnCounts).toEqual([1, 4]);
+  expect(extents).toHaveLength(6);
+  expect(new Set([`${extents[0]!.width}x${extents[0]!.height}`]).size).toBe(1);
+  expect(new Set(extents.slice(1).map(({ width, height }) => `${width}x${height}`)).size).toBe(1);
+  expect(`${extents[0]!.width}x${extents[0]!.height}`).not.toBe(`${extents[1]!.width}x${extents[1]!.height}`);
 });
 
 test("uses fixed 3:4 frames for extreme portrait and landscape images", async () => {
@@ -865,13 +1023,7 @@ test("alternates photo table and text line for a mixed section in report order",
 
   expect(body).toContain("1. 有照片项。");
   expect(body).toContain("2. 纯文字项。");
-  expect(paragraphContaining(body, "1. 有照片项。")).toContain("<w:keepNext/>");
   expect(paragraphContaining(body, "2. 纯文字项。")).not.toContain("<w:keepNext/>");
-  expect(body).toContain("<w:tbl>");
-  const photoTableEnd = body.indexOf("</w:tbl>");
-  const textPosition = body.indexOf("纯文字项。");
-  expect(photoTableEnd).toBeGreaterThan(0);
-  expect(textPosition).toBeGreaterThan(photoTableEnd);
-  const textTableEnd = body.indexOf("</w:tbl>", photoTableEnd + 1);
-  expect(textTableEnd).toBe(-1);
+  expect(tableContaining(body, "1. 有照片项。")).toContain("<w:drawing>");
+  expect(body.indexOf("1. 有照片项。")).toBeLessThan(body.indexOf("2. 纯文字项。"));
 });
