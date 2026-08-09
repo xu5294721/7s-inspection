@@ -7,6 +7,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Always inspect the worktree that contains this script, regardless of the
+# caller's current directory. This keeps a canonical-worktree health check
+# from accidentally reading the user's older root checkout.
+$scriptRepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+Set-Location -LiteralPath $scriptRepoRoot
+
 function Invoke-GitText {
     param(
         [Parameter(Mandatory = $true)]
@@ -123,20 +129,30 @@ function Get-EolReport {
     $counts = @{}
     $crlfPaths = New-Object System.Collections.Generic.List[string]
     $mixedPaths = New-Object System.Collections.Generic.List[string]
+    $indexCrlfPaths = New-Object System.Collections.Generic.List[string]
+    $indexMixedPaths = New-Object System.Collections.Generic.List[string]
     $lines = (Invoke-GitText -Arguments @('ls-files', '--eol')) -split "`r?`n"
 
     foreach ($line in $lines) {
-        if ($line -match '^i/(?<index>\S+)\s+w/(?<worktree>\S+)\s+attr/(?<attr>\S*)\s+(?<path>.+)$') {
+        $parts = $line -split "`t", 2
+        if ($parts.Count -eq 2 -and $parts[0] -match '^i/(?<index>\S+)\s+w/(?<worktree>\S+)\s+attr/(?<attr>.+)$') {
+            $path = $parts[1]
             $key = "$($matches['index'])/$($matches['worktree'])/$($matches['attr'])"
             if (-not $counts.ContainsKey($key)) {
                 $counts[$key] = 0
             }
             $counts[$key]++
-            if ($matches['worktree'] -eq 'crlf') {
-                $crlfPaths.Add($matches['path'])
+            if ($matches['index'] -eq 'crlf') {
+                $indexCrlfPaths.Add($path)
+            }
+            if ($matches['index'] -eq 'mixed') {
+                $indexMixedPaths.Add($path)
+            }
+            if ($matches['worktree'] -eq 'crlf' -and $matches['attr'] -notmatch 'eol=crlf') {
+                $crlfPaths.Add($path)
             }
             if ($matches['worktree'] -eq 'mixed') {
-                $mixedPaths.Add($matches['path'])
+                $mixedPaths.Add($path)
             }
         }
     }
@@ -150,8 +166,12 @@ function Get-EolReport {
         } | Sort-Object state)
         worktreeCrlfCount = $crlfPaths.Count
         worktreeMixedCount = $mixedPaths.Count
+        indexCrlfCount = $indexCrlfPaths.Count
+        indexMixedCount = $indexMixedPaths.Count
         sampleCrlfPaths = @($crlfPaths | Select-Object -First 20)
         sampleMixedPaths = @($mixedPaths | Select-Object -First 20)
+        sampleIndexCrlfPaths = @($indexCrlfPaths | Select-Object -First 20)
+        sampleIndexMixedPaths = @($indexMixedPaths | Select-Object -First 20)
     }
 }
 
@@ -242,7 +262,11 @@ $report = [ordered]@{
     config = [ordered]@{
         autocrlf = Get-ConfigValue -Key 'core.autocrlf'
         httpVersion = Get-ConfigValue -Key 'http.version'
-        optionalLocks = if ($null -eq $env:GIT_OPTIONAL_LOCKS) { $null } else { $env:GIT_OPTIONAL_LOCKS }
+        optionalLocks = if ($null -ne $env:GIT_OPTIONAL_LOCKS) {
+            $env:GIT_OPTIONAL_LOCKS
+        } else {
+            [Environment]::GetEnvironmentVariable('GIT_OPTIONAL_LOCKS', 'User')
+        }
     }
     worktrees = $worktreeRecords
     locks = [ordered]@{
@@ -269,7 +293,7 @@ if ($Json) {
     Write-Output "Branch: $($report.branch) ($($report.head.Substring(0, 8)))"
     Write-Output "Remote: $($report.remoteUrl)"
     Write-Output "Locks: $($report.locks.activeCount) active, $($report.locks.gitProcessCount) Git-related processes"
-    Write-Output "EOL: $($report.eol.worktreeCrlfCount) CRLF, $($report.eol.worktreeMixedCount) mixed files"
+    Write-Output "EOL: $($report.eol.worktreeCrlfCount) unexpected CRLF, $($report.eol.worktreeMixedCount) mixed worktree files, $($report.eol.indexMixedCount) mixed index files"
     Write-Output "Tags: $($report.refs.localTagCount) local, $($report.refs.remoteTagCount) remote, $($report.refs.tagMismatches.Count) mismatches"
     if ($report.refs.remoteError) {
         Write-Output "Remote check: $($report.refs.remoteError)"
@@ -287,4 +311,7 @@ if ($tagMismatches.Count -gt 0) {
 }
 if ($remoteError) {
     exit 4
+}
+if ($report.eol.worktreeCrlfCount -gt 0 -or $report.eol.worktreeMixedCount -gt 0 -or $report.eol.indexCrlfCount -gt 0 -or $report.eol.indexMixedCount -gt 0) {
+    exit 5
 }
