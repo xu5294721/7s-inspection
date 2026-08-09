@@ -601,6 +601,27 @@ test("expands equal first-page adaptive two-photo frames without changing the fo
   );
 });
 
+test("expands a sparse first-page two-photo item when the following one-photo item flows to page two", async () => {
+  const baseModel = firstPageFillModel(2, 1, false);
+  const model = {
+    ...baseModel,
+    title: "向塘钢轨焊接整修车间8月9日“7S”巡检通报",
+    openingText: "为严格落实“7S”管理有关要求，持续夯实车间安全生产基础，规范现场作业定置管理、设备保养及环境卫生标准，消除现场安全隐患，车间根据巡检安排，对各生产工位、办公区域等开展7S专项检查。现将本次巡检情况通报如下：",
+    situationHeading: "本次检查总体情况",
+    sections: baseModel.sections.map((section) => ({ ...section, title: "好的方面：" })),
+  };
+  const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
+  const documentXml = await zip.file("word/document.xml")!.async("string");
+  const extents = drawingExtents(documentXml);
+  const pxPerMm = 96 / 25.4;
+  const emuPerPx = 9_525;
+
+  expect(extents).toHaveLength(3);
+  expect(extents[0]).toEqual(extents[1]);
+  expect(extents[0]!.width).toBe(Math.round(78 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeGreaterThan(Math.round(58 * pxPerMm) * emuPerPx);
+});
+
 test("does not expand the first page when a following photo item still fits", async () => {
   const model = firstPageFillModel(1, 1, false);
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));

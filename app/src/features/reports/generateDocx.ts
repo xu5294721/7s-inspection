@@ -79,6 +79,8 @@ const adaptiveGridFrameHeightMm = 58;
 const firstPageSingleFrameWidthMm = 150;
 const firstPageSingleFrameMaxHeightMm = 120;
 const firstPageTwoFrameMaxHeightMm = 110;
+const firstPageSingleContinuationSafetyMm = 20;
+const firstPageTwoContinuationSafetyMm = 40;
 const adaptiveGridMaximumColumns = 2;
 const photoBlockSpacingMm = 4;
 const photoBlockSafetyMm = 6;
@@ -375,11 +377,19 @@ function firstPageAdaptiveLayout(
 ): PhotoTableLayout {
   const normalLayout = photoTableLayout(model, photos);
   const normalGroupHeight = photoGroupBlockHeightTwips(model, groupText, normalLayout);
+  const continuationSafetyTwips = convertMillimetersToTwip(
+    photos.length === 1
+      ? firstPageSingleContinuationSafetyMm
+      : firstPageTwoContinuationSafetyMm,
+  );
   if (
     model.photoLayoutMode !== "adaptive" ||
     (photos.length !== 1 && photos.length !== 2) ||
     normalGroupHeight > remainingPageTwips ||
-    (nextGroupHeightTwips !== null && normalGroupHeight + nextGroupHeightTwips <= remainingPageTwips)
+    (
+      nextGroupHeightTwips !== null &&
+      normalGroupHeight + nextGroupHeightTwips + continuationSafetyTwips <= remainingPageTwips
+    )
   ) {
     return normalLayout;
   }

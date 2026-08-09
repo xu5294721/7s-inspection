@@ -37,5 +37,6 @@
 - 已实现首页首个有照片项点的自适应补齐：单图最多 150×120mm，双图每张保持 78mm 宽、最高 110mm；仅放大 DOCX 显示副本，不裁剪、不改原图。
 - 首项后的完整项点按常规画幅可留在首页时，不会放大首项；三图维持 2+1、四图维持 2×2，后续页面不变。
 - 分页估算器额外记录是否仍处于第一页，避免前言较长时误把第 2 页的首个照片项点放大。
+- 针对 Microsoft Word 对嵌套照片表格的实际分页差异，判断后续项点能否同页时增加兼容余量：首项单图 20mm、首项双图 40mm；避免理论上可放下、实际却整项换页后留下首页大空白。
 - 已用 LibreOffice 渲染首页双图与后续四图样例，首页更饱满，后续 2×2 网格及落款保持正常。
-- 代码验证：`pnpm exec vitest run src/features/reports/generateDocx.test.ts`（36 项通过）；`pnpm exec vitest run --maxWorkers=1 --reporter=dot`（50 个文件、610 项通过）；`pnpm run lint` 与 `pnpm run build` 均通过。
+- 代码验证：`pnpm exec vitest run src/features/reports/generateDocx.test.ts`（37 项通过）；`pnpm exec vitest run --maxWorkers=1 --reporter=dot`（50 个文件、611 项通过）；`pnpm run lint`、`pnpm run build`、Android `lintDebug` 与 `assembleDebug` 均通过；已构建版本 1.1.8（versionCode 20）。
