@@ -654,13 +654,11 @@ export class InspectionRepository {
           throw new GraphIntegrityError(`巡检条目 ${entryId} 不属于当前巡检记录。`);
         }
 
-        const listedGroupIds = new Set(entry.groupIds);
         const matchedGroups = (await this.db.photoGroups.where("inspectionId").equals(inspectionId).toArray())
-          .filter((group) => group.entryId === entryId || listedGroupIds.has(group.id));
+          .filter((group) => group.entryId === entryId);
         const matchedGroupIds = new Set(matchedGroups.map((group) => group.id));
-        const referencedPhotoIds = new Set(matchedGroups.flatMap((group) => group.photoIds));
         const matchedPhotoIds = (await this.db.photos.where("inspectionId").equals(inspectionId).toArray())
-          .filter((photo) => matchedGroupIds.has(photo.groupId) || referencedPhotoIds.has(photo.id))
+          .filter((photo) => matchedGroupIds.has(photo.groupId))
           .map((photo) => photo.id);
 
         if (matchedPhotoIds.length > 0) {

@@ -146,6 +146,30 @@ function deletePhotoFromGraph(graph: InspectionGraph, photoId: string): Inspecti
   };
 }
 
+function removeEntryFromGraph(
+  graph: InspectionGraph,
+  entryId: string,
+  updatedAt: string,
+): InspectionGraph {
+  const removedGroups = graph.groups.filter((group) => group.entryId === entryId);
+  const removedGroupIds = new Set(
+    removedGroups.map((group) => group.id),
+  );
+  return {
+    ...graph,
+    inspection: {
+      ...graph.inspection,
+      status: "draft",
+      updatedAt,
+      entries: graph.inspection.entries.map((entry) => entry.id === entryId
+        ? { ...entry, checkSelections: [], groupIds: [] }
+        : entry),
+    },
+    groups: graph.groups.filter((group) => !removedGroupIds.has(group.id)),
+    photos: graph.photos.filter((photo) => !removedGroupIds.has(photo.groupId)),
+  };
+}
+
 function checklistItemForEntry(entry: InspectionEntry, graph: InspectionGraph): ChecklistItem {
   return {
     ...entry.itemSnapshot,
@@ -212,6 +236,7 @@ export function InspectionPage() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [failedPhotos, setFailedPhotos] = useState<FailedPhoto[]>([]);
   const [photoError, setPhotoError] = useState("");
+  const [cancelStatus, setCancelStatus] = useState("");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [temporaryDialogOpen, setTemporaryDialogOpen] = useState(false);
   const [temporarySaving, setTemporarySaving] = useState(false);
@@ -235,6 +260,7 @@ export function InspectionPage() {
     setProgress(null);
     setFailedPhotos([]);
     setPhotoError("");
+    setCancelStatus("");
     setActiveEntryId(null);
     activeEntryTriggerRef.current = null;
     setTemporaryDialogOpen(false);
@@ -586,6 +612,50 @@ export function InspectionPage() {
     }
   }
 
+  async function cancelInspectionEntry(entryId: string): Promise<void> {
+    if (processing || savingEntryIds.has(entryId)) return;
+    const generation = inspectionGeneration.current;
+    const inspectionId = id;
+    const updatedAt = new Date().toISOString();
+    setSavingEntryIds((current) => new Set(current).add(entryId));
+    setPhotoError("");
+    try {
+      await inspectionRepository.removeEntryFromInspection(inspectionId, entryId, updatedAt);
+      if (
+        generation !== inspectionGeneration.current ||
+        inspectionId !== currentInspectionId.current ||
+        !isCurrentInspectionRoute(inspectionId)
+      ) return;
+      setGraph((current) => current && current.inspection.id === inspectionId
+        ? removeEntryFromGraph(current, entryId, updatedAt)
+        : current);
+      closeActiveEntry();
+      setPhotoError("");
+      setCancelStatus("已取消本项检查，项点已恢复为未完成");
+    } catch (error) {
+      if (
+        generation === inspectionGeneration.current &&
+        inspectionId === currentInspectionId.current &&
+        isCurrentInspectionRoute(inspectionId)
+      ) {
+        setPhotoError(error instanceof Error ? error.message : "取消本项检查失败");
+      }
+      throw error;
+    } finally {
+      if (
+        generation === inspectionGeneration.current &&
+        inspectionId === currentInspectionId.current &&
+        isCurrentInspectionRoute(inspectionId)
+      ) {
+        setSavingEntryIds((current) => {
+          const next = new Set(current);
+          next.delete(entryId);
+          return next;
+        });
+      }
+    }
+  }
+
   async function createEvaluationGroup(entryId: string, category: PhotoCategory) {
     if (processing || savingEntryIds.has(entryId)) {
       throw new Error("当前项点正在保存，请稍候。");
@@ -697,6 +767,7 @@ export function InspectionPage() {
         </button>
       </div>
       {progress ? <p className="photo-progress" role="status">已处理 {progress.done}/{progress.total}</p> : null}
+      {cancelStatus ? <p className="photo-progress" role="status">{cancelStatus}</p> : null}
       {photoError ? <p className="inline-error" role="alert">{photoError}</p> : null}
       {failedPhotos.length > 0 ? (
         <ul className="failed-photo-list">
@@ -780,6 +851,7 @@ export function InspectionPage() {
             disabled={processing || savingEntryIds.has(entry.id)}
             onClose={closeActiveEntry}
             onComplete={completeActiveEntry}
+            onCancelInspection={() => cancelInspectionEntry(entry.id)}
             onFilesSelected={(files, source) => void processFiles(entry.id, files, source)}
             onSaveCheckSelections={(selections) => saveEntryCheckSelections(entry.id, selections)}
             onCreatePhotoGroup={(category) => createEvaluationGroup(entry.id, category)}

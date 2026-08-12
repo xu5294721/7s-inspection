@@ -112,19 +112,28 @@ describe("InspectionRepository", () => {
       id: "entry-2",
       itemId: "item-2",
       itemSnapshot: { ...graph.inspection.entries[0].itemSnapshot, id: "item-2", routeName: "仓库外围院子" },
-      groupIds: [],
+      groupIds: ["group-2"],
       order: 1,
     };
     await repository.saveGraph({
       ...graph,
-      inspection: { ...graph.inspection, entries: [...graph.inspection.entries, otherEntry] },
+      inspection: {
+        ...graph.inspection,
+        entries: [{ ...graph.inspection.entries[0], groupIds: ["group-1"] }, otherEntry],
+      },
+      groups: [
+        { ...graph.groups[0], photoIds: ["photo-1", "photo-2"] },
+        { ...graph.groups[1], entryId: "entry-2", photoIds: ["photo-3"] },
+      ],
+      photos: graph.photos,
     });
 
-    await db.entries.update("entry-1", { groupIds: ["group-1"] });
-    await db.photoGroups.update("group-2", { photoIds: [] });
+    // group-1 is intentionally omitted while group-2 is an incorrect cross-entry reference.
+    await db.entries.update("entry-1", { groupIds: ["group-2"] });
+    await db.photoGroups.update("group-1", { photoIds: ["photo-1", "photo-2", "photo-3", "photo-entry-1"] });
     await db.photos.add(makePhoto(new Blob(["orphan"], { type: "image/jpeg" }), {
-      id: "photo-orphan",
-      groupId: "group-2",
+      id: "photo-entry-1",
+      groupId: "group-not-listed",
     }));
 
     const otherInspection = makeInspection({
@@ -163,8 +172,13 @@ describe("InspectionRepository", () => {
       checkSelections: [],
     });
     expect(await db.entries.get("entry-2")).toEqual(otherEntry);
-    expect(await db.photoGroups.where("inspectionId").equals("inspection-1").toArray()).toEqual([]);
-    expect(await db.photos.where("inspectionId").equals("inspection-1").toArray()).toEqual([]);
+    expect(await db.photoGroups.get("group-1")).toBeUndefined();
+    expect(await db.photos.get("photo-1")).toBeUndefined();
+    expect(await db.photos.get("photo-2")).toBeUndefined();
+    expect(await db.photos.get("photo-3")).toBeDefined();
+    expect(await db.photos.get("photo-entry-1")).toMatchObject({ groupId: "group-not-listed" });
+    expect(await db.photos.get("photo-3")).toMatchObject({ groupId: "group-2" });
+    expect(await db.photoGroups.get("group-2")).toMatchObject({ entryId: "entry-2", photoIds: ["photo-3"] });
     expect(await db.inspections.get("inspection-1")).toMatchObject({
       status: "draft",
       updatedAt: "2026-08-12T01:02:03.000Z",
@@ -172,6 +186,64 @@ describe("InspectionRepository", () => {
     expect(await db.inspections.get("inspection-2")).toMatchObject({ status: "draft" });
     expect(await db.photoGroups.get("group-other")).toBeDefined();
     expect(await db.photos.get("photo-other")).toBeDefined();
+  });
+
+  test("rejects missing, deleted, and cross-inspection entry removal without changing data", async () => {
+    const db = testDb("remove-entry-validation");
+    const repository = new InspectionRepository(db);
+    await repository.saveGraph({ inspection: makeInspection(), groups: [makePhotoGroup()], photos: [makePhoto()] });
+    await repository.saveGraph({
+      inspection: makeInspection({
+        id: "inspection-deleted",
+        deletedAt: "2026-08-12T00:00:00.000Z",
+        entries: [{
+          ...makeInspection().entries[0],
+          id: "entry-deleted",
+          inspectionId: "inspection-deleted",
+          itemId: "item-deleted",
+          itemSnapshot: { ...makeInspection().entries[0].itemSnapshot, id: "item-deleted" },
+          groupIds: [],
+        }],
+      }),
+      groups: [],
+      photos: [],
+    });
+    await repository.saveGraph({
+      inspection: makeInspection({
+        id: "inspection-2",
+        entries: [{
+          ...makeInspection().entries[0],
+          id: "entry-other",
+          inspectionId: "inspection-2",
+          groupIds: [],
+        }],
+      }),
+      groups: [],
+      photos: [],
+    });
+
+    const before = {
+      inspections: await db.inspections.toArray(),
+      entries: await db.entries.toArray(),
+      groups: await db.photoGroups.toArray(),
+      photos: await db.photos.toArray(),
+    };
+    const invalidCalls = [
+      ["inspection-missing", "entry-1"],
+      ["inspection-deleted", "entry-1"],
+      ["inspection-1", "entry-missing"],
+      ["inspection-1", "entry-other"],
+    ] as const;
+
+    for (const [inspectionId, entryId] of invalidCalls) {
+      await expect(repository.removeEntryFromInspection(inspectionId, entryId)).rejects.toBeDefined();
+      expect({
+        inspections: await db.inspections.toArray(),
+        entries: await db.entries.toArray(),
+        groups: await db.photoGroups.toArray(),
+        photos: await db.photos.toArray(),
+      }).toEqual(before);
+    }
   });
 
   test("removes a photo-free completed entry and its evaluation group", async () => {

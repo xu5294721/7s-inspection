@@ -700,16 +700,33 @@ a {
 }
 
 .inspection-item-sheet__footer {
-  display: flex;
+  display: grid;
   gap: 8px;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
 }
 
+.inspection-item-sheet__footer-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .inspection-item-sheet__footer button {
   flex: 1 1 0;
   min-height: 46px;
+}
+
+.inspection-item-sheet__cancel-action {
+  width: 100%;
+  min-height: 42px;
+  background: transparent;
+  color: var(--color-assessment);
+}
+
+.inspection-item-sheet__cancel-action:hover {
+  background: color-mix(in srgb, var(--color-assessment) 10%, var(--color-surface));
+  color: var(--color-assessment);
 }
 
 .inspection-entry__main {

@@ -104,7 +104,7 @@ test("opens one inspection item in a bottom sheet and closes it after completion
   expect(within(firstSheet).getByRole("button", { name: "检查内容：请选择检查内容" })).toBeVisible();
   expect(within(firstSheet).getByRole("button", { name: "关闭项点卡片" })).toHaveFocus();
   await user.tab({ shift: true });
-  expect(within(firstSheet).getByRole("button", { name: "完成本项" })).toHaveFocus();
+  expect(within(firstSheet).getByRole("button", { name: "取消本项检查" })).toHaveFocus();
 
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog", { name: "检查项：焊机间" })).not.toBeInTheDocument();
@@ -153,6 +153,127 @@ test("classifying an item without a photo marks it complete and survives reload"
   expect(reloadedSummary).toHaveAttribute("data-complete", "true");
   await user.click(reloadedSummary);
   expect(await screen.findByRole("radio", { name: "一般表现" })).toBeChecked();
+});
+
+test("cancels a completed inspection item only after confirmation and restores it to incomplete", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`cancel-inspection-entry-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  const inspection = makeInspection({
+    entries: [{
+      ...makeInspection().entries[0],
+      checkSelections: [{ category: "environment", value: "干净整洁", isCustom: false }],
+    }],
+  });
+  await repository.saveGraph({
+    inspection,
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  const summary = await screen.findByRole("button", { name: /焊机间/ });
+  expect(summary).toHaveAttribute("data-complete", "true");
+
+  await user.click(summary);
+  const sheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
+  await user.click(within(sheet).getByRole("button", { name: "取消本项检查" }));
+
+  const confirmation = screen.getByRole("dialog", { name: "确认取消本项检查" });
+  expect(confirmation).toHaveTextContent("照片、评价和检查内容将被清除");
+  expect(within(confirmation).getByRole("button", { name: "取消" })).toHaveFocus();
+  await user.tab();
+  expect(within(confirmation).getByRole("button", { name: "确认取消" })).toHaveFocus();
+  await user.tab();
+  expect(within(confirmation).getByRole("button", { name: "取消" })).toHaveFocus();
+  await user.tab({ shift: true });
+  expect(within(confirmation).getByRole("button", { name: "确认取消" })).toHaveFocus();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog", { name: "确认取消本项检查" })).not.toBeInTheDocument();
+  expect(within(sheet).getByRole("button", { name: "取消本项检查" })).toHaveFocus();
+  expect((await repository.getGraph("inspection-1"))?.inspection.entries[0]).toMatchObject({
+    checkSelections: [{ category: "environment", value: "干净整洁", isCustom: false }],
+    groupIds: ["group-1"],
+  });
+
+  await user.click(within(sheet).getByRole("button", { name: "取消本项检查" }));
+  const reopenedConfirmation = screen.getByRole("dialog", { name: "确认取消本项检查" });
+  await user.click(within(reopenedConfirmation).getByRole("button", { name: "取消" }));
+  expect(screen.queryByRole("dialog", { name: "确认取消本项检查" })).not.toBeInTheDocument();
+  expect(within(sheet).getByRole("button", { name: "取消本项检查" })).toHaveFocus();
+
+  await user.click(within(sheet).getByRole("button", { name: "取消本项检查" }));
+  await user.click(screen.getByRole("button", { name: "确认取消" }));
+
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "检查项：焊机间" })).not.toBeInTheDocument());
+  const restored = await repository.getGraph("inspection-1");
+  expect(restored?.inspection).toMatchObject({ status: "draft" });
+  expect(restored?.inspection.entries[0]).toMatchObject({ checkSelections: [], groupIds: [] });
+  expect(restored?.groups).toEqual([]);
+  expect(restored?.photos).toEqual([]);
+  const restoredSummary = screen.getByRole("button", { name: /焊机间/ });
+  expect(restoredSummary).toHaveAttribute("data-complete", "false");
+  expect(restoredSummary).toHaveTextContent("未完成");
+  expect(screen.getByRole("status")).toHaveTextContent("已取消本项检查，项点已恢复为未完成");
+});
+
+test("keeps the cancel confirmation open after a failure and permits retry", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`cancel-inspection-entry-retry-${Date.now()}`);
+  const inspection = makeInspection();
+  await new InspectionRepository(database).saveGraph({
+    inspection,
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+  });
+  const cancel = vi.spyOn(InspectionRepository.prototype, "removeEntryFromInspection")
+    .mockRejectedValueOnce(new Error("取消本项检查失败"))
+    .mockResolvedValueOnce(undefined);
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  const summary = await screen.findByRole("button", { name: /焊机间/ });
+  await user.click(summary);
+  const sheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
+  await user.click(within(sheet).getByRole("button", { name: "取消本项检查" }));
+  await user.click(screen.getByRole("button", { name: "确认取消" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("取消本项检查失败");
+  const confirmation = screen.getByRole("dialog", { name: "确认取消本项检查" });
+  expect(within(confirmation).getByRole("button", { name: "确认取消" })).toBeEnabled();
+  await user.click(within(confirmation).getByRole("button", { name: "确认取消" }));
+
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "检查项：焊机间" })).not.toBeInTheDocument());
+  expect(cancel).toHaveBeenCalledTimes(2);
+});
+
+test("disables duplicate cancellation while the repository operation is pending", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`cancel-inspection-entry-pending-${Date.now()}`);
+  await new InspectionRepository(database).saveGraph({
+    inspection: makeInspection(),
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+  });
+  let resolveCancel!: () => void;
+  const pending = new Promise<void>((resolve) => { resolveCancel = resolve; });
+  const cancel = vi.spyOn(InspectionRepository.prototype, "removeEntryFromInspection")
+    .mockReturnValueOnce(pending);
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  await user.click(await screen.findByRole("button", { name: /焊机间/ }));
+  const sheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
+  await user.click(within(sheet).getByRole("button", { name: "取消本项检查" }));
+  const confirmation = screen.getByRole("dialog", { name: "确认取消本项检查" });
+  const confirmButton = within(confirmation).getByRole("button", { name: "确认取消" });
+  await user.dblClick(confirmButton);
+
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(confirmation).toHaveAttribute("aria-busy", "true");
+  expect(confirmButton).toBeDisabled();
+  expect(within(confirmation).getByRole("button", { name: "取消" })).toBeDisabled();
+
+  resolveCancel();
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "检查项：焊机间" })).not.toBeInTheDocument());
 });
 
 test("restores selected draft entries after a hash-route reload", async () => {
