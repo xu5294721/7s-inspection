@@ -64,6 +64,11 @@ export interface InspectionRepositoryPort {
     selections: readonly InspectionCheckSelection[],
     updatedAt?: string,
   ): Promise<InspectionCheckSelectionUpdateResult>;
+  removeEntryFromInspection(
+    inspectionId: string,
+    entryId: string,
+    updatedAt?: string,
+  ): Promise<void>;
   getGraph(id: string): Promise<InspectionGraph | null>;
   listGraphs(deleted: boolean): Promise<InspectionGraph[]>;
   moveToTrash(id: string, deletedAt: string): Promise<void>;
@@ -291,6 +296,8 @@ export function createAppDependencies(
       repository.addTemporaryEntry(inspectionId, name, entryId, itemId, updatedAt),
     updateEntryCheckSelections: (inspectionId, entryId, selections, updatedAt) =>
       repository.updateEntryCheckSelections(inspectionId, entryId, selections, updatedAt),
+    removeEntryFromInspection: (inspectionId, entryId, updatedAt) =>
+      repository.removeEntryFromInspection(inspectionId, entryId, updatedAt),
     getGraph: (id) => repository.getGraph(id),
     listGraphs: (deleted) => repository.listGraphs(deleted),
     moveToTrash: (id, deletedAt) => repository.moveToTrash(id, deletedAt),

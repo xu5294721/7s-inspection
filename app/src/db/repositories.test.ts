@@ -103,6 +103,107 @@ function packageSnapshot(graph: InspectionGraph): Promise<Blob> {
 }
 
 describe("InspectionRepository", () => {
+  test("removes all photo data for a photo-backed entry without touching other inspections", async () => {
+    const db = testDb("remove-photo-backed-entry");
+    const repository = new InspectionRepository(db);
+    const graph = makeTwoGroupGraph();
+    const otherEntry = {
+      ...graph.inspection.entries[0],
+      id: "entry-2",
+      itemId: "item-2",
+      itemSnapshot: { ...graph.inspection.entries[0].itemSnapshot, id: "item-2", routeName: "仓库外围院子" },
+      groupIds: [],
+      order: 1,
+    };
+    await repository.saveGraph({
+      ...graph,
+      inspection: { ...graph.inspection, entries: [...graph.inspection.entries, otherEntry] },
+    });
+
+    await db.entries.update("entry-1", { groupIds: ["group-1"] });
+    await db.photoGroups.update("group-2", { photoIds: [] });
+    await db.photos.add(makePhoto(new Blob(["orphan"], { type: "image/jpeg" }), {
+      id: "photo-orphan",
+      groupId: "group-2",
+    }));
+
+    const otherInspection = makeInspection({
+      id: "inspection-2",
+      entries: [{
+        ...makeInspection().entries[0],
+        id: "entry-other",
+        inspectionId: "inspection-2",
+        groupIds: ["group-other"],
+      }],
+    });
+    await repository.saveGraph({
+      inspection: otherInspection,
+      groups: [makePhotoGroup({
+        id: "group-other",
+        inspectionId: "inspection-2",
+        entryId: "entry-other",
+        photoIds: ["photo-other"],
+      })],
+      photos: [makePhoto(new Blob(["other"], { type: "image/jpeg" }), {
+        id: "photo-other",
+        inspectionId: "inspection-2",
+        groupId: "group-other",
+      })],
+    });
+
+    await repository.removeEntryFromInspection(
+      "inspection-1",
+      "entry-1",
+      "2026-08-12T01:02:03.000Z",
+    );
+
+    expect(await db.entries.get("entry-1")).toMatchObject({
+      inspectionId: "inspection-1",
+      groupIds: [],
+      checkSelections: [],
+    });
+    expect(await db.entries.get("entry-2")).toEqual(otherEntry);
+    expect(await db.photoGroups.where("inspectionId").equals("inspection-1").toArray()).toEqual([]);
+    expect(await db.photos.where("inspectionId").equals("inspection-1").toArray()).toEqual([]);
+    expect(await db.inspections.get("inspection-1")).toMatchObject({
+      status: "draft",
+      updatedAt: "2026-08-12T01:02:03.000Z",
+    });
+    expect(await db.inspections.get("inspection-2")).toMatchObject({ status: "draft" });
+    expect(await db.photoGroups.get("group-other")).toBeDefined();
+    expect(await db.photos.get("photo-other")).toBeDefined();
+  });
+
+  test("removes a photo-free completed entry and its evaluation group", async () => {
+    const db = testDb("remove-photo-free-entry");
+    const repository = new InspectionRepository(db);
+    const inspection = makeInspection({
+      entries: [{ ...makeInspection().entries[0], groupIds: [], checkSelections: [] }],
+    });
+    await repository.saveGraph({ inspection, groups: [], photos: [] });
+    await repository.updateEntryCheckSelections("inspection-1", "entry-1", [
+      { category: "environment", value: "干净整洁", isCustom: false },
+    ]);
+    await db.inspections.update("inspection-1", { status: "reviewed" });
+
+    await repository.removeEntryFromInspection(
+      "inspection-1",
+      "entry-1",
+      "2026-08-12T04:05:06.000Z",
+    );
+
+    expect(await db.entries.get("entry-1")).toMatchObject({
+      groupIds: [],
+      checkSelections: [],
+    });
+    expect(await db.photoGroups.where("inspectionId").equals("inspection-1").toArray()).toEqual([]);
+    expect(await db.photos.where("inspectionId").equals("inspection-1").toArray()).toEqual([]);
+    expect(await db.inspections.get("inspection-1")).toMatchObject({
+      status: "draft",
+      updatedAt: "2026-08-12T04:05:06.000Z",
+    });
+  });
+
   test("persists a complete route-title order and updates the inspection timestamp", async () => {
     const db = testDb("review-route-order-round-trip");
     const repository = new InspectionRepository(db);

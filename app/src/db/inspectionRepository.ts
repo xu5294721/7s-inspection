@@ -630,6 +630,61 @@ export class InspectionRepository {
     );
   }
 
+  async removeEntryFromInspection(
+    inspectionId: string,
+    entryId: string,
+    updatedAt = new Date().toISOString(),
+  ): Promise<void> {
+    await this.db.transaction(
+      "rw",
+      this.db.inspections,
+      this.db.entries,
+      this.db.photoGroups,
+      this.db.photos,
+      async () => {
+        const inspection = await this.db.inspections.get(inspectionId);
+        if (!inspection || inspection.deletedAt !== null) {
+          throw new GraphIntegrityError("巡检记录不存在或已删除。");
+        }
+        const entry = await requireRow(
+          await this.db.entries.get(entryId),
+          `巡检条目 ${entryId} 不存在。`,
+        );
+        if (entry.inspectionId !== inspectionId) {
+          throw new GraphIntegrityError(`巡检条目 ${entryId} 不属于当前巡检记录。`);
+        }
+
+        const listedGroupIds = new Set(entry.groupIds);
+        const matchedGroups = (await this.db.photoGroups.where("inspectionId").equals(inspectionId).toArray())
+          .filter((group) => group.entryId === entryId || listedGroupIds.has(group.id));
+        const matchedGroupIds = new Set(matchedGroups.map((group) => group.id));
+        const referencedPhotoIds = new Set(matchedGroups.flatMap((group) => group.photoIds));
+        const matchedPhotoIds = (await this.db.photos.where("inspectionId").equals(inspectionId).toArray())
+          .filter((photo) => matchedGroupIds.has(photo.groupId) || referencedPhotoIds.has(photo.id))
+          .map((photo) => photo.id);
+
+        if (matchedPhotoIds.length > 0) {
+          await this.db.photos.bulkDelete(matchedPhotoIds);
+        }
+        if (matchedGroupIds.size > 0) {
+          await this.db.photoGroups.bulkDelete([...matchedGroupIds]);
+        }
+        await this.db.entries.put({
+          ...entry,
+          groupIds: [],
+          checkSelections: [],
+        });
+        const updated = await this.db.inspections.update(inspectionId, {
+          status: "draft",
+          updatedAt,
+        });
+        if (updated !== 1) {
+          throw new GraphIntegrityError(`巡检记录 ${inspectionId} 更新失败。`);
+        }
+      },
+    );
+  }
+
   async addTemporaryEntry(
     inspectionId: string,
     name: string,
