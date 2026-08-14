@@ -4,6 +4,7 @@ interface CustomRouteDialogProps {
   openerRef: RefObject<HTMLElement | null>;
   title?: string;
   fieldLabel?: string;
+  initialName?: string;
   onCancel(): void;
   onSave(name: string): Promise<void>;
 }
@@ -12,12 +13,13 @@ export function CustomRouteDialog({
   openerRef,
   title = "增加自定义检查项目",
   fieldLabel = "检查项目名称",
+  initialName = "",
   onCancel,
   onSave,
 }: CustomRouteDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);

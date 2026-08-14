@@ -663,6 +663,12 @@ a {
   min-width: 0;
 }
 
+.inspection-item-sheet__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
 .inspection-item-sheet__header h3 {
   margin: 2px 0 0;
   overflow-wrap: anywhere;

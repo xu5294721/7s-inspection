@@ -155,6 +155,139 @@ test("classifying an item without a photo marks it complete and survives reload"
   expect(await screen.findByRole("radio", { name: "一般表现" })).toBeChecked();
 });
 
+test("renames the current inspection item without changing its evidence", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`rename-inspection-entry-ui-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  const base = makeInspection();
+  const entry = {
+    ...base.entries[0],
+    checkSelections: [{ category: "environment", value: "干净整洁", isCustom: false }],
+  };
+  await repository.saveGraph({
+    inspection: {
+      ...base,
+      status: "reviewed",
+      reviewRouteOrder: ["焊机间"],
+      reviewRouteOrderByCategory: { good: ["焊机间"] },
+      entries: [entry],
+    },
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+  });
+  const before = await repository.getGraph("inspection-1");
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  const summary = await screen.findByRole("button", { name: /焊机间/ });
+  await user.click(summary);
+  const sheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
+  await user.click(within(sheet).getByRole("button", { name: "修改检查项名称" }));
+
+  const renameDialog = screen.getByRole("dialog", { name: "修改本次检查项名称" });
+  const input = within(renameDialog).getByRole("textbox", { name: "检查项名称" });
+  expect(input).toHaveValue("焊机间");
+  expect(input).toHaveFocus();
+  await user.clear(input);
+  await user.type(input, "更正后的项点");
+  await user.click(within(renameDialog).getByRole("button", { name: "保存" }));
+
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "修改本次检查项名称" })).not.toBeInTheDocument());
+  await screen.findByRole("dialog", { name: "检查项：更正后的项点" });
+  const after = await repository.getGraph("inspection-1");
+  expect(after?.inspection.status).toBe("draft");
+  expect(after?.inspection.reviewRouteOrder).toEqual(["更正后的项点"]);
+  expect(after?.inspection.reviewRouteOrderByCategory).toEqual({ good: ["更正后的项点"] });
+  expect(after?.inspection.entries[0]).toEqual({
+    ...before?.inspection.entries[0],
+    itemSnapshot: {
+      ...before?.inspection.entries[0].itemSnapshot,
+      routeName: "更正后的项点",
+    },
+  });
+  expect(after?.groups).toEqual(before?.groups);
+  expect(after?.photos).toEqual(before?.photos);
+});
+
+test("keeps the rename dialog open for a duplicate current-inspection name", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`rename-inspection-entry-duplicate-${Date.now()}`);
+  const base = makeInspection();
+  const secondEntry = {
+    ...base.entries[0],
+    id: "entry-2",
+    itemId: "item-2",
+    itemSnapshot: { ...base.entries[0].itemSnapshot, id: "item-2", routeName: "重复项" },
+    groupIds: [],
+    order: 1,
+  };
+  await new InspectionRepository(database).saveGraph({
+    inspection: { ...base, entries: [base.entries[0], secondEntry] },
+    groups: [makePhotoGroup()],
+    photos: [makePhoto()],
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  await user.click(await screen.findByRole("button", { name: /焊机间/ }));
+  const sheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
+  await user.click(within(sheet).getByRole("button", { name: "修改检查项名称" }));
+  const renameDialog = screen.getByRole("dialog", { name: "修改本次检查项名称" });
+  const input = within(renameDialog).getByRole("textbox", { name: "检查项名称" });
+  await user.clear(input);
+  await user.type(input, "重复项");
+  await user.click(within(renameDialog).getByRole("button", { name: "保存" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("当前巡检中已存在同名检查项");
+  expect(screen.getByRole("dialog", { name: "修改本次检查项名称" })).toBeVisible();
+  expect(input).toHaveValue("重复项");
+  expect(input).toHaveFocus();
+});
+
+test("prevents duplicate rename submissions while the save is pending", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`rename-inspection-entry-pending-${Date.now()}`);
+  const repository = new InspectionRepository(database);
+  const base = makeInspection({
+    entries: makeInspection().entries.map((entry) => ({ ...entry, groupIds: [] })),
+  });
+  await repository.saveGraph({ inspection: base, groups: [], photos: [] });
+  const storedEntry = base.entries[0];
+  let resolveSave!: (value: Awaited<ReturnType<InspectionRepository["renameInspectionEntry"]>>) => void;
+  const pending = new Promise<Awaited<ReturnType<InspectionRepository["renameInspectionEntry"]>>>((resolve) => {
+    resolveSave = resolve;
+  });
+  const save = vi.spyOn(InspectionRepository.prototype, "renameInspectionEntry")
+    .mockReturnValueOnce(pending);
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  await user.click(await screen.findByRole("button", { name: /焊机间/ }));
+  const sheet = screen.getByRole("dialog", { name: "检查项：焊机间" });
+  await user.click(within(sheet).getByRole("button", { name: "修改检查项名称" }));
+  const renameDialog = screen.getByRole("dialog", { name: "修改本次检查项名称" });
+  const input = within(renameDialog).getByRole("textbox", { name: "检查项名称" });
+  await user.clear(input);
+  await user.type(input, "更正后的项点");
+  const saveButton = within(renameDialog).getByRole("button", { name: "保存" });
+  await user.dblClick(saveButton);
+
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(input).toBeDisabled();
+  expect(within(renameDialog).getByRole("button", { name: "取消" })).toBeDisabled();
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("dialog", { name: "修改本次检查项名称" })).toBeVisible();
+
+  resolveSave({
+    entry: {
+      ...storedEntry,
+      itemSnapshot: { ...storedEntry.itemSnapshot, routeName: "更正后的项点" },
+    },
+    updatedAt: "2026-08-14T10:00:00.000Z",
+    reviewRouteOrder: ["更正后的项点"],
+    reviewRouteOrderByCategory: { good: ["更正后的项点"] },
+  });
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "修改本次检查项名称" })).not.toBeInTheDocument());
+  save.mockRestore();
+});
+
 test("cancels a completed inspection item only after confirmation and restores it to incomplete", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`cancel-inspection-entry-${Date.now()}`);

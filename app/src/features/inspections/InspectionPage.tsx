@@ -2,7 +2,7 @@ import { ClipboardCheck, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppDependencies } from "../../app/useAppDependencies";
-import type { EvaluationGroupAppendResult, PhotoAppendResult } from "../../db/inspectionRepository";
+import type { EvaluationGroupAppendResult, InspectionEntryRenameResult, PhotoAppendResult } from "../../db/inspectionRepository";
 import type {
   ChecklistItem,
   InspectionCheckSelection,
@@ -167,6 +167,24 @@ function removeEntryFromGraph(
     },
     groups: graph.groups.filter((group) => !removedGroupIds.has(group.id)),
     photos: graph.photos.filter((photo) => !removedGroupIds.has(photo.groupId)),
+  };
+}
+
+function renameEntryInGraph(
+  graph: InspectionGraph,
+  entryId: string,
+  result: InspectionEntryRenameResult,
+): InspectionGraph {
+  return {
+    ...graph,
+    inspection: {
+      ...graph.inspection,
+      status: "draft",
+      updatedAt: result.updatedAt,
+      entries: graph.inspection.entries.map((entry) => entry.id === entryId ? result.entry : entry),
+      ...(result.reviewRouteOrder === undefined ? {} : { reviewRouteOrder: result.reviewRouteOrder }),
+      ...(result.reviewRouteOrderByCategory === undefined ? {} : { reviewRouteOrderByCategory: result.reviewRouteOrderByCategory }),
+    },
   };
 }
 
@@ -612,6 +630,38 @@ export function InspectionPage() {
     }
   }
 
+  async function renameInspectionEntry(entryId: string, name: string): Promise<void> {
+    if (processing || savingEntryIds.has(entryId)) {
+      throw new Error("当前项点正在保存，请稍候。");
+    }
+    const generation = inspectionGeneration.current;
+    const inspectionId = id;
+    setSavingEntryIds((current) => new Set(current).add(entryId));
+    try {
+      const result = await inspectionRepository.renameInspectionEntry(inspectionId, entryId, name);
+      if (
+        generation !== inspectionGeneration.current ||
+        inspectionId !== currentInspectionId.current ||
+        !isCurrentInspectionRoute(inspectionId)
+      ) return;
+      setGraph((current) => current && current.inspection.id === inspectionId
+        ? renameEntryInGraph(current, entryId, result)
+        : current);
+    } finally {
+      if (
+        generation === inspectionGeneration.current &&
+        inspectionId === currentInspectionId.current &&
+        isCurrentInspectionRoute(inspectionId)
+      ) {
+        setSavingEntryIds((current) => {
+          const next = new Set(current);
+          next.delete(entryId);
+          return next;
+        });
+      }
+    }
+  }
+
   async function cancelInspectionEntry(entryId: string): Promise<void> {
     if (processing || savingEntryIds.has(entryId)) return;
     const generation = inspectionGeneration.current;
@@ -851,6 +901,7 @@ export function InspectionPage() {
             disabled={processing || savingEntryIds.has(entry.id)}
             onClose={closeActiveEntry}
             onComplete={completeActiveEntry}
+            onRename={(name) => renameInspectionEntry(entry.id, name)}
             onCancelInspection={() => cancelInspectionEntry(entry.id)}
             onFilesSelected={(files, source) => void processFiles(entry.id, files, source)}
             onSaveCheckSelections={(selections) => saveEntryCheckSelections(entry.id, selections)}

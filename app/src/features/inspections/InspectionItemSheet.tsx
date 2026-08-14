@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type {
   ChecklistItem,
@@ -9,6 +9,7 @@ import type {
   PhotoGroup,
 } from "../../domain/models";
 import { InspectionEntryEditor } from "./InspectionEntryEditor";
+import { CustomRouteDialog } from "./CustomRouteDialog";
 import type { PhotoInputSource } from "../photos/PhotoCaptureButtons";
 
 const FOCUSABLE_SELECTOR = [
@@ -33,6 +34,7 @@ export interface InspectionItemSheetProps {
   disabled: boolean;
   onClose(): void;
   onComplete(): void;
+  onRename(name: string): Promise<void>;
   onCancelInspection(): Promise<void>;
   onFilesSelected(files: File[], source: PhotoInputSource): void;
   onSaveCheckSelections(selections: InspectionCheckSelection[]): Promise<void>;
@@ -53,6 +55,7 @@ export function InspectionItemSheet({
   disabled,
   onClose,
   onComplete,
+  onRename,
   onCancelInspection,
   onFilesSelected,
   onSaveCheckSelections,
@@ -67,19 +70,25 @@ export function InspectionItemSheet({
   const titleId = `inspection-item-sheet-title-${entry.id}`;
   const dialogRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const renameOpenerRef = useRef<HTMLButtonElement | null>(null);
   const cancelActionRef = useRef<HTMLButtonElement | null>(null);
   const cancelDialogRef = useRef<HTMLElement | null>(null);
   const cancelDialogCancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const onCloseRef = useRef(onClose);
+  const onRenameRef = useRef(onRename);
   const onCancelInspectionRef = useRef(onCancelInspection);
   const disabledRef = useRef(disabled);
+  const renameDialogOpenRef = useRef(false);
   const cancelDialogOpenRef = useRef(false);
   const isCancellingRef = useRef(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   onCloseRef.current = onClose;
+  onRenameRef.current = onRename;
   onCancelInspectionRef.current = onCancelInspection;
   disabledRef.current = disabled;
+  renameDialogOpenRef.current = renameDialogOpen;
   cancelDialogOpenRef.current = cancelDialogOpen;
   isCancellingRef.current = isCancelling;
 
@@ -89,7 +98,7 @@ export function InspectionItemSheet({
     const sheet = dialog;
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (cancelDialogOpenRef.current) return;
+      if (renameDialogOpenRef.current || cancelDialogOpenRef.current) return;
       if (event.key === "Escape") {
         if (disabledRef.current) return;
         event.preventDefault();
@@ -174,6 +183,11 @@ export function InspectionItemSheet({
     }
   }
 
+  async function saveRenamedEntry(name: string) {
+    await onRenameRef.current(name);
+    setRenameDialogOpen(false);
+  }
+
   return (
     <div className="inspection-item-sheet__backdrop" role="presentation">
       <section
@@ -191,9 +205,22 @@ export function InspectionItemSheet({
             <h3 id={titleId}>检查项：{entry.itemSnapshot.routeName}</h3>
             <p>{[entry.itemSnapshot.part, entry.itemSnapshot.area, entry.itemSnapshot.device].filter(Boolean).join(" · ")}</p>
           </div>
-          <button ref={closeButtonRef} type="button" className="icon-button" aria-label="关闭项点卡片" disabled={disabled} onClick={onClose}>
-            <X aria-hidden="true" size={20} />
-          </button>
+          <div className="inspection-item-sheet__header-actions">
+            <button ref={closeButtonRef} type="button" className="icon-button" aria-label="关闭项点卡片" disabled={disabled} onClick={onClose}>
+              <X aria-hidden="true" size={20} />
+            </button>
+            <button
+              ref={renameOpenerRef}
+              type="button"
+              className="icon-button"
+              aria-label="修改检查项名称"
+              title="修改检查项名称"
+              disabled={disabled}
+              onClick={() => setRenameDialogOpen(true)}
+            >
+              <Pencil aria-hidden="true" size={18} />
+            </button>
+          </div>
         </header>
         <div className="inspection-item-sheet__body">
           <ul className="inspection-entry-list inspection-item-sheet__editor-list">
@@ -264,6 +291,18 @@ export function InspectionItemSheet({
             </div>
           </section>
         </div>
+      ) : null}
+      {renameDialogOpen ? (
+        <CustomRouteDialog
+          openerRef={renameOpenerRef}
+          title="修改本次检查项名称"
+          fieldLabel="检查项名称"
+          initialName={entry.itemSnapshot.routeName}
+          onCancel={() => {
+            if (!disabled) setRenameDialogOpen(false);
+          }}
+          onSave={saveRenamedEntry}
+        />
       ) : null}
     </div>
   );
