@@ -11,6 +11,7 @@ import {
   InspectionRepository,
   type EvaluationGroupAppendResult,
   type InspectionCheckSelectionUpdateResult,
+  type InspectionEntryRenameResult,
   type PhotoAppendResult,
   type TemporaryEntryAppendResult,
 } from "../db/inspectionRepository";
@@ -64,6 +65,12 @@ export interface InspectionRepositoryPort {
     selections: readonly InspectionCheckSelection[],
     updatedAt?: string,
   ): Promise<InspectionCheckSelectionUpdateResult>;
+  renameInspectionEntry(
+    inspectionId: string,
+    entryId: string,
+    name: string,
+    updatedAt?: string,
+  ): Promise<InspectionEntryRenameResult>;
   removeEntryFromInspection(
     inspectionId: string,
     entryId: string,
@@ -296,6 +303,8 @@ export function createAppDependencies(
       repository.addTemporaryEntry(inspectionId, name, entryId, itemId, updatedAt),
     updateEntryCheckSelections: (inspectionId, entryId, selections, updatedAt) =>
       repository.updateEntryCheckSelections(inspectionId, entryId, selections, updatedAt),
+    renameInspectionEntry: (inspectionId, entryId, name, updatedAt) =>
+      repository.renameInspectionEntry(inspectionId, entryId, name, updatedAt),
     removeEntryFromInspection: (inspectionId, entryId, updatedAt) =>
       repository.removeEntryFromInspection(inspectionId, entryId, updatedAt),
     getGraph: (id) => repository.getGraph(id),

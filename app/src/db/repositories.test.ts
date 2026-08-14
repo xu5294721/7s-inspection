@@ -103,6 +103,113 @@ function packageSnapshot(graph: InspectionGraph): Promise<Blob> {
 }
 
 describe("InspectionRepository", () => {
+  test("renames only the current inspection entry and its route-order references", async () => {
+    const db = testDb("rename-inspection-entry");
+    const repository = new InspectionRepository(db);
+    const original = makeTwoGroupGraph();
+    const originalEntry = original.inspection.entries[0];
+    await repository.saveGraph({
+      ...original,
+      inspection: {
+        ...original.inspection,
+        status: "reviewed",
+        reviewRouteOrder: [originalEntry.itemSnapshot.routeName],
+        reviewRouteOrderByCategory: { good: [originalEntry.itemSnapshot.routeName] },
+        entries: [{
+          ...originalEntry,
+          checkSelections: [{ category: "environment", value: "干净整洁", isCustom: false }],
+        }],
+      },
+      groups: original.groups,
+      photos: original.photos,
+    });
+    await db.checklistItems.add(makeChecklistItem({ routeName: originalEntry.itemSnapshot.routeName }));
+    await db.routeTemplates.add(makeRouteTemplate({ itemIds: [originalEntry.itemId] }));
+
+    const before = await repository.getGraph("inspection-1");
+    const itemsBefore = await db.checklistItems.toArray();
+    const templatesBefore = await db.routeTemplates.toArray();
+    const result = await repository.renameInspectionEntry(
+      "inspection-1",
+      "entry-1",
+      "  更正后的项点  ",
+      "2026-08-14T10:00:00.000Z",
+    );
+    const after = await repository.getGraph("inspection-1");
+
+    expect(result).toMatchObject({
+      entry: { itemSnapshot: { routeName: "更正后的项点" } },
+      updatedAt: "2026-08-14T10:00:00.000Z",
+      reviewRouteOrder: ["更正后的项点"],
+      reviewRouteOrderByCategory: { good: ["更正后的项点"] },
+    });
+    expect(after?.inspection).toMatchObject({
+      status: "draft",
+      updatedAt: "2026-08-14T10:00:00.000Z",
+      reviewRouteOrder: ["更正后的项点"],
+      reviewRouteOrderByCategory: { good: ["更正后的项点"] },
+    });
+    expect(after?.inspection.entries[0]).toEqual({
+      ...before?.inspection.entries[0],
+      itemSnapshot: {
+        ...before?.inspection.entries[0].itemSnapshot,
+        routeName: "更正后的项点",
+      },
+    });
+    expect(after?.groups).toEqual(before?.groups);
+    expect(after?.photos).toEqual(before?.photos);
+    expect(await db.checklistItems.toArray()).toEqual(itemsBefore);
+    expect(await db.routeTemplates.toArray()).toEqual(templatesBefore);
+  });
+
+  test("rejects invalid or cross-inspection renames without changing data", async () => {
+    const db = testDb("rename-inspection-entry-validation");
+    const repository = new InspectionRepository(db);
+    const first = makeTwoGroupGraph();
+    const duplicateEntry = {
+      ...first.inspection.entries[0],
+      id: "entry-duplicate",
+      itemId: "item-duplicate",
+      itemSnapshot: { ...first.inspection.entries[0].itemSnapshot, id: "item-duplicate", routeName: "重复项" },
+      groupIds: [],
+      order: 1,
+    };
+    await repository.saveGraph({
+      ...first,
+      inspection: { ...first.inspection, entries: [first.inspection.entries[0], duplicateEntry] },
+    });
+    const second = makeInspection({
+      id: "inspection-2",
+      entries: [{
+        ...makeInspection().entries[0],
+        id: "entry-other",
+        inspectionId: "inspection-2",
+        groupIds: [],
+      }],
+    });
+    await repository.saveGraph({ inspection: second, groups: [], photos: [] });
+    const before = {
+      first: await repository.getGraph("inspection-1"),
+      second: await repository.getGraph("inspection-2"),
+    };
+
+    await expect(repository.renameInspectionEntry("inspection-1", "entry-1", "   "))
+      .rejects.toThrow("检查项名称不能为空");
+    await expect(repository.renameInspectionEntry("inspection-1", "entry-1", " 重复项 "))
+      .rejects.toThrow("当前巡检中已存在同名检查项");
+    await expect(repository.renameInspectionEntry("inspection-missing", "entry-1", "新名称"))
+      .rejects.toThrow("巡检记录不存在或已删除");
+    await expect(repository.renameInspectionEntry("inspection-1", "entry-missing", "新名称"))
+      .rejects.toThrow("巡检条目 entry-missing 不存在");
+    await expect(repository.renameInspectionEntry("inspection-1", "entry-other", "新名称"))
+      .rejects.toThrow("不属于当前巡检记录");
+
+    expect({
+      first: await repository.getGraph("inspection-1"),
+      second: await repository.getGraph("inspection-2"),
+    }).toEqual(before);
+  });
+
   test("removes all photo data for a photo-backed entry without touching other inspections", async () => {
     const db = testDb("remove-photo-backed-entry");
     const repository = new InspectionRepository(db);

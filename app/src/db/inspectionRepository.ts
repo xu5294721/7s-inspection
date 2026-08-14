@@ -51,6 +51,13 @@ export interface InspectionCheckSelectionUpdateResult {
   group?: PhotoGroup;
 }
 
+export interface InspectionEntryRenameResult {
+  entry: InspectionEntry;
+  updatedAt: string;
+  reviewRouteOrder?: string[];
+  reviewRouteOrderByCategory?: ReviewRouteOrderByCategory;
+}
+
 function compareOrdered(
   left: { id: string; order: number },
   right: { id: string; order: number },
@@ -487,6 +494,80 @@ export class InspectionRepository {
       this.db.photos,
       this.db.templates,
       () => readGraphFromDb(this.db, id),
+    );
+  }
+
+  async renameInspectionEntry(
+    inspectionId: string,
+    entryId: string,
+    name: string,
+    updatedAt = new Date().toISOString(),
+  ): Promise<InspectionEntryRenameResult> {
+    return this.db.transaction(
+      "rw",
+      this.db.inspections,
+      this.db.entries,
+      async () => {
+        const inspection = await this.db.inspections.get(inspectionId);
+        if (!inspection || inspection.deletedAt !== null) {
+          throw new GraphIntegrityError("巡检记录不存在或已删除。");
+        }
+        const entry = await requireRow(
+          await this.db.entries.get(entryId),
+          `巡检条目 ${entryId} 不存在。`,
+        );
+        if (entry.inspectionId !== inspectionId) {
+          throw new GraphIntegrityError(`巡检条目 ${entryId} 不属于当前巡检记录。`);
+        }
+
+        const normalizedName = normalizeRouteName(name);
+        if (!normalizedName) {
+          throw new GraphIntegrityError("检查项名称不能为空");
+        }
+        const entries = await this.db.entries.where("inspectionId").equals(inspectionId).toArray();
+        if (entries.some((current) =>
+          current.id !== entryId && normalizeRouteName(current.itemSnapshot.routeName) === normalizedName)) {
+          throw new GraphIntegrityError("当前巡检中已存在同名检查项");
+        }
+
+        const reviewRouteOrder = inspection.reviewRouteOrder?.map((routeName) =>
+          routeName === entry.itemSnapshot.routeName ? normalizedName : routeName,
+        );
+        const reviewRouteOrderByCategory = inspection.reviewRouteOrderByCategory
+          ? Object.fromEntries(
+            Object.entries(inspection.reviewRouteOrderByCategory).map(([category, routeNames]) => [
+              category,
+              routeNames?.map((routeName) =>
+                routeName === entry.itemSnapshot.routeName ? normalizedName : routeName,
+              ),
+            ]),
+          ) as ReviewRouteOrderByCategory
+          : undefined;
+        const renamedEntry: InspectionEntry = {
+          ...entry,
+          itemSnapshot: {
+            ...entry.itemSnapshot,
+            routeName: normalizedName,
+          },
+        };
+
+        await this.db.entries.put(renamedEntry);
+        const updated = await this.db.inspections.update(inspectionId, {
+          status: "draft",
+          updatedAt,
+          ...(reviewRouteOrder === undefined ? {} : { reviewRouteOrder }),
+          ...(reviewRouteOrderByCategory === undefined ? {} : { reviewRouteOrderByCategory }),
+        });
+        if (updated !== 1) {
+          throw new GraphIntegrityError(`巡检记录 ${inspectionId} 更新失败。`);
+        }
+        return {
+          entry: renamedEntry,
+          updatedAt,
+          ...(reviewRouteOrder === undefined ? {} : { reviewRouteOrder }),
+          ...(reviewRouteOrderByCategory === undefined ? {} : { reviewRouteOrderByCategory }),
+        };
+      },
     );
   }
 
