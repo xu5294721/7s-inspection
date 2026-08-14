@@ -217,7 +217,7 @@ test("filters by date and category, exposes summary/status, and routes open/rege
   const view = renderWithRouter({ database, initialPath: "/history" });
 
   await screen.findByText("焊机间7S巡检通报");
-  expect(screen.getByText(/2026-07-28.*草稿/)).toBeVisible();
+  expect(screen.getByText(/2026-07-28 \d{2}:\d{2}.*草稿/)).toBeVisible();
   expect(screen.getByText("奖励 50元")).toBeVisible();
   expect(screen.getByText("考核 70元")).toBeVisible();
   await user.type(screen.getByLabelText("巡检日期"), "2026-07-27");

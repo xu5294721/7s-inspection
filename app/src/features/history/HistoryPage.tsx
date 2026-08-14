@@ -5,7 +5,7 @@ import { useAppDependencies } from "../../app/useAppDependencies";
 import { createInspection } from "../../domain/inspection";
 import type { ChecklistItem, InspectionGraph, PhotoCategory } from "../../domain/models";
 import { PHOTO_CATEGORIES, photoCategoryLabel } from "../../domain/photoCategory";
-import { toLocalInspectionDate } from "../../lib/dates";
+import { toLocalInspectionDate, toLocalInspectionDateTime } from "../../lib/dates";
 import { isPrefixedBrowserUuid } from "../../lib/ids";
 
 function copiedItems(graph: InspectionGraph): ChecklistItem[] {
@@ -57,7 +57,7 @@ function HistoryRow({
   return <li className="history-row">
     <div>
       <strong>{graph.inspection.title}</strong>
-      <span>{graph.inspection.inspectionDate} · {isDraft ? "草稿，已自动保存" : graph.inspection.status === "reviewed" ? "已复核" : "已生成"}</span>
+      <span>{toLocalInspectionDateTime(graph.inspection.inspectionDate, graph.inspection.updatedAt)} · {isDraft ? "草稿，已自动保存" : graph.inspection.status === "reviewed" ? "已复核" : "已生成"}</span>
     </div>
     <HistorySummary graph={graph} />
     <div className="history-actions">

@@ -8,3 +8,11 @@ export function toLocalInspectionDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+export function toLocalInspectionDateTime(inspectionDate: string, updatedAt: string): string {
+  const updated = new Date(updatedAt);
+  if (Number.isNaN(updated.getTime())) return inspectionDate;
+  const hours = String(updated.getHours()).padStart(2, "0");
+  const minutes = String(updated.getMinutes()).padStart(2, "0");
+  return `${inspectionDate} ${hours}:${minutes}`;
+}
