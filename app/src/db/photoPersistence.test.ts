@@ -53,6 +53,39 @@ test("adds each photo to an active good group in one transaction", async () => {
   ]);
 });
 
+test.each([
+  ["good", "好的方面"],
+  ["general", "一般表现"],
+  ["reminder", "提醒问题"],
+  ["assessment", "考核问题"],
+] as const)("keeps a selected empty %s evaluation when the first photo is added", async (category, _label) => {
+  const db = createTestDb(`photo-add-empty-${category}-${Date.now()}`);
+  databases.push(db);
+  const repository = new InspectionRepository(db);
+  const inspection = makeInspection();
+  const emptyGroup = makePhotoGroup({
+    category,
+    description: `${category}评价说明`,
+    photoIds: [],
+  });
+  await repository.saveGraph({ inspection, groups: [emptyGroup], photos: [] });
+
+  const result = await repository.addPhotoToGoodGroup(
+    "entry-1",
+    makePhoto(undefined, { id: "photo-added", groupId: "unused-group" }),
+    "unused-group",
+  );
+
+  expect(result.group).toMatchObject({
+    id: "group-1",
+    category,
+    description: `${category}评价说明`,
+    photoIds: ["photo-added"],
+  });
+  expect(result.photo).toMatchObject({ id: "photo-added", groupId: "group-1", order: 0 });
+  expect(result.entry.groupIds).toEqual(["group-1"]);
+});
+
 test("replaces photo bytes without changing graph references", async () => {
   const db = createTestDb(`photo-replace-${Date.now()}`);
   databases.push(db);

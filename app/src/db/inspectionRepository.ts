@@ -938,7 +938,10 @@ export class InspectionRepository {
       }
 
       const groups = await this.db.photoGroups.bulkGet(entry.groupIds);
-      const activeGroup = groups.findLast((group) => group?.category === "good");
+      // Preserve an evaluation selected before the first photo is imported.
+      const emptyEvaluationGroup = groups.findLast((group) => group && group.photoIds.length === 0);
+      const activeGoodGroup = groups.findLast((group) => group?.category === "good");
+      const activeGroup = emptyEvaluationGroup ?? activeGoodGroup;
       const group: PhotoGroup = activeGroup ?? {
         id: newGroupId,
         inspectionId: entry.inspectionId,
