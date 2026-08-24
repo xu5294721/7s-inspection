@@ -869,8 +869,8 @@ test("moves an adaptive portrait photo to the next page instead of making it tin
   expect(paragraphContaining(documentXml, "2. 第二项点照片。")).toContain("<w:pageBreakBefore/>");
   expect(extents).toHaveLength(3);
   expect(extents[2]).toEqual({
-    width: Math.round(135 * pxPerMm) * emuPerPx,
-    height: Math.round(90 * pxPerMm) * emuPerPx,
+    width: Math.round(150 * pxPerMm) * emuPerPx,
+    height: Math.round(100 * pxPerMm) * emuPerPx,
   });
 });
 
