@@ -1006,6 +1006,14 @@ export class InspectionRepository {
         if (inspection.deletedAt !== null) {
           throw new GraphIntegrityError("巡检记录已删除。");
         }
+        const existingGroups = await this.db.photoGroups.bulkGet(entry.groupIds);
+        const existingEmptyGroup = existingGroups.findLast((group) =>
+          group && group.photoIds.length === 0 && group.category === category,
+        );
+        // Reuse an empty evaluation group if the picker was triggered twice.
+        if (existingEmptyGroup) {
+          return { entry, group: existingEmptyGroup, updatedAt };
+        }
         if (await this.db.photoGroups.get(groupId)) {
           throw new GraphIntegrityError(`照片组 ${groupId} 已存在。`);
         }

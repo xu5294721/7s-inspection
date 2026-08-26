@@ -1546,6 +1546,27 @@ describe("InspectionRepository", () => {
     expect(restored?.inspection.entries[0]?.groupIds).toEqual(["group-existing"]);
   });
 
+  test("does not append duplicate empty evaluations for repeated category selection", async () => {
+    const db = testDb("empty-evaluation-group-idempotent");
+    const repository = new InspectionRepository(db);
+    const base = makeInspection();
+    await repository.saveGraph({
+      inspection: {
+        ...base,
+        entries: [{ ...base.entries[0]!, groupIds: [] }],
+      },
+      groups: [],
+      photos: [],
+    });
+
+    const first = await repository.addEvaluationGroup("entry-1", "good", "group-first");
+    const second = await repository.addEvaluationGroup("entry-1", "good", "group-second");
+
+    expect(second.group).toEqual(first.group);
+    expect(second.entry.groupIds).toEqual(["group-first"]);
+    expect((await repository.getGraph("inspection-1"))?.groups).toHaveLength(1);
+  });
+
   test("marks a ready inspection reviewed without marking it generated", async () => {
     const db = testDb("review-status");
     const repository = new InspectionRepository(db);
