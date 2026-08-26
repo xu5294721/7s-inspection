@@ -2,7 +2,7 @@
 
 面向现场 7S 日常巡检的离线移动端工具，服务于检查记录、通报复核和 Word 通报生成，减少现场拍照后再整理材料的工作量。
 
-当前版本：[v1.1.15](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.15)。支持网页/PWA 和 Android APK 两种使用方式。
+当前版本：[v1.1.17](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.17)。支持网页/PWA 和 Android APK 两种使用方式。
 
 ## 主要功能
 
@@ -28,7 +28,7 @@
 
 ## Android 安装
 
-从 [v1.1.15 Release](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.15) 下载 APK，传至 Android 手机后，在“下载”目录中点击安装。如系统提示，请仅对所使用的文件管理器授权“允许安装未知应用”。
+从 [v1.1.17 Release](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.17) 下载 APK，传至 Android 手机后，在“下载”目录中点击安装。如系统提示，请仅对所使用的文件管理器授权“允许安装未知应用”。
 
 安装后可离线使用。建议首次使用后立即导出一次 ZIP 备份，并在每次形成重要通报后再次备份。
 
