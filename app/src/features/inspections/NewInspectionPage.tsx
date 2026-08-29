@@ -42,6 +42,24 @@ function defaultTemplateId(templates: InspectionRouteTemplate[]): string {
   return templates.find((template) => template.isDefault)?.id ?? "";
 }
 
+const LAST_USED_ROUTE_TEMPLATE_KEY = "lastUsedRouteTemplateId";
+
+function readLastUsedTemplateId(): string {
+  try {
+    return window.localStorage.getItem(LAST_USED_ROUTE_TEMPLATE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeLastUsedTemplateId(templateId: string): void {
+  try {
+    window.localStorage.setItem(LAST_USED_ROUTE_TEMPLATE_KEY, templateId);
+  } catch {
+    // 存储不可用（如隐私模式）时静默跳过，不影响本次选择。
+  }
+}
+
 export function NewInspectionPage() {
   const { itemRepository, inspectionRepository, routeTemplateRepository, templateRepository, createInspectionId, now } = useAppDependencies();
   const navigate = useNavigate();
@@ -69,9 +87,13 @@ export function NewInspectionPage() {
 
   const applyLoadedRouteData = useCallback((data: LoadedRouteData, initializeSelection: boolean) => {
     const currentTemplateExists = data.templates.some((template) => template.id === selectedTemplateIdRef.current);
+    const lastUsedId = readLastUsedTemplateId();
+    const lastUsedExists = data.templates.some((template) => template.id === lastUsedId);
     const nextTemplateId = currentTemplateExists
       ? selectedTemplateIdRef.current
-      : defaultTemplateId(data.templates);
+      : lastUsedExists
+        ? lastUsedId
+        : defaultTemplateId(data.templates);
     const nextTemplate = data.templates.find((template) => template.id === nextTemplateId);
     const nextSelection = validTemplateItemIds(nextTemplate, data.items);
     const enabledItemIds = new Set(data.items.map((item) => item.id));
@@ -126,6 +148,7 @@ export function NewInspectionPage() {
     selectedTemplateIdRef.current = templateId;
     setSelectedTemplateId(templateId);
     setSelectedItemIds(nextSelection);
+    writeLastUsedTemplateId(templateId);
     setTemplateWarning(
       template && nextSelection.size !== template.itemIds.length
         ? "模板中有项目已停用，本次已自动忽略。"

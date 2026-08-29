@@ -110,6 +110,37 @@ test("keeps dialog state after rejection and permits a retry", async () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  window.localStorage.clear();
+});
+
+test("reopens the new-inspection page with the previously used template selected", async () => {
+  const user = userEvent.setup();
+  const database = await prepareDatabase(async (testDatabase) => {
+    const items = await new ItemRepository(testDatabase).listEnabled();
+    await addTemplate(testDatabase, items.slice(0, 2).map((item) => item.id));
+  });
+  const firstView = renderWithRouter({ database, initialPath: "/inspections/new" });
+
+  await screen.findAllByRole("checkbox");
+  await user.selectOptions(screen.getByRole("combobox", { name: "检查路线模板" }), "route-template-night");
+  firstView.unmount();
+
+  const secondView = renderWithRouter({ database, initialPath: "/inspections/new" });
+  expect(await screen.findAllByRole("checkbox")).toHaveLength(39);
+  expect(screen.getByRole("combobox", { name: "检查路线模板" })).toHaveValue("route-template-night");
+  expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(2);
+  secondView.unmount();
+});
+
+test("falls back to the default template when the remembered template no longer exists", async () => {
+  const database = await prepareDatabase();
+  window.localStorage.setItem("lastUsedRouteTemplateId", "route-template-deleted");
+  const view = renderWithRouter({ database, initialPath: "/inspections/new" });
+
+  expect(await screen.findAllByRole("checkbox")).toHaveLength(39);
+  expect(screen.getByRole("combobox", { name: "检查路线模板" })).toHaveValue("route-template-default");
+  expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(39);
+  view.unmount();
 });
 
 async function prepareDatabase(
