@@ -2,7 +2,7 @@
 
 面向现场 7S 日常巡检的离线移动端工具，服务于检查记录、通报复核和 Word 通报生成，减少现场拍照后再整理材料的工作量。
 
-当前版本：[v1.1.17](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.17)。支持网页/PWA 和 Android APK 两种使用方式。
+当前版本：[v1.1.18](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.18)。支持网页/PWA 和 Android APK 两种使用方式。
 
 ## 主要功能
 
@@ -13,6 +13,7 @@
 - 评价管理：支持“好的方面”“一般表现”“提醒问题”“考核问题”四类评价；考核问题可填写责任人员、金额，并可选择转入后续整改追踪。
 - 照片与评价：先选择评价类别再拍照或从相册添加照片时，照片会保留在原评价组中，不会重复生成“好的方面”评价。
 - 通报复核：统一复核有照片和无照片的评价内容，可修改项点、文字、分类及分类内排序。
+- 巡检历史：按“待继续巡检”（未生成 Word 的草稿）与“已完成”（已生成 Word）两个分区展示，待继续在上、已完成在下。
 - Word 通报：一键生成 `.docx` 文件；有内容的无照片项同样会写入对应章节。支持固定或自适应照片排版，自适应模式下单张照片可占满一行。
 - 本地备份与恢复：导出 ZIP 备份并恢复巡检记录、原图、缩略图、路线模板、检查内容模板和设置；Android 导出采用分块写入，适合照片较多的备份。
 - Android 文件保存：生成的 Word 和 ZIP 备份可保存到手机“下载”目录，便于使用 WPS 或 Word 打开、分享。
@@ -28,7 +29,14 @@
 
 ## Android 安装
 
-从 [v1.1.17 Release](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.17) 下载 APK，传至 Android 手机后，在“下载”目录中点击安装。如系统提示，请仅对所使用的文件管理器授权“允许安装未知应用”。
+从 [v1.1.18 Release](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.18) 下载 APK，传至 Android 手机后，在“下载”目录中点击安装。如系统提示，请仅对所使用的文件管理器授权“允许安装未知应用”。
+
+### 签名与升级注意事项
+
+手机上已安装的版本使用“原打包电脑”的调试密钥签名。不同密钥签名的 APK 之间**不能覆盖安装**：
+
+- **覆盖升级（保留数据）**：使用原打包电脑构建的 `app-debug.apk`（见下方“Android 打包”）。同密钥且版本号更高时，可直接覆盖安装，巡检数据全部保留。
+- **全新安装**：Release 中的 `newkey` 后缀 APK 使用新密钥签名，仅适合新手机；安装在旧手机前必须先卸载旧版，卸载会清空本地数据，务必先导出 ZIP 备份。
 
 安装后可离线使用。建议首次使用后立即导出一次 ZIP 备份，并在每次形成重要通报后再次备份。
 
@@ -54,5 +62,16 @@ pnpm test:run
 pnpm lint
 pnpm build
 ```
+
+## Android 打包
+
+环境要求：JDK 21、Android SDK（platform 36、build-tools 36.0.0），并设置 `JAVA_HOME` 与 `ANDROID_HOME`。先在 `app` 目录完成 `pnpm build`，再执行 `pnpm exec cap sync android` 同步 Web 资源，然后在 `app/android` 目录打包：
+
+```powershell
+.\gradlew.bat assembleDebug    # 调试签名 APK，输出 app\build\outputs\apk\debug\app-debug.apk
+.\gradlew.bat assembleRelease  # 正式签名 APK，输出 app\build\outputs\apk\release\app-release.apk
+```
+
+正式签名通过用户全局 Gradle 属性（`~/.gradle/gradle.properties` 中的 `sevenSReleaseStoreFile`、`sevenSReleaseStorePassword`、`sevenSReleaseKeyAlias`、`sevenSReleaseKeyPassword`）配置，密钥库文件不进仓库；未配置这些属性时 release 构建为未签名包。Gradle 下载缓慢时可将 `gradle/wrapper/gradle-wrapper.properties` 中的 distributionUrl 临时替换为镜像地址。
 
 本项目用于内部现场管理。仓库不包含巡检原始材料、照片、Word 通报、备份数据或个人工作资料。
