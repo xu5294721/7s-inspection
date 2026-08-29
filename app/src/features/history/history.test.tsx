@@ -65,7 +65,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-test("filters history and soft deletes a matching inspection into trash", async () => {
+test("soft deletes an inspection into trash", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`history-filter-${Date.now()}`);
   await saveInspectionWithEvidence(database);
@@ -74,8 +74,6 @@ test("filters history and soft deletes a matching inspection into trash", async 
 
   expect(await screen.findByText("焊机间7S巡检通报")).toBeVisible();
   expect(screen.getByText("好的方面 1")).toBeVisible();
-  await user.type(screen.getByRole("searchbox", { name: "按路线或区域筛选" }), "焊机间");
-  await user.type(screen.getByRole("textbox", { name: "按人员筛选" }), "张三");
   await user.click(screen.getByRole("button", { name: "删除 焊机间7S巡检通报" }));
 
   await waitFor(async () => expect((await database.inspections.get("history-1"))?.deletedAt).not.toBeNull());
@@ -203,7 +201,7 @@ test("requires a modal confirmation naming the report before permanent purge", a
   view.unmount();
 });
 
-test("filters by date and category, exposes summary/status, and routes open/regenerate actions", async () => {
+test("exposes summary/status and routes the continuation action", async () => {
   const user = userEvent.setup();
   const database = createTestDb(`history-complete-${Date.now()}`);
   await saveInspectionWithEvidence(database);
@@ -220,11 +218,6 @@ test("filters by date and category, exposes summary/status, and routes open/rege
   expect(screen.getByText(/2026-07-28 \d{2}:\d{2}.*草稿/)).toBeVisible();
   expect(screen.getByText("奖励 50元")).toBeVisible();
   expect(screen.getByText("考核 70元")).toBeVisible();
-  await user.type(screen.getByLabelText("巡检日期"), "2026-07-27");
-  expect(screen.queryByText("焊机间7S巡检通报")).not.toBeInTheDocument();
-  await user.clear(screen.getByLabelText("巡检日期"));
-  await user.selectOptions(screen.getByRole("combobox", { name: "按类别筛选" }), "assessment");
-  expect(screen.getByText("焊机间7S巡检通报")).toBeVisible();
   await user.click(screen.getByRole("link", { name: "继续巡检 焊机间7S巡检通报" }));
   expect(window.location.hash).toBe("#/inspections/history-1");
   view.unmount();
@@ -245,6 +238,52 @@ test("puts a saved draft in the resume section with a clear continuation action"
     name: "继续巡检 焊机间7S巡检通报",
   })).toHaveAttribute("href", "#/inspections/history-1");
   expect(screen.queryByRole("link", { name: "打开 焊机间7S巡检通报" })).not.toBeInTheDocument();
+});
+
+test("groups drafts above completed reports in separate sections", async () => {
+  const database = createTestDb(`history-sections-${Date.now()}`);
+  await saveInspectionWithEvidence(database);
+  const repository = new InspectionRepository(database);
+  const graph = await repository.getGraph("history-1");
+  if (!graph) throw new Error("history graph missing");
+  const suffix = "-done";
+  const completedId = `history-1${suffix}`;
+  await repository.saveGraph({
+    inspection: {
+      ...graph.inspection,
+      id: completedId,
+      title: "已完成7S巡检通报",
+      inspectionDate: "2026-07-30",
+      status: "reviewed",
+      updatedAt: "2026-07-30T00:00:00.000Z",
+      entries: graph.inspection.entries.map((entry) => ({
+        ...entry,
+        id: `${entry.id}${suffix}`,
+        inspectionId: completedId,
+        groupIds: entry.groupIds.map((groupId) => `${groupId}${suffix}`),
+      })),
+    },
+    groups: graph.groups.map((group) => ({
+      ...group,
+      id: `${group.id}${suffix}`,
+      inspectionId: completedId,
+      entryId: `${group.entryId}${suffix}`,
+      photoIds: group.photoIds.map((photoId) => `${photoId}${suffix}`),
+    })),
+    photos: graph.photos.map((photo) => ({
+      ...photo,
+      id: `${photo.id}${suffix}`,
+      inspectionId: completedId,
+      groupId: `${photo.groupId}${suffix}`,
+    })),
+  });
+  renderWithRouter({ database, initialPath: "/history" });
+
+  const resumeSection = await screen.findByRole("region", { name: "待继续巡检" });
+  const completedSection = screen.getByRole("region", { name: "已完成" });
+  expect(within(resumeSection).getByText("焊机间7S巡检通报")).toBeVisible();
+  expect(within(completedSection).getByText("已完成7S巡检通报")).toBeVisible();
+  expect(resumeSection.compareDocumentPosition(completedSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test("restores trash and keeps purge dialog keyboard-safe through cancel, escape, failure, and retry", async () => {

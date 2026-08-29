@@ -1253,15 +1253,10 @@ a {
 .review-route-dialog__command { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--color-border); background: var(--color-surface); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
 .review-route-edit-dialog__entries { display: grid; gap: 12px; }
 
-.history-filter,
 .form-grid,
 .template-sections { display: grid; gap: 10px; }
-.history-filter { margin-bottom: 16px; }
-.history-filter label,
 .form-grid label,
 .template-section label { display: grid; gap: 5px; color: var(--color-muted); font-size: 13px; }
-.history-filter input,
-.history-filter select,
 .form-grid input,
 .form-grid textarea,
 .form-grid select,
@@ -1988,38 +1983,6 @@ a {
   }
 }
 
-.history-filter {
-  gap: 10px;
-  margin-bottom: 16px;
-  border: 1px solid rgb(60 60 67 / 10%);
-  border-radius: var(--radius-group);
-  background: var(--color-surface);
-  padding: 14px;
-}
-
-.history-filter label {
-  color: var(--color-muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.history-filter input,
-.history-filter select {
-  min-height: 48px;
-  margin-top: 6px;
-  padding: 10px 12px;
-}
-
-.history-filter .search-control {
-  margin-top: 0;
-  padding: 0 10px;
-}
-
-.history-filter .search-control input {
-  margin-top: 0;
-  padding: 0;
-}
-
 .history-summary {
   gap: 6px;
   margin: 0 0 12px;
@@ -2032,11 +1995,11 @@ a {
   padding: 5px 9px;
 }
 
-.history-resume-section {
+.history-section {
   margin-bottom: 16px;
 }
 
-.history-resume-section h3 {
+.history-section h3 {
   margin: 0 0 8px 4px;
   color: var(--color-muted);
   font-size: 13px;
@@ -2416,8 +2379,6 @@ select,
 .group-description textarea,
 .award-inputs input,
 .annotation-text-input input,
-.history-filter input,
-.history-filter select,
 .form-grid input,
 .form-grid textarea,
 .form-grid select,
