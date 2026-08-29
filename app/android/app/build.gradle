@@ -7,8 +7,8 @@ android {
         applicationId "com.xiangtang.sevensinspection"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 28
-        versionName "1.1.17"
+        versionCode 29
+        versionName "1.1.18"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +16,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // 签名参数来自用户全局 Gradle 属性（~/.gradle/gradle.properties），仓库不保存密钥。
+    if (project.findProperty('sevenSReleaseStoreFile')) {
+        signingConfigs {
+            release {
+                storeFile file(sevenSReleaseStoreFile)
+                storePassword sevenSReleaseStorePassword
+                keyAlias sevenSReleaseKeyAlias
+                keyPassword sevenSReleaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (project.findProperty('sevenSReleaseStoreFile')) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
