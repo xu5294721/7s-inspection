@@ -225,6 +225,23 @@ test("clears the restore input so the same file can be retried after inspection 
   expect(inspect).toHaveBeenCalledTimes(2);
 });
 
+test("shows a reading status while restore metadata inspection is pending", async () => {
+  const user = userEvent.setup();
+  const target = createTestDb(`backup-inspect-pending-${Date.now()}`);
+  const dependencies = createAppDependencies(target);
+  const inspection = deferred<Awaited<ReturnType<typeof dependencies.backupRepository.inspectBackup>>>();
+  vi.spyOn(dependencies.backupRepository, "inspectBackup").mockImplementation(() => inspection.promise);
+  renderWithRouter({ database: target, initialPath: "/settings/backup", appProps: { dependencies } });
+
+  await user.upload(
+    await screen.findByLabelText("选择备份文件"),
+    new File(["backup"], "backup.zip", { type: "application/zip" }),
+  );
+
+  expect(screen.getByText("正在读取备份信息...")).toHaveAttribute("role", "status");
+  expect(screen.getByLabelText("选择备份文件")).toBeDisabled();
+});
+
 test("disables repeated export while pending and saves a clearly named ZIP", async () => {
   const user = userEvent.setup();
   const target = createTestDb(`backup-export-ui-${Date.now()}`);

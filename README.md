@@ -2,7 +2,7 @@
 
 面向现场 7S 日常巡检的离线移动端工具，服务于检查记录、通报复核和 Word 通报生成，减少现场拍照后再整理材料的工作量。
 
-当前版本：[v1.1.18](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.18)。支持网页/PWA 和 Android APK 两种使用方式。
+当前版本：[v1.1.20](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.20)。支持网页/PWA 和 Android APK 两种使用方式。
 
 ## 主要功能
 
@@ -29,14 +29,14 @@
 
 ## Android 安装
 
-从 [v1.1.18 Release](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.18) 下载 APK，传至 Android 手机后，在“下载”目录中点击安装。如系统提示，请仅对所使用的文件管理器授权“允许安装未知应用”。
+从 [v1.1.20 Release](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.20) 下载 APK，传至 Android 手机后，在“下载”目录中点击安装。如系统提示，请仅对所使用的文件管理器授权“允许安装未知应用”。
 
 ### 签名与升级注意事项
 
 手机上已安装的版本使用“原打包电脑”的调试密钥签名。不同密钥签名的 APK 之间**不能覆盖安装**：
 
-- **覆盖升级（保留数据）**：使用原打包电脑构建的 `app-debug.apk`（见下方“Android 打包”）。同密钥且版本号更高时，可直接覆盖安装，巡检数据全部保留。
-- **全新安装**：Release 中的 `newkey` 后缀 APK 使用新密钥签名，仅适合新手机；安装在旧手机前必须先卸载旧版，卸载会清空本地数据，务必先导出 ZIP 备份。
+- **覆盖升级（保留数据）**：GitHub Release 中的 APK 使用原打包电脑的 `C:\Users\xj\.android\debug.keystore` 构建。同密钥且版本号更高时，可直接覆盖安装，巡检数据全部保留。
+- **密钥保护**：不得删除、替换或重新生成该 `debug.keystore`；更换密钥后生成的 APK 无法覆盖当前手机上的已安装版本。
 
 安装后可离线使用。建议首次使用后立即导出一次 ZIP 备份，并在每次形成重要通报后再次备份。
 
@@ -69,9 +69,8 @@ pnpm build
 
 ```powershell
 .\gradlew.bat assembleDebug    # 调试签名 APK，输出 app\build\outputs\apk\debug\app-debug.apk
-.\gradlew.bat assembleRelease  # 正式签名 APK，输出 app\build\outputs\apk\release\app-release.apk
 ```
 
-正式签名通过用户全局 Gradle 属性（`~/.gradle/gradle.properties` 中的 `sevenSReleaseStoreFile`、`sevenSReleaseStorePassword`、`sevenSReleaseKeyAlias`、`sevenSReleaseKeyPassword`）配置，密钥库文件不进仓库；未配置这些属性时 release 构建为未签名包。Gradle 下载缓慢时可将 `gradle/wrapper/gradle-wrapper.properties` 中的 distributionUrl 临时替换为镜像地址。
+手机覆盖升级包只使用 `assembleDebug` 构建，不使用 `assembleRelease`。打包前确认 `C:\Users\xj\.android\debug.keystore` 存在，且不得删除、替换或重新生成。Gradle 下载缓慢时可将 `gradle/wrapper/gradle-wrapper.properties` 中的 distributionUrl 临时替换为镜像地址。
 
 本项目用于内部现场管理。仓库不包含巡检原始材料、照片、Word 通报、备份数据或个人工作资料。

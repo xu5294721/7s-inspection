@@ -781,7 +781,11 @@ async function localTemplateKeys(db?: SevenSDb): Promise<Set<string>> {
   return new Set((await db.templates.toArray()).map((template) => `${template.id}\u0000${template.version}`));
 }
 
-async function parseBackup(blob: Blob, localDb?: SevenSDb): Promise<ParsedBackup> {
+async function parseBackup(
+  blob: Blob,
+  localDb?: SevenSDb,
+  options: { readPhotoPayloads?: boolean } = {},
+): Promise<ParsedBackup> {
   if (blob.size > MAX_BACKUP_COMPRESSED_BYTES) {
     throw new BackupValidationError("备份ZIP压缩文件不能超过256 MB。");
   }
@@ -927,11 +931,19 @@ async function parseBackup(blob: Blob, localDb?: SevenSDb): Promise<ParsedBackup
   for (const metadata of photoMetadata) {
     const paths = pathsByPhotoId.get(metadata.id);
     if (!paths) throw new BackupValidationError(`照片 ${metadata.id} 的文件路径无效。`);
+    const { imageMimeType, thumbnailMimeType, ...photo } = metadata;
+    if (options.readPhotoPayloads === false) {
+      photos.push({
+        ...photo,
+        imageBlob: new Blob([], { type: imageMimeType }),
+        thumbnailBlob: new Blob([], { type: thumbnailMimeType }),
+      });
+      continue;
+    }
     const imageBytes = await extractArchiveEntry(blob, centralDirectory, paths.image, extractionBudget);
     await assertPayloadHash(imageBytes, paths.image, manifest.files[paths.image].sha256);
     const thumbnailBytes = await extractArchiveEntry(blob, centralDirectory, paths.thumbnail, extractionBudget);
     await assertPayloadHash(thumbnailBytes, paths.thumbnail, manifest.files[paths.thumbnail].sha256);
-    const { imageMimeType, thumbnailMimeType, ...photo } = metadata;
     photos.push(await archiveOperation(() => ({
       ...photo,
       imageBlob: new Blob([imageBytes], { type: imageMimeType }),
@@ -983,7 +995,7 @@ async function parseBackup(blob: Blob, localDb?: SevenSDb): Promise<ParsedBackup
 }
 
 export async function inspectBackup(blob: Blob, localDb?: SevenSDb): Promise<BackupPreview> {
-  return (await parseBackup(blob, localDb)).preview;
+  return (await parseBackup(blob, localDb, { readPhotoPayloads: false })).preview;
 }
 
 async function addRows<T>(rows: T[], add: (rows: T[]) => Promise<unknown>): Promise<void> {

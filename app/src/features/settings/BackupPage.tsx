@@ -250,7 +250,7 @@ export function BackupPage() {
           <span>选择备份文件</span>
           <input type="file" accept=".zip,application/zip" disabled={disabled} onChange={(event) => void selectRestoreFile(event)} />
         </label>
-        {pending === "inspect" ? <p className="status-message" role="status">正在校验备份文件...</p> : null}
+        {pending === "inspect" ? <p className="status-message" role="status">正在读取备份信息...</p> : null}
         {preview ? (
           <section className="restore-preview" role="region" aria-label="恢复预览">
             <h4>恢复预览</h4>

@@ -760,13 +760,12 @@ test("reports all supported backup versions when rejecting an unknown version", 
   await expect(inspectBackup(invalid)).rejects.toThrow("\u7248\u672c1\u3001\u7248\u672c2\u548c\u7248\u672c3");
 });
 
-test("extracts every manifest, JSON, full-photo and thumbnail payload exactly once", async () => {
+test("inspects metadata without reading photo payloads and reads every payload once during restore", async () => {
   const db = createTestDb(`backup-single-extraction-${Date.now()}`);
   await seedCompleteDatabase(db);
   const backup = await createBackup(db);
   const bytes = new Uint8Array(await backup.arrayBuffer());
-  const tracked = new RangeTrackingBlob([bytes], { type: "application/zip" });
-  const paths = [
+  const metadataPaths = [
     "manifest.json",
     "data/checklist-items.json",
     "data/templates.json",
@@ -776,17 +775,41 @@ test("extracts every manifest, JSON, full-photo and thumbnail payload exactly on
     "data/photo-groups.json",
     "data/photos.json",
     "data/settings.json",
+  ];
+  const photoPaths = [
     "photos/photo-1.jpg",
     "photos/photo-1-thumb.jpg",
   ];
 
-  await inspectBackup(tracked);
+  const inspected = new RangeTrackingBlob([bytes], { type: "application/zip" });
+  await inspectBackup(inspected);
 
-  for (const path of paths) {
+  for (const path of metadataPaths) {
     const location = testZipEntryLocation(bytes, path);
     const dataEnd = location.dataOffset + location.compressedSize;
     expect(
-      tracked.sliceRanges.filter(([start, end]) => start === location.dataOffset && end === dataEnd),
+      inspected.sliceRanges.filter(([start, end]) => start === location.dataOffset && end === dataEnd),
+      path,
+    ).toHaveLength(1);
+  }
+  for (const path of photoPaths) {
+    const location = testZipEntryLocation(bytes, path);
+    const dataEnd = location.dataOffset + location.compressedSize;
+    expect(
+      inspected.sliceRanges.filter(([start, end]) => start === location.dataOffset && end === dataEnd),
+      path,
+    ).toHaveLength(0);
+  }
+
+  const restored = new RangeTrackingBlob([bytes], { type: "application/zip" });
+  const target = createTestDb(`backup-single-extraction-target-${Date.now()}`);
+  await restoreBackup(target, restored, "replace");
+
+  for (const path of [...metadataPaths, ...photoPaths]) {
+    const location = testZipEntryLocation(bytes, path);
+    const dataEnd = location.dataOffset + location.compressedSize;
+    expect(
+      restored.sliceRanges.filter(([start, end]) => start === location.dataOffset && end === dataEnd),
       path,
     ).toHaveLength(1);
   }
