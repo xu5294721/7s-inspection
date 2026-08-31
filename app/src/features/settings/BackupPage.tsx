@@ -54,7 +54,7 @@ export function BackupPage() {
   const [pending, setPending] = useState<PendingAction>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreFile, setRestoreFile] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<BackupPreview | null>(null);
   const [confirmMode, setConfirmMode] = useState<RestoreMode | null>(null);
   const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null);
@@ -172,7 +172,14 @@ export function BackupPage() {
     if (!file) return;
     if (!beginAction("inspect")) return;
     try {
-      setPreview(await backupRepository.inspectBackup(file));
+      // Android WebView may return a content-backed File whose slice() reads do
+      // not reliably resolve. Materialize it once so ZIP parsing uses a normal Blob.
+      const bytes = typeof file.arrayBuffer === "function"
+        ? await file.arrayBuffer()
+        : await new Response(file).arrayBuffer();
+      const materialized = new Blob([bytes], { type: file.type || "application/zip" });
+      setRestoreFile(materialized);
+      setPreview(await backupRepository.inspectBackup(materialized));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "备份文件检查失败，请重新选择。");
     } finally {
