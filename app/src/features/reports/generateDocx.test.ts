@@ -555,7 +555,7 @@ test("moves an overflowing adaptive item as a complete block without shrinking i
   expect(extents[2]!.width).toBeGreaterThan(600_000);
 });
 
-test("uses fixed 78 by 58 millimeter frames for two mixed-orientation adaptive photos", async () => {
+test("fills a sparse first-page two-photo adaptive group with equal frames", async () => {
   const model = adaptiveLayoutModel(2);
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
@@ -566,11 +566,11 @@ test("uses fixed 78 by 58 millimeter frames for two mixed-orientation adaptive p
   expect(extents).toHaveLength(2);
   expect(extents).toEqual(Array.from({ length: 2 }, () => ({
     width: Math.round(78 * pxPerMm) * emuPerPx,
-    height: Math.round(58 * pxPerMm) * emuPerPx,
+    height: Math.round(110 * pxPerMm) * emuPerPx,
   })));
 });
 
-test("uses a fixed 150 by 100 millimeter frame for a sparse first-page adaptive single photo", async () => {
+test("fills a sparse first-page adaptive single photo when the next item moves to a new page", async () => {
   const model = firstPageFillModel(1, 4, true);
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
@@ -579,16 +579,15 @@ test("uses a fixed 150 by 100 millimeter frame for a sparse first-page adaptive 
   const emuPerPx = 9_525;
 
   expect(extents).toHaveLength(5);
-  expect(extents[0]).toEqual({
-    width: Math.round(150 * pxPerMm) * emuPerPx,
-    height: Math.round(100 * pxPerMm) * emuPerPx,
-  });
+  expect(extents[0]!.width).toBe(Math.round(150 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeGreaterThan(Math.round(100 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeLessThanOrEqual(Math.round(120 * pxPerMm) * emuPerPx);
   expect(new Set(extents.slice(1).map(({ width, height }) => `${width}x${height}`))).toEqual(
     new Set([`${Math.round(78 * pxPerMm) * emuPerPx}x${Math.round(58 * pxPerMm) * emuPerPx}`]),
   );
 });
 
-test("uses fixed 78 by 58 millimeter frames for first-page adaptive two-photo groups", async () => {
+test("fills a sparse first-page adaptive two-photo group when the next item moves to a new page", async () => {
   const model = firstPageFillModel(2, 4, true);
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
@@ -597,19 +596,21 @@ test("uses fixed 78 by 58 millimeter frames for first-page adaptive two-photo gr
   const emuPerPx = 9_525;
 
   expect(extents).toHaveLength(6);
-  expect(extents.slice(0, 2)).toEqual(Array.from({ length: 2 }, () => ({
+  expect(extents.slice(0, 2)).toEqual(Array.from({ length: 2 }, () => expect.objectContaining({
     width: Math.round(78 * pxPerMm) * emuPerPx,
-    height: Math.round(58 * pxPerMm) * emuPerPx,
   })));
+  expect(extents[0]!.height).toBeGreaterThan(Math.round(58 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeLessThanOrEqual(Math.round(110 * pxPerMm) * emuPerPx);
+  expect(extents[1]!.height).toBe(extents[0]!.height);
   expect(new Set(extents.slice(2).map(({ width, height }) => `${width}x${height}`))).toEqual(
     new Set([`${Math.round(78 * pxPerMm) * emuPerPx}x${Math.round(58 * pxPerMm) * emuPerPx}`]),
   );
 });
 
 test.each([
-  [1, { widthMm: 150, heightMm: 100 }],
-  [2, { widthMm: 78, heightMm: 58 }],
-] as const)("keeps %i-photo adaptive frame extents unchanged by front matter", async (photoCount, { widthMm, heightMm }) => {
+  [1, { widthMm: 150, minimumHeightMm: 100, maximumHeightMm: 120 }],
+  [2, { widthMm: 78, minimumHeightMm: 58, maximumHeightMm: 110 }],
+] as const)("keeps %i-photo adaptive frame extents bounded with or without front matter", async (photoCount, { widthMm, minimumHeightMm, maximumHeightMm }) => {
   const withoutFrontMatter = firstPageFillModel(photoCount, 4, false);
   const withFrontMatter = firstPageFillModel(photoCount, 4, true);
   const [withoutFrontMatterZip, withFrontMatterZip] = await Promise.all([
@@ -620,16 +621,18 @@ test.each([
     withoutFrontMatterZip.file("word/document.xml")!.async("string"),
     withFrontMatterZip.file("word/document.xml")!.async("string"),
   ]);
-  const expectedExtents = Array.from({ length: photoCount }, () => ({
-    width: Math.round(widthMm * 96 / 25.4) * 9_525,
-    height: Math.round(heightMm * 96 / 25.4) * 9_525,
-  }));
-
-  expect(drawingExtents(withoutFrontMatterXml).slice(0, photoCount)).toEqual(expectedExtents);
-  expect(drawingExtents(withFrontMatterXml).slice(0, photoCount)).toEqual(expectedExtents);
-  expect(drawingExtents(withoutFrontMatterXml).slice(0, photoCount)).toEqual(
-    drawingExtents(withFrontMatterXml).slice(0, photoCount),
-  );
+  const withoutFrontMatterExtents = drawingExtents(withoutFrontMatterXml).slice(0, photoCount);
+  const withFrontMatterExtents = drawingExtents(withFrontMatterXml).slice(0, photoCount);
+  const expectedWidth = Math.round(widthMm * 96 / 25.4) * 9_525;
+  const minimumHeight = Math.round(minimumHeightMm * 96 / 25.4) * 9_525;
+  const maximumHeight = Math.round(maximumHeightMm * 96 / 25.4) * 9_525;
+  for (const extents of [withoutFrontMatterExtents, withFrontMatterExtents]) {
+    expect(extents).toHaveLength(photoCount);
+    expect(new Set(extents.map(({ width }) => width))).toEqual(new Set([expectedWidth]));
+    expect(new Set(extents.map(({ height }) => height)).size).toBe(1);
+    expect(extents[0]!.height).toBeGreaterThanOrEqual(minimumHeight);
+    expect(extents[0]!.height).toBeLessThanOrEqual(maximumHeight);
+  }
 });
 
 test("uses fixed 78 by 58 millimeter frames when the sparse first-page two-photo item flows", async () => {
@@ -988,7 +991,7 @@ test("uses a centered 9 by 12 centimeter frame for a single photo", async () => 
   });
 });
 
-test("uses a fixed 150 by 100 millimeter first-page frame for a single adaptive photo", async () => {
+test("uses a bounded enlarged frame for a sparse first-page adaptive photo", async () => {
   const inspection = makeInspection({ templateVersion: 1 });
   const template = makeTemplate({
     photoLayoutMode: "adaptive",
@@ -1013,13 +1016,12 @@ test("uses a fixed 150 by 100 millimeter first-page frame for a single adaptive 
 
   expect(gridWidths).toHaveLength(1);
   expect(extent).toBeDefined();
-  expect(extent).toEqual({
-    width: Math.round(150 * pxPerMm) * emuPerPx,
-    height: Math.round(100 * pxPerMm) * emuPerPx,
-  });
+  expect(extent!.width).toBe(Math.round(150 * pxPerMm) * emuPerPx);
+  expect(extent!.height).toBeGreaterThan(Math.round(100 * pxPerMm) * emuPerPx);
+  expect(extent!.height).toBeLessThanOrEqual(Math.round(120 * pxPerMm) * emuPerPx);
 });
 
-test("uses a fixed 150 by 100 millimeter first-page frame for an extreme portrait adaptive photo", async () => {
+test("uses a bounded enlarged frame for an extreme portrait adaptive photo", async () => {
   const inspection = makeInspection({ templateVersion: 1 });
   const template = makeTemplate({
     photoLayoutMode: "adaptive",
@@ -1038,10 +1040,9 @@ test("uses a fixed 150 by 100 millimeter first-page frame for an extreme portrai
   const emuPerPx = 9_525;
   const pxPerMm = 96 / 25.4;
 
-  expect(extent).toEqual({
-    width: Math.round(150 * pxPerMm) * emuPerPx,
-    height: Math.round(100 * pxPerMm) * emuPerPx,
-  });
+  expect(extent!.width).toBe(Math.round(150 * pxPerMm) * emuPerPx);
+  expect(extent!.height).toBeGreaterThan(Math.round(100 * pxPerMm) * emuPerPx);
+  expect(extent!.height).toBeLessThanOrEqual(Math.round(120 * pxPerMm) * emuPerPx);
 });
 
 test("keeps each adaptive photo group on stable fixed frames", async () => {

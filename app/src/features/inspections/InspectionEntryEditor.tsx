@@ -39,9 +39,11 @@ function EmptyEvaluationPicker({
   onCreatePhotoGroup(category: PhotoCategory): Promise<void>;
 }) {
   const radioName = useId();
+  const [selectedCategory, setSelectedCategory] = useState<PhotoCategory>("good");
   const [pendingCategory, setPendingCategory] = useState<PhotoCategory | null>(null);
 
   async function chooseCategory(category: PhotoCategory) {
+    setSelectedCategory(category);
     setPendingCategory(category);
     try {
       await onCreatePhotoGroup(category);
@@ -60,7 +62,7 @@ function EmptyEvaluationPicker({
               type="radio"
               name={radioName}
               value={id}
-              checked={pendingCategory === id}
+              checked={selectedCategory === id}
               disabled={disabled || pendingCategory !== null}
               onChange={() => void chooseCategory(id)}
             />

@@ -35,6 +35,17 @@ test("shows the empty summary and three independent check-content comboboxes", a
   }
 });
 
+test("opens with the environment good value preselected while other categories stay optional", async () => {
+  const user = userEvent.setup();
+  renderEditor();
+
+  await user.click(screen.getByRole("button", { name: "检查内容：请选择检查内容" }));
+
+  expect(screen.getByRole("combobox", { name: "环境卫生" })).toHaveValue("干净整洁");
+  expect(screen.getByRole("combobox", { name: "物品定置" })).toHaveValue("");
+  expect(screen.getByRole("combobox", { name: "设备清洁保养" })).toHaveValue("");
+});
+
 test("offers unselected, the fixed values, and custom for every category", async () => {
   const user = userEvent.setup();
   renderEditor();
@@ -117,6 +128,7 @@ test("shows only the selected custom input, trims it, and rejects an empty value
   await user.type(custom, "  工具分类摆放  ");
   await user.click(screen.getByRole("button", { name: "确认" }));
   expect(onSave).toHaveBeenCalledWith([
+    { category: "environment", value: "干净整洁", isCustom: false },
     { category: "placement", value: "工具分类摆放", isCustom: true },
   ]);
 });

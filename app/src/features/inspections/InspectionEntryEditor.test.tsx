@@ -77,7 +77,7 @@ test("defaults a photo-free evaluation to good after saving check content", asyn
   expect(onCreatePhotoGroup).not.toHaveBeenCalled();
 });
 
-test("keeps categories unselected until each category is opened", async () => {
+test("preselects only the environment default until each other category is opened", async () => {
   const user = userEvent.setup();
   const entry = makeInspection().entries[0]!;
 
@@ -105,11 +105,11 @@ test("keeps categories unselected until each category is opened", async () => {
   await user.click(screen.getByRole("button", { name: "\u68c0\u67e5\u5185\u5bb9\uff1a\u8bf7\u9009\u62e9\u68c0\u67e5\u5185\u5bb9" }));
   const environment = screen.getByRole("combobox", { name: "\u73af\u5883\u536b\u751f" });
   const placement = screen.getByRole("combobox", { name: "\u7269\u54c1\u5b9a\u7f6e" });
+  expect(environment).toHaveValue("干净整洁");
+  expect(placement).toHaveValue("规范有序");
+  await user.selectOptions(environment, "");
   expect(environment).toHaveValue("");
-  expect(placement).toHaveValue("");
-  await user.click(environment);
-  expect(environment).toHaveValue("\u5e72\u51c0\u6574\u6d01");
-  expect(placement).toHaveValue("");
+  expect(placement).toHaveValue("规范有序");
 });
 
 test("shows all four evaluation choices when an entry has no photos or evaluation group", async () => {
@@ -140,6 +140,7 @@ test("shows all four evaluation choices when an entry has no photos or evaluatio
   expect(screen.getByRole("radio", { name: "一般表现" })).toBeVisible();
   expect(screen.getByRole("radio", { name: "提醒问题" })).toBeVisible();
   expect(screen.getByRole("radio", { name: "考核问题" })).toBeVisible();
+  expect(screen.getByRole("radio", { name: "好的方面" })).toBeChecked();
 
   await user.click(screen.getByRole("radio", { name: "考核问题" }));
   expect(onCreatePhotoGroup).toHaveBeenCalledWith("assessment");

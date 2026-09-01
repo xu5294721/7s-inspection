@@ -33,7 +33,7 @@ function createDraft(selections: readonly InspectionCheckSelection[], definition
   return Object.fromEntries(definitions.map((definition) => {
     const selection = byCategory.get(definition.category);
     return [definition.category, {
-      value: selection ? selection.isCustom ? CUSTOM_VALUE : selection.value : "",
+      value: selection ? selection.isCustom ? CUSTOM_VALUE : selection.value : definition.defaultValue ?? "",
       customValue: selection?.isCustom ? selection.value : "",
     }];
   })) as DraftSelections;

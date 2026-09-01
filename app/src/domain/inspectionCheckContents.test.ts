@@ -13,6 +13,7 @@ test("defines the inspection check categories and options in the fixed order", (
       category: "environment",
       label: "\u73af\u5883\u536b\u751f",
       options: ["\u5e72\u51c0\u6574\u6d01", "\u57fa\u672c\u6574\u6d01", "\u6e05\u626b\u4e0d\u5230\u4f4d", "\u5b58\u5728\u79ef\u7070\u6742\u7269"],
+      defaultValue: "\u5e72\u51c0\u6574\u6d01",
     },
     {
       category: "placement",
