@@ -228,14 +228,23 @@ function adaptiveColumnsForPhotoCount(model: ReportModel, photoCount: number): n
   return Math.min(adaptiveGridMaximumColumns, model.photosPerRow, photoCount);
 }
 
-function adaptiveFrameForPhotoCount(photoCount: number, heightMmOverride?: number): PhotoPlacement {
+function adaptiveFrameForPhotoCount(
+  photoCount: number,
+  heightMmOverride?: number,
+  widthMmOverride?: number,
+): PhotoPlacement {
   return {
-    width: Math.max(1, Math.round((photoCount === 1 ? adaptiveSingleFrameWidthMm : adaptiveGridFrameWidthMm) * pxPerMm)),
+    width: Math.max(1, Math.round((widthMmOverride ?? (photoCount === 1 ? adaptiveSingleFrameWidthMm : adaptiveGridFrameWidthMm)) * pxPerMm)),
     height: Math.max(1, Math.round((heightMmOverride ?? (photoCount === 1 ? adaptiveSingleFrameHeightMm : adaptiveGridFrameHeightMm)) * pxPerMm)),
   };
 }
 
-function photoTableLayout(model: ReportModel, photos: PreparedPhoto[], adaptiveHeightMm?: number): PhotoTableLayout {
+function photoTableLayout(
+  model: ReportModel,
+  photos: PreparedPhoto[],
+  adaptiveHeightMm?: number,
+  adaptiveWidthMm?: number,
+): PhotoTableLayout {
   const isSinglePhoto = photos.length === 1;
   const isAdaptive = model.photoLayoutMode === "adaptive";
   const columns = isAdaptive
@@ -254,7 +263,9 @@ function photoTableLayout(model: ReportModel, photos: PreparedPhoto[], adaptiveH
   const cellWidthMm = contentWidthMm / columns;
   const imageWidthPx = Math.max(1, Math.floor((cellWidthMm - (model.photoGapPt * 25.4 / 72)) * pxPerMm));
   const fixedImageHeightPx = Math.max(1, imageWidthPx / docxPhotoFrameAspectRatio);
-  const adaptiveFrame = isAdaptive ? adaptiveFrameForPhotoCount(photos.length, adaptiveHeightMm) : null;
+  const adaptiveFrame = isAdaptive
+    ? adaptiveFrameForPhotoCount(photos.length, adaptiveHeightMm, adaptiveWidthMm)
+    : null;
   const placements = photos.map(() => isAdaptive
     ? { ...adaptiveFrame! }
     : isSinglePhoto
@@ -474,12 +485,20 @@ function firstPageFillLayout(
 ): PhotoTableLayout | null {
   if (model.photoLayoutMode !== "adaptive" || (photos.length !== 1 && photos.length !== 2)) return null;
   const minimumHeightMm = photos.length === 1 ? adaptiveSingleFrameHeightMm : adaptiveGridFrameHeightMm;
-  const maximumHeightMm = photos.length === 1 ? 120 : 110;
+  const maximumHeightMm = photos.length === 1 ? 130 : 110;
   const fixedTwips = paragraphHeightTwips(model, groupText) + photoBlockSpacingTwips + photoBlockSafetyTwips;
   const availablePhotoTwips = Math.max(0, remainingTwips - fixedTwips);
   const availableHeightMm = availablePhotoTwips / convertMillimetersToTwip(1);
   const heightMm = Math.min(maximumHeightMm, availableHeightMm);
   if (heightMm <= minimumHeightMm) return null;
+  const contentWidthMm = a4WidthMm - model.marginMm.left - model.marginMm.right;
+  return photoTableLayout(model, photos, heightMm, photos.length === 1 ? contentWidthMm : undefined);
+}
+
+function pairedPageLayout(model: ReportModel, photos: PreparedPhoto[]): PhotoTableLayout {
+  if (model.photoLayoutMode !== "adaptive") return photoTableLayout(model, photos);
+  const rows = Math.ceil(photos.length / adaptiveColumnsForPhotoCount(model, photos.length));
+  const heightMm = 96 / Math.max(1, rows);
   return photoTableLayout(model, photos, heightMm);
 }
 
@@ -534,13 +553,7 @@ export async function generateDocx(
     pagination.consume(paragraphHeightTwips(model, model.situationHeading));
   }
 
-  const orderedPhotoGroups = model.sections.flatMap((section) => section.groups
-    .filter((group) => group.photos.length > 0)
-    .map((group) => ({
-      group,
-      sectionTitleHeight: section.title.trim() ? paragraphHeightTwips(model, section.title) : 0,
-    })));
-  let photoGroupCursor = 0;
+  let groupCursor = 0;
 
   for (const section of model.sections) {
     const firstGroup = section.groups[0];
@@ -574,46 +587,37 @@ export async function generateDocx(
     for (const group of section.groups) {
       const groupText = `${group.number}. ${group.text}`;
       const preparedPhotos = preparedPhotosForGroup(group, preparedById);
+      const isFirstGroup = groupCursor === 0;
+      const isPairStart = groupCursor > 0 && groupCursor % 2 === 1;
       const standardGroupLayout = preparedPhotos.length > 0
         ? photoTableLayout(model, preparedPhotos)
         : null;
       const groupTextHeight = paragraphHeightTwips(model, groupText);
-      const standardGroupHeight = standardGroupLayout
-        ? photoGroupBlockHeightTwips(model, groupText, standardGroupLayout)
-        : groupTextHeight;
       let groupLayout = standardGroupLayout;
       if (preparedPhotos.length > 0) {
-        const currentPhotoGroup = orderedPhotoGroups[photoGroupCursor];
-        const nextPhotoGroup = orderedPhotoGroups[photoGroupCursor + 1];
-        const nextGroupHeight = nextPhotoGroup
-          ? photoGroupBlockHeightTwips(
-            model,
-            `${nextPhotoGroup.group.number}. ${nextPhotoGroup.group.text}`,
-            photoTableLayout(model, preparedPhotosForGroup(nextPhotoGroup.group, preparedById)),
-          ) + (nextPhotoGroup.sectionTitleHeight !== currentPhotoGroup?.sectionTitleHeight ? nextPhotoGroup.sectionTitleHeight : 0)
-          : 0;
-        const nextGroupFits = Boolean(nextPhotoGroup && standardGroupHeight + nextGroupHeight <= pagination.remainingHeightTwips());
-        if (photoGroupCursor === 0 && pagination.isFirstPage() && !nextGroupFits) {
+        if (isFirstGroup && pagination.isFirstPage()) {
           groupLayout = firstPageFillLayout(
             model,
             preparedPhotos,
             groupText,
             pagination.remainingHeightTwips(),
           ) ?? standardGroupLayout;
+        } else if (!isFirstGroup) {
+          groupLayout = pairedPageLayout(model, preparedPhotos);
         }
-        photoGroupCursor += 1;
       }
       const groupHeight = groupLayout
         ? photoGroupBlockHeightTwips(model, groupText, groupLayout)
         : groupTextHeight;
       const groupPageBreak = Boolean(
-        preparedPhotos.length > 0 && pagination.shouldBreakBefore(groupHeight),
+        (isPairStart || (preparedPhotos.length > 0 && pagination.shouldBreakBefore(groupHeight))),
       );
       children.push(groupLayout
         ? photoGroupBlock(model, groupText, preparedPhotos, groupLayout, groupPageBreak)
         : bodyParagraph(model, groupText, { firstLineIndent: true }));
       if (groupPageBreak) pagination.startNewPage();
       pagination.consume(groupHeight);
+      groupCursor += 1;
     }
   }
 

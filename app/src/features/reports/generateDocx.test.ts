@@ -579,11 +579,11 @@ test("fills a sparse first-page adaptive single photo when the next item moves t
   const emuPerPx = 9_525;
 
   expect(extents).toHaveLength(5);
-  expect(extents[0]!.width).toBe(Math.round(150 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.width).toBe(Math.round(166 * pxPerMm) * emuPerPx);
   expect(extents[0]!.height).toBeGreaterThan(Math.round(100 * pxPerMm) * emuPerPx);
-  expect(extents[0]!.height).toBeLessThanOrEqual(Math.round(120 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeLessThanOrEqual(Math.round(130 * pxPerMm) * emuPerPx);
   expect(new Set(extents.slice(1).map(({ width, height }) => `${width}x${height}`))).toEqual(
-    new Set([`${Math.round(78 * pxPerMm) * emuPerPx}x${Math.round(58 * pxPerMm) * emuPerPx}`]),
+    new Set([`${Math.round(78 * pxPerMm) * emuPerPx}x${Math.round(48 * pxPerMm) * emuPerPx}`]),
   );
 });
 
@@ -603,12 +603,12 @@ test("fills a sparse first-page adaptive two-photo group when the next item move
   expect(extents[0]!.height).toBeLessThanOrEqual(Math.round(110 * pxPerMm) * emuPerPx);
   expect(extents[1]!.height).toBe(extents[0]!.height);
   expect(new Set(extents.slice(2).map(({ width, height }) => `${width}x${height}`))).toEqual(
-    new Set([`${Math.round(78 * pxPerMm) * emuPerPx}x${Math.round(58 * pxPerMm) * emuPerPx}`]),
+    new Set([`${Math.round(78 * pxPerMm) * emuPerPx}x${Math.round(48 * pxPerMm) * emuPerPx}`]),
   );
 });
 
 test.each([
-  [1, { widthMm: 150, minimumHeightMm: 100, maximumHeightMm: 120 }],
+  [1, { widthMm: 166, minimumHeightMm: 100, maximumHeightMm: 130 }],
   [2, { widthMm: 78, minimumHeightMm: 58, maximumHeightMm: 110 }],
 ] as const)("keeps %i-photo adaptive frame extents bounded with or without front matter", async (photoCount, { widthMm, minimumHeightMm, maximumHeightMm }) => {
   const withoutFrontMatter = firstPageFillModel(photoCount, 4, false);
@@ -635,7 +635,7 @@ test.each([
   }
 });
 
-test("uses fixed 78 by 58 millimeter frames when the sparse first-page two-photo item flows", async () => {
+test("uses enlarged first-page frames and paired frames when the sparse two-photo item flows", async () => {
   const baseModel = firstPageFillModel(2, 1, false);
   const model = {
     ...baseModel,
@@ -653,11 +653,11 @@ test("uses fixed 78 by 58 millimeter frames when the sparse first-page two-photo
   expect(extents).toHaveLength(3);
   expect(extents.slice(0, 2)).toEqual(Array.from({ length: 2 }, () => ({
     width: Math.round(78 * pxPerMm) * emuPerPx,
-    height: Math.round(58 * pxPerMm) * emuPerPx,
+    height: Math.round(110 * pxPerMm) * emuPerPx,
   })));
 });
 
-test("uses a fixed frame when a following photo item still fits on the first page", async () => {
+test("starts the second item on a new page for the two-item page rule", async () => {
   const model = firstPageFillModel(1, 1, false);
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
@@ -665,11 +665,9 @@ test("uses a fixed frame when a following photo item still fits on the first pag
   const pxPerMm = 96 / 25.4;
   const emuPerPx = 9_525;
 
-  expect(extents[0]).toEqual({
-    width: Math.round(150 * pxPerMm) * emuPerPx,
-    height: Math.round(100 * pxPerMm) * emuPerPx,
-  });
-  expect(paragraphContaining(documentXml, "2. 后续照片项点说明。")).not.toContain("<w:pageBreakBefore/>");
+  expect(extents[0]!.width).toBe(Math.round(166 * pxPerMm) * emuPerPx);
+  expect(extents[0]!.height).toBeLessThanOrEqual(Math.round(130 * pxPerMm) * emuPerPx);
+  expect(paragraphContaining(documentXml, "2. 后续照片项点说明。")).toContain("<w:pageBreakBefore/>");
 });
 
 test("keeps a fixed frame after the report has flowed past page one", async () => {
@@ -762,7 +760,7 @@ test("continues with another one-photo item when a three-photo item fits", async
   const zip = await JSZip.loadAsync(await generateDocx(model, () => undefined));
   const documentXml = await zip.file("word/document.xml")!.async("string");
 
-  expect(paragraphContaining(documentXml, "2. 后续一张照片项点说明。")).not.toContain("<w:pageBreakBefore/>");
+  expect(paragraphContaining(documentXml, "2. 后续一张照片项点说明。")).toContain("<w:pageBreakBefore/>");
 });
 
 test("uses a two-column two-row adaptive grid for four photos", async () => {
@@ -873,7 +871,7 @@ test("moves an adaptive portrait photo to the next page instead of making it tin
   expect(extents).toHaveLength(3);
   expect(extents[2]).toEqual({
     width: Math.round(150 * pxPerMm) * emuPerPx,
-    height: Math.round(100 * pxPerMm) * emuPerPx,
+    height: Math.round(96 * pxPerMm) * emuPerPx,
   });
 });
 
@@ -1016,9 +1014,9 @@ test("uses a bounded enlarged frame for a sparse first-page adaptive photo", asy
 
   expect(gridWidths).toHaveLength(1);
   expect(extent).toBeDefined();
-  expect(extent!.width).toBe(Math.round(150 * pxPerMm) * emuPerPx);
+  expect(extent!.width).toBe(Math.round(166 * pxPerMm) * emuPerPx);
   expect(extent!.height).toBeGreaterThan(Math.round(100 * pxPerMm) * emuPerPx);
-  expect(extent!.height).toBeLessThanOrEqual(Math.round(120 * pxPerMm) * emuPerPx);
+  expect(extent!.height).toBeLessThanOrEqual(Math.round(130 * pxPerMm) * emuPerPx);
 });
 
 test("uses a bounded enlarged frame for an extreme portrait adaptive photo", async () => {
@@ -1040,9 +1038,9 @@ test("uses a bounded enlarged frame for an extreme portrait adaptive photo", asy
   const emuPerPx = 9_525;
   const pxPerMm = 96 / 25.4;
 
-  expect(extent!.width).toBe(Math.round(150 * pxPerMm) * emuPerPx);
+  expect(extent!.width).toBe(Math.round(166 * pxPerMm) * emuPerPx);
   expect(extent!.height).toBeGreaterThan(Math.round(100 * pxPerMm) * emuPerPx);
-  expect(extent!.height).toBeLessThanOrEqual(Math.round(120 * pxPerMm) * emuPerPx);
+  expect(extent!.height).toBeLessThanOrEqual(Math.round(130 * pxPerMm) * emuPerPx);
 });
 
 test("keeps each adaptive photo group on stable fixed frames", async () => {
@@ -1091,7 +1089,7 @@ test("keeps each adaptive photo group on stable fixed frames", async () => {
   expect(`${extents[0]!.width}x${extents[0]!.height}`).not.toBe(`${extents[1]!.width}x${extents[1]!.height}`);
 });
 
-test("uses 78 by 58 millimeter frames for ordinary adaptive groups with two to four photos", async () => {
+test("uses paired adaptive frame heights for ordinary groups with two to four photos", async () => {
   const emuPerPx = 9_525;
   const pxPerMm = 96 / 25.4;
   const expectedWidth = Math.round(78 * pxPerMm) * emuPerPx;
@@ -1101,9 +1099,10 @@ test("uses 78 by 58 millimeter frames for ordinary adaptive groups with two to f
     const documentXml = await zip.file("word/document.xml")!.async("string");
     const followingGroupExtents = drawingExtents(documentXml).slice(1);
 
+    const expectedHeightMm = photoCount === 2 ? 96 : 48;
     expect(followingGroupExtents).toEqual(Array.from({ length: photoCount }, () => ({
       width: expectedWidth,
-      height: Math.round(58 * pxPerMm) * emuPerPx,
+      height: Math.round(expectedHeightMm * pxPerMm) * emuPerPx,
     })));
   }
 });
