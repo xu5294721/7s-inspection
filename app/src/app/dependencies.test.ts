@@ -27,17 +27,18 @@ function malformedRouteTemplate(
   };
 }
 
-test("initializes the stable 39-route catalog in order and creates its default template", async () => {
+test("initializes the 57-item catalog and both default and saved route templates", async () => {
   const database = createTestDb(`route-catalog-empty-${Date.now()}`);
   const dependencies = createAppDependencies(database);
 
   await initializeApp(dependencies);
 
   const items = await dependencies.itemRepository.listEnabled();
-  expect(items).toHaveLength(39);
-  expect(items.map((item) => item.id)).toEqual(
+  expect(items).toHaveLength(57);
+  expect(items.slice(0, 39).map((item) => item.id)).toEqual(
     Array.from({ length: 39 }, (_, index) => `core-route-${String(index + 1).padStart(2, "0")}`),
   );
+  expect(items.slice(39)).toHaveLength(18);
   expect(items[30]).toMatchObject({
     routeName: "焊后间与门吊之间区域",
     area: "焊后间与门吊之间区域",
@@ -47,8 +48,13 @@ test("initializes the stable 39-route catalog in order and creates its default t
   });
   expect((await dependencies.routeTemplateRepository.list())[0]).toMatchObject({
     id: "route-template-default",
-    itemIds: items.map((item) => item.id),
+    itemIds: items.slice(0, 39).map((item) => item.id),
     isDefault: true,
+  });
+  expect((await dependencies.routeTemplateRepository.list()).find((template) => template.name === "20260814"))
+    .toMatchObject({ itemIds: expect.arrayContaining(["custom-route-04908603-7bc0-4a4b-a0b4-2ce1d1d63f0c"]) });
+  expect(await dependencies.inspectionCheckTemplateRepository.get()).toMatchObject({
+    definitions: [{ category: "environment", defaultValue: "清扫较好", options: ["清扫较好", "清扫不到位", "存在积灰杂物", "干净整洁", "基本整洁"] }],
   });
 });
 
@@ -300,10 +306,10 @@ test("renames later recovered legacy routes when two edited v1 rows share a norm
     version: 3,
     name: "正式巡检通报模板",
     sections: [
-      { category: "good", title: "好的方面", order: 0 },
+      { category: "good", title: "好的方面：", order: 0 },
       { category: "general", title: "一般表现", order: 1 },
-      { category: "reminder", title: "提醒问题", order: 2 },
-      { category: "assessment", title: "考核问题", order: 3 },
+      { category: "reminder", title: "本次仅做提醒问题：", order: 2 },
+      { category: "assessment", title: "考核问题：", order: 3 },
     ],
   }));
 
@@ -492,14 +498,23 @@ test("seeds immutable formal template v3 and binds new inspections without repla
       { category: "assessment", title: "考核问题", order: 3 },
     ],
   });
-  expect(await database.templates.count()).toBe(3);
+  expect(await database.templates.count()).toBe(4);
   expect(createInspection([makeChecklistItem()], "new-inspection", "2026-07-29")).toMatchObject({
     templateId: "template-default",
     templateVersion: 3,
   });
+  expect(await new TemplateRepository(database).getLatest("template-default")).toMatchObject({
+    version: 12,
+    sections: [
+      { category: "good", title: "好的方面：", order: 0 },
+      { category: "general", title: "一般表现", order: 1 },
+      { category: "reminder", title: "本次仅做提醒问题：", order: 2 },
+      { category: "assessment", title: "考核问题：", order: 3 },
+    ],
+  });
 });
 
-test("migrates a legacy three-category v3 template and rebinds active drafts for general photos", async () => {
+test("keeps legacy report templates and rebinds active drafts to the bundled v12 template", async () => {
   const database = createTestDb(`legacy-report-template-migration-${Date.now()}`);
   const legacyTemplate = makeTemplate({
     version: 3,
@@ -540,23 +555,28 @@ test("migrates a legacy three-category v3 template and rebinds active drafts for
   const templates = new TemplateRepository(database);
   const latest = await templates.getLatest("template-default");
   expect(await templates.get("template-default", 3)).toEqual(legacyTemplate);
-  expect(latest).toMatchObject({
-    version: 4,
-    name: legacyTemplate.name,
-    titlePattern: legacyTemplate.titlePattern,
-    sections: [
-      { category: "good", title: "保留好的方面", order: 0 },
-      { category: "general", title: "一般表现", order: 1 },
-      { category: "reminder", title: "保留提醒问题", order: 2 },
-      { category: "assessment", title: "保留考核问题", order: 3 },
-    ],
-  });
+  expect(latest).toMatchObject({ version: 12, sections: expect.arrayContaining([
+    { category: "general", title: "一般表现", order: 1 },
+  ]) });
 
   const restored = await new InspectionRepository(database).getGraph(inspection.id);
-  expect(restored?.inspection.templateVersion).toBe(4);
+  expect(restored?.inspection.templateVersion).toBe(12);
   await expect(new InspectionRepository(database).getReadyGraphForGeneration(inspection.id)).resolves.toMatchObject({
-    template: expect.objectContaining({ version: 4 }),
+    template: expect.objectContaining({ version: 12 }),
   });
+});
+
+test("installs backup custom route items and route template as initial catalog data", async () => {
+  const database = createTestDb(`v1125-route-config-${Date.now()}`);
+  await ensureRouteCatalog(database, "2026-10-19T00:00:00.000Z");
+
+  expect(await database.checklistItems.count()).toBe(57);
+  expect(await database.checklistItems.get("custom-route-04908603-7bc0-4a4b-a0b4-2ce1d1d63f0c"))
+    .toMatchObject({ routeName: "精铣间休室", enabled: true });
+  expect(await database.routeTemplates.get("route-template-ac9f12bd-fea9-4b2c-b859-83cc006f7c23"))
+    .toMatchObject({ name: "20260814", isDefault: false, itemIds: expect.arrayContaining([
+      "custom-route-04908603-7bc0-4a4b-a0b4-2ce1d1d63f0c",
+    ]) });
 });
 
 test("exposes one controlled report-generation path without raw packaging or status ports", () => {

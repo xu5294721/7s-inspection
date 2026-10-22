@@ -1521,6 +1521,55 @@ describe("InspectionRepository", () => {
     expect(restored?.inspection.status).toBe("draft");
   });
 
+  test("replaces an entry evaluation while keeping all photos in their original order", async () => {
+    const db = testDb("replace-entry-evaluation");
+    const repository = new InspectionRepository(db);
+    const graph = makeTwoGroupGraph();
+    const entry = graph.inspection.entries[0]!;
+    await new TemplateRepository(db).save(makeTemplate());
+    await repository.saveGraph(graph);
+
+    await repository.replaceEntryEvaluation("entry-1", {
+      ...graph.groups[0]!,
+      category: "reminder",
+      description: "一线除锈机存在7S管理不到位问题，本次予以提醒。",
+      awardAssessment: null,
+    });
+
+    const restored = await repository.getGraph("inspection-1");
+    expect(restored?.inspection.entries[0]?.groupIds).toEqual(["group-1"]);
+    expect(restored?.groups).toHaveLength(1);
+    expect(restored?.groups[0]).toMatchObject({
+      id: "group-1",
+      entryId: entry.id,
+      category: "reminder",
+      photoIds: ["photo-1", "photo-2", "photo-3"],
+      order: 0,
+    });
+    expect(restored?.photos.map((photo) => [photo.id, photo.groupId, photo.order])).toEqual([
+      ["photo-1", "group-1", 0],
+      ["photo-2", "group-1", 1],
+      ["photo-3", "group-1", 2],
+    ]);
+    const report = buildReportModel(restored!, makeTemplate());
+    expect(report.sections.map((section) => section.category)).toEqual(["reminder"]);
+    expect(report.sections[0]?.groups[0]?.photos.map((photo) => photo.id)).toEqual([
+      "photo-1",
+      "photo-2",
+      "photo-3",
+    ]);
+
+    const appended = await repository.addPhotoToGoodGroup(
+      "entry-1",
+      makePhoto(undefined, { id: "photo-4", groupId: "group-new" }),
+      "group-new",
+    );
+    expect(appended.group).toMatchObject({
+      category: "reminder",
+      photoIds: ["photo-1", "photo-2", "photo-3", "photo-4"],
+    });
+  });
+
   test("rejects an empty evaluation group for a missing entry or duplicate group id", async () => {
     const db = testDb("empty-evaluation-group-integrity");
     const repository = new InspectionRepository(db);
@@ -2229,8 +2278,8 @@ describe("TemplateRepository", () => {
         { category: "assessment", title: "考核问题", order: 3 },
       ],
     });
-    expect(await repository.getLatest("template-default")).toEqual(version3);
-    expect(await db.templates.count()).toBe(3);
+    expect(await repository.getLatest("template-default")).toMatchObject({ version: 12 });
+    expect(await db.templates.count()).toBe(4);
   });
 });
 

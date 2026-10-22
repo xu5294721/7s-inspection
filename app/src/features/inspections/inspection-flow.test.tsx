@@ -16,7 +16,7 @@ test("initializes the stable route catalog even when the item library has user-c
   const firstView = renderWithRouter({ database: emptyDatabase });
 
   await screen.findByText("开始巡检");
-  expect(await emptyDatabase.checklistItems.count()).toBe(39);
+  expect(await emptyDatabase.checklistItems.count()).toBe(57);
   firstView.unmount();
 
   const existingDatabase = createTestDb(`seed-existing-${Date.now()}`);
@@ -25,7 +25,7 @@ test("initializes the stable route catalog even when the item library has user-c
   renderWithRouter({ database: existingDatabase });
 
   await screen.findByText("开始巡检");
-  expect(await existingDatabase.checklistItems.count()).toBe(40);
+  expect(await existingDatabase.checklistItems.count()).toBe(58);
   expect(await items.get("user-item")).toMatchObject({ routeName: "用户路线" });
 });
 
@@ -153,6 +153,34 @@ test("classifying an item without a photo marks it complete and survives reload"
   expect(reloadedSummary).toHaveAttribute("data-complete", "true");
   await user.click(reloadedSummary);
   expect(await screen.findByRole("radio", { name: "一般表现" })).toBeChecked();
+});
+
+test("reclassifies every photo for an item when its evaluation changes", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`replace-inspection-evaluation-${Date.now()}`);
+  const base = makeInspection();
+  const entry = { ...base.entries[0]!, groupIds: ["group-1", "group-2"] };
+  await new InspectionRepository(database).saveGraph({
+    inspection: { ...base, entries: [entry] },
+    groups: [
+      makePhotoGroup({ id: "group-1", entryId: entry.id, photoIds: ["photo-1"] }),
+      makePhotoGroup({ id: "group-2", entryId: entry.id, category: "good", photoIds: ["photo-2"], order: 1 }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: "photo-1", groupId: "group-1" }),
+      makePhoto(undefined, { id: "photo-2", groupId: "group-2" }),
+    ],
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1" });
+  await user.click(await screen.findByRole("button", { name: /焊机间/ }));
+  await user.selectOptions(await screen.findByRole("combobox", { name: "整项评价" }), "reminder");
+
+  await waitFor(async () => {
+    const graph = await new InspectionRepository(database).getGraph("inspection-1");
+    expect(graph?.groups).toHaveLength(1);
+    expect(graph?.groups[0]).toMatchObject({ category: "reminder", photoIds: ["photo-1", "photo-2"] });
+  });
 });
 
 test("renames the current inspection item without changing its evidence", async () => {
@@ -628,10 +656,12 @@ test("adds a one-field temporary item, clears search, and restores it after relo
   await user.type(nameInput, "  临时配电间  ");
   await user.click(within(dialog).getByRole("button", { name: "保存" }));
 
-  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "新增本次检查项" })).not.toBeInTheDocument());
   expect(search).toHaveValue("");
   const temporaryItem = await screen.findByRole("button", { name: /临时配电间未完成/ });
   expect(temporaryItem).toBeVisible();
+  expect(await screen.findByRole("dialog", { name: "检查项：临时配电间" })).toBeVisible();
+  expect(screen.queryByRole("dialog", { name: "新增本次检查项" })).not.toBeInTheDocument();
   const stored = await new InspectionRepository(database).getGraph("inspection-1");
   expect(stored?.inspection.entries.at(-1)?.itemSnapshot.routeName).toBe("临时配电间");
   expect(await database.checklistItems.count()).toBe(itemCountBefore);
@@ -790,7 +820,7 @@ test("prevents closing, reopening, and duplicate submission while a temporary it
     },
     updatedAt: "2026-07-30T10:00:00.000Z",
   });
-  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(await screen.findByRole("dialog", { name: "检查项：临时配电间" })).toBeVisible();
   save.mockRestore();
 });
 

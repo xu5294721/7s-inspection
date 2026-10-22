@@ -297,6 +297,7 @@ test("keeps successful create and edit visible without a second template list re
   expect(templateList).toHaveBeenCalledTimes(1);
   expect(Array.from(document.querySelectorAll(".route-template-list__summary strong"), (element) => element.textContent)).toEqual([
     "默认模板",
+    "20260814",
     "Alpha",
     "Zulu",
   ]);

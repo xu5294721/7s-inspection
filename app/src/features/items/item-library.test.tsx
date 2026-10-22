@@ -58,7 +58,7 @@ test("shows an Excel import preview before applying library mutations", async ()
   fireEvent.change(await screen.findByLabelText("导入Excel项点库"), { target: { files: [file] } });
   expect(await screen.findByRole("heading", { name: "导入预览" })).toBeVisible();
   expect(screen.getByText(/新增 1/)).toBeVisible();
-  expect(await database.checklistItems.count()).toBe(40);
+  expect(await database.checklistItems.count()).toBe(58);
   const pending = deferred<void>();
   const originalBulkPut = ItemRepository.prototype.bulkPut;
   const bulkPut = vi.spyOn(ItemRepository.prototype, "bulkPut").mockImplementationOnce(async function (this: ItemRepository, items) {
@@ -71,7 +71,7 @@ test("shows an Excel import preview before applying library mutations", async ()
   await user.click(confirmImport);
   expect(bulkPut).toHaveBeenCalledTimes(1);
   pending.resolve();
-  await waitFor(async () => expect(await database.checklistItems.count()).toBe(41));
+  await waitFor(async () => expect(await database.checklistItems.count()).toBe(59));
   expect(await database.checklistItems.get("unrelated-item")).toEqual(existing);
   bulkPut.mockRestore();
   view.unmount();

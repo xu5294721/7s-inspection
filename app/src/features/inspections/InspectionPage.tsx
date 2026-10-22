@@ -12,7 +12,7 @@ import type {
   PhotoCategory,
   PhotoGroup,
 } from "../../domain/models";
-import { splitPhotoIntoGroup } from "../../domain/inspection";
+import { descriptionForCategory, splitPhotoIntoGroup } from "../../domain/inspection";
 import { createBrowserUuid } from "../../lib/ids";
 import { processImage } from "../../lib/images/compressImage";
 import { saveCapturedPhotoToGallery } from "../../platform/nativeFile";
@@ -498,6 +498,29 @@ export function InspectionPage() {
     }
   }
 
+  async function replaceEntryEvaluation(entryId: string, category: PhotoCategory) {
+    if (!graph) return;
+    const entry = graph.inspection.entries.find((current) => current.id === entryId);
+    const group = graph.groups
+      .filter((current) => current.entryId === entryId)
+      .sort((left, right) => left.order - right.order)[0];
+    if (!entry || !group) return;
+    const evaluation = {
+      ...group,
+      category,
+      description: descriptionForCategory(checklistItemForEntry(entry, graph), category),
+      descriptionManuallyEdited: false,
+      awardAssessment: null,
+    };
+    setPhotoError("");
+    try {
+      const updatedGraph = await inspectionRepository.replaceEntryEvaluation(entryId, evaluation);
+      setGraph((current) => current?.inspection.id === updatedGraph.inspection.id ? updatedGraph : current);
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "评价保存失败");
+    }
+  }
+
   async function splitGroupPhoto(
     group: PhotoGroup,
     item: ChecklistItem,
@@ -566,7 +589,7 @@ export function InspectionPage() {
           },
         };
       });
-      setActiveEntryId(null);
+      setActiveEntryId(result.entry.id);
       setQuery("");
       setTemporaryDialogOpen(false);
     } finally {
@@ -907,6 +930,7 @@ export function InspectionPage() {
             onSaveCheckSelections={(selections) => saveEntryCheckSelections(entry.id, selections)}
             onCreatePhotoGroup={(category) => createEvaluationGroup(entry.id, category)}
             onSavePhotoGroup={savePhotoGroup}
+            onReplaceEntryEvaluation={(category) => replaceEntryEvaluation(entry.id, category)}
             onSplit={(group, photoId, category) => splitGroupPhoto(group, checklistItem, photoId, category)}
             onPhotoSave={savePhotoAnnotation}
             onDeletePhoto={(photoId) => void deletePhoto(photoId)}

@@ -126,7 +126,7 @@ test("reopens the new-inspection page with the previously used template selected
   firstView.unmount();
 
   const secondView = renderWithRouter({ database, initialPath: "/inspections/new" });
-  expect(await screen.findAllByRole("checkbox")).toHaveLength(39);
+  expect(await screen.findAllByRole("checkbox")).toHaveLength(57);
   expect(screen.getByRole("combobox", { name: "检查路线模板" })).toHaveValue("route-template-night");
   expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(2);
   secondView.unmount();
@@ -137,7 +137,7 @@ test("falls back to the default template when the remembered template no longer 
   window.localStorage.setItem("lastUsedRouteTemplateId", "route-template-deleted");
   const view = renderWithRouter({ database, initialPath: "/inspections/new" });
 
-  expect(await screen.findAllByRole("checkbox")).toHaveLength(39);
+  expect(await screen.findAllByRole("checkbox")).toHaveLength(57);
   expect(screen.getByRole("combobox", { name: "检查路线模板" })).toHaveValue("route-template-default");
   expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(39);
   view.unmount();
@@ -174,7 +174,7 @@ test("loads the default template's 39 enabled inspection items", async () => {
   const database = await prepareDatabase();
   const view = renderWithRouter({ database, initialPath: "/inspections/new" });
 
-  expect(await screen.findAllByRole("checkbox")).toHaveLength(39);
+  expect(await screen.findAllByRole("checkbox")).toHaveLength(57);
   expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(39);
   expect(screen.getByRole("button", { name: "开始检查" })).toBeEnabled();
   view.unmount();
@@ -218,7 +218,7 @@ test("select all and clear all control the temporary item selection and start av
   expect(screen.getByRole("button", { name: "开始检查" })).toBeDisabled();
 
   await user.click(screen.getByRole("button", { name: "全选" }));
-  expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(39);
+  expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(57);
   expect(screen.getByRole("button", { name: "开始检查" })).toBeEnabled();
   view.unmount();
 });
@@ -239,7 +239,7 @@ test("adds one custom route atomically to the active template and selects it for
     expect(item).toBeDefined();
     return item!;
   });
-  expect(customItem.routeOrder).toBe(40);
+  expect(customItem.routeOrder).toBe(58);
   expect(screen.getByRole("checkbox", { name: "临时新增区域" })).toBeChecked();
   expect((await new RouteTemplateRepository(database).get("route-template-default"))?.itemIds).toContain(customItem.id);
   view.unmount();

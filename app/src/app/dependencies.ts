@@ -39,6 +39,7 @@ import type { GeneratedReport } from "../features/reports/reportGenerationServic
 import { downloadReport, shareOrDownloadReport, type ReportOutputResult } from "../features/reports/reportOutput";
 import { createBrowserUuid } from "../lib/ids";
 import { ensureRouteCatalog } from "./routeCatalogMigration";
+import v1125DefaultConfigJson from "../data/v1.1.25-default-config.json";
 
 export interface ItemRepositoryPort {
   listEnabled(): Promise<ChecklistItem[]>;
@@ -95,6 +96,7 @@ export interface InspectionRepositoryPort {
   replacePhoto(photo: PhotoAsset): Promise<void>;
   deletePhoto(photoId: string): Promise<void>;
   updatePhotoGroup(group: PhotoGroup): Promise<void>;
+  replaceEntryEvaluation(entryId: string, evaluation: PhotoGroup): Promise<InspectionGraph>;
   splitPhoto(photoId: string, createdGroup: PhotoGroup): Promise<void>;
   updatePhotoAnnotation(photoId: string, annotationJson: string | null): Promise<void>;
   reorderGroups(inspectionId: string, orderedGroupIds: string[]): Promise<void>;
@@ -292,6 +294,10 @@ const fourCategoryFormalReportTemplate: ReportTemplate = {
   ],
 };
 
+const v1125ReportTemplate = (v1125DefaultConfigJson as {
+  latestReportTemplate: ReportTemplate;
+}).latestReportTemplate;
+
 export function createAppDependencies(
   database: SevenSDb,
   options: DependencyOptions = {},
@@ -318,6 +324,7 @@ export function createAppDependencies(
     replacePhoto: (photo) => repository.replacePhoto(photo),
     deletePhoto: (photoId) => repository.deletePhoto(photoId),
     updatePhotoGroup: (group) => repository.updatePhotoGroup(group),
+    replaceEntryEvaluation: (entryId, evaluation) => repository.replaceEntryEvaluation(entryId, evaluation),
     splitPhoto: (photoId, createdGroup) => repository.splitPhoto(photoId, createdGroup),
     updatePhotoAnnotation: (photoId, annotationJson) => repository.updatePhotoAnnotation(photoId, annotationJson),
     reorderGroups: (inspectionId, orderedGroupIds) => repository.reorderGroups(inspectionId, orderedGroupIds),
@@ -376,6 +383,7 @@ export async function initializeApp(dependencies: AppDependencies): Promise<void
     dependencies.templateRepository.seedIfMissing(defaultReportTemplate),
     dependencies.templateRepository.seedIfMissing(formalReportTemplate),
     dependencies.templateRepository.seedIfMissing(fourCategoryFormalReportTemplate),
+    dependencies.templateRepository.seedIfMissing(v1125ReportTemplate),
   ]);
 
   const templates = await dependencies.templateRepository.listVersions(DEFAULT_REPORT_TEMPLATE_ID);

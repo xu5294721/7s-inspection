@@ -1,4 +1,5 @@
 import defaultChecklistItemsJson from "../data/default-checklist-items.json";
+import v1125DefaultConfigJson from "../data/v1.1.25-default-config.json";
 import { createCoreInspectionItems } from "../data/core-inspection-items";
 import type { ChecklistItem, InspectionRouteTemplate } from "../domain/models";
 import { DEFAULT_ROUTE_TEMPLATE_NAME, normalizeRouteName } from "../domain/routeNames";
@@ -10,6 +11,10 @@ const DEFAULT_ROUTE_TEMPLATE_ID = "route-template-default";
 const legacyItemsById = new Map(
   (defaultChecklistItemsJson as ChecklistItem[]).map((item) => [item.id, item]),
 );
+const v1125DefaultConfig = v1125DefaultConfigJson as {
+  customItems: ChecklistItem[];
+  customRouteTemplate: InspectionRouteTemplate;
+};
 
 export interface RouteCatalogMigrationResult {
   inserted: number;
@@ -197,6 +202,13 @@ export async function ensureRouteCatalog(
       });
     if (missingCoreItems.length > 0) await db.checklistItems.bulkAdd(missingCoreItems);
 
+    const currentItemIds = new Set((await db.checklistItems.toArray()).map((item) => item.id));
+    const missingConfiguredItems = v1125DefaultConfig.customItems
+      .filter((item) => !currentItemIds.has(item.id));
+    if (missingConfiguredItems.length > 0) {
+      await db.checklistItems.bulkAdd(missingConfiguredItems);
+    }
+
     if (needsCatalogUpgrade) {
       const nameRepairs = repairEnabledRouteNameConflicts(
         await db.checklistItems.toArray(),
@@ -271,6 +283,10 @@ export async function ensureRouteCatalog(
       const newDefault = repairedTemplates.find((template) => template.id === DEFAULT_ROUTE_TEMPLATE_ID);
       if (!newDefault) throw new Error("默认路线模板修复失败。");
       await db.routeTemplates.add(newDefault);
+    }
+
+    if (!(await db.routeTemplates.get(v1125DefaultConfig.customRouteTemplate.id))) {
+      await db.routeTemplates.add(v1125DefaultConfig.customRouteTemplate);
     }
 
     return {

@@ -1259,3 +1259,31 @@ test("opens title sorting and editing dialogs for completed route names", async 
   expect(screen.getByRole("button", { name: /检查内容/ })).toBeVisible();
   expect(screen.getByLabelText("相册文件")).toBeVisible();
 });
+
+test("reclassifies all item photos when changing evaluation in review editing", async () => {
+  const user = userEvent.setup();
+  const database = createTestDb(`replace-review-evaluation-${Date.now()}`);
+  const base = makeInspection();
+  const entry = { ...base.entries[0]!, groupIds: ["group-1", "group-2"] };
+  await new InspectionRepository(database).saveGraph({
+    inspection: { ...base, entries: [entry] },
+    groups: [
+      makePhotoGroup({ id: "group-1", entryId: entry.id, photoIds: ["photo-1"] }),
+      makePhotoGroup({ id: "group-2", entryId: entry.id, category: "good", photoIds: ["photo-2"], order: 1 }),
+    ],
+    photos: [
+      makePhoto(undefined, { id: "photo-1", groupId: "group-1" }),
+      makePhoto(undefined, { id: "photo-2", groupId: "group-2" }),
+    ],
+  });
+
+  renderWithRouter({ database, initialPath: "/inspections/inspection-1/review" });
+  await user.click(await screen.findByRole("button", { name: `编辑 ${entry.itemSnapshot.routeName}` }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "整项评价" }), "reminder");
+
+  await waitFor(async () => {
+    const graph = await new InspectionRepository(database).getGraph("inspection-1");
+    expect(graph?.groups).toHaveLength(1);
+    expect(graph?.groups[0]).toMatchObject({ category: "reminder", photoIds: ["photo-1", "photo-2"] });
+  });
+});

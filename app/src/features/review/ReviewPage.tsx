@@ -277,6 +277,30 @@ export function ReviewPage() {
     }
   }
 
+  async function replaceEditEntryEvaluation(entryId: string, category: PhotoCategory) {
+    if (!graph) return;
+    const entry = graph.inspection.entries.find((current) => current.id === entryId);
+    const group = graph.groups
+      .filter((current) => current.entryId === entryId)
+      .sort((left, right) => left.order - right.order)[0];
+    if (!entry || !group) return;
+    setEditError("");
+    try {
+      await inspectionRepository.replaceEntryEvaluation(entryId, {
+        ...group,
+        category,
+        description: descriptionForCategory(checklistItemForEntry(entry, graph), category),
+        descriptionManuallyEdited: false,
+        awardAssessment: null,
+      });
+      await refreshGraph();
+    } catch (error) {
+      const failure = error instanceof Error ? error : new Error("评价保存失败");
+      setEditError(failure.message);
+      throw failure;
+    }
+  }
+
   async function splitEditPhoto(group: PhotoGroup, item: ChecklistItem, photoId: string, category: PhotoCategory) {
     setEditError("");
     try {
@@ -689,6 +713,7 @@ export function ReviewPage() {
                   onSaveCheckSelections={(selections) => saveEditCheckSelections(entry.id, selections)}
                   onCreatePhotoGroup={(category) => createEditEvaluationGroup(entry.id, category)}
                   onSavePhotoGroup={saveEditPhotoGroup}
+                  onReplaceEntryEvaluation={(category) => replaceEditEntryEvaluation(entry.id, category)}
                   onSplit={(group, photoId, category) => splitEditPhoto(group, checklistItem, photoId, category)}
                   onPhotoSave={saveEditPhotoAnnotation}
                   onDeletePhoto={(photoId) => void deleteEditPhoto(photoId)}

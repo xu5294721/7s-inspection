@@ -24,6 +24,7 @@ export interface InspectionEntryEditorProps {
   onSaveCheckSelections(selections: InspectionCheckSelection[]): Promise<void>;
   onCreatePhotoGroup(category: PhotoCategory): Promise<void>;
   onSavePhotoGroup(group: PhotoGroup): Promise<void>;
+  onReplaceEntryEvaluation?(category: PhotoCategory): Promise<void>;
   onSplit(group: PhotoGroup, photoId: string, category: PhotoCategory): Promise<void>;
   onPhotoSave(photo: PhotoAsset): Promise<void>;
   onDeletePhoto(photoId: string): void;
@@ -169,6 +170,7 @@ export function InspectionEntryEditor({
   onSaveCheckSelections,
   onCreatePhotoGroup,
   onSavePhotoGroup,
+  onReplaceEntryEvaluation,
   onSplit,
   onPhotoSave,
   onDeletePhoto,
@@ -214,6 +216,20 @@ export function InspectionEntryEditor({
           </span>
         ))}
       </div>
+      {groups.length > 1 && onReplaceEntryEvaluation ? (
+        <label className="entry-overall-evaluation">
+          <span>整项评价</span>
+          <select
+            aria-label="整项评价"
+            disabled={disabled}
+            value={groups.every((group) => group.category === groups[0]?.category) ? groups[0]?.category : ""}
+            onChange={(event) => void onReplaceEntryEvaluation(event.currentTarget.value as PhotoCategory)}
+          >
+            <option value="">多种评价</option>
+            {PHOTO_CATEGORIES.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
+          </select>
+        </label>
+      ) : null}
       {groups.length === 0 ? (
         <EmptyEvaluationPicker
           disabled={disabled}

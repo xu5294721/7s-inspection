@@ -941,7 +941,7 @@ export class InspectionRepository {
       // Preserve an evaluation selected before the first photo is imported.
       const emptyEvaluationGroup = groups.findLast((group) => group && group.photoIds.length === 0);
       const activeGoodGroup = groups.findLast((group) => group?.category === "good");
-      const activeGroup = emptyEvaluationGroup ?? activeGoodGroup;
+      const activeGroup = emptyEvaluationGroup ?? (groups.length === 1 ? groups[0] : activeGoodGroup);
       const group: PhotoGroup = activeGroup ?? {
         id: newGroupId,
         inspectionId: entry.inspectionId,
@@ -1101,6 +1101,71 @@ export class InspectionRepository {
       await this.db.photoGroups.put({ ...group, photoIds: [...group.photoIds] });
       await recomputeCompletedReviewStatus(this.db, group.inspectionId);
     });
+  }
+
+  async replaceEntryEvaluation(entryId: string, evaluation: PhotoGroup): Promise<InspectionGraph> {
+    const parsedCategory = photoCategorySchema.safeParse(evaluation.category);
+    if (!parsedCategory.success) throw new GraphIntegrityError("照片组分类无效。");
+
+    return this.db.transaction(
+      "rw",
+      this.db.inspections,
+      this.db.entries,
+      this.db.photoGroups,
+      this.db.photos,
+      this.db.templates,
+      async () => {
+        const entry = await requireRow(
+          await this.db.entries.get(entryId),
+          `巡检条目 ${entryId} 不存在。`,
+        );
+        const inspection = await requireRow(
+          await this.db.inspections.get(entry.inspectionId),
+          `巡检记录 ${entry.inspectionId} 不存在。`,
+        );
+        if (inspection.deletedAt !== null) throw new GraphIntegrityError("巡检记录已删除。");
+        if (evaluation.entryId !== entry.id || evaluation.inspectionId !== inspection.id) {
+          throw new GraphIntegrityError("评价照片组与巡检项点不一致。");
+        }
+
+        const groups = (await this.db.photoGroups.bulkGet(entry.groupIds))
+          .filter((group): group is PhotoGroup => Boolean(group))
+          .sort(compareOrdered);
+        if (!groups.some((group) => group.id === evaluation.id)) {
+          throw new GraphIntegrityError(`照片组 ${evaluation.id} 不属于巡检项点 ${entry.id}。`);
+        }
+        const photoIds = groups.flatMap((group) => group.photoIds);
+        const groupByPhotoId = new Map(
+          groups.flatMap((group) => group.photoIds.map((photoId) => [photoId, group.id] as const)),
+        );
+        const photos = await this.db.photos.bulkGet(photoIds);
+        const storedPhotos = photos.map((photo, index) => {
+          if (!photo || photo.groupId !== groupByPhotoId.get(photoIds[index])) {
+            throw new GraphIntegrityError(`照片 ${photoIds[index]} 的照片组引用不一致。`);
+          }
+          return { ...photo, groupId: evaluation.id, order: index };
+        });
+        const storedEvaluation: PhotoGroup = {
+          ...evaluation,
+          photoIds,
+          order: 0,
+        };
+        assertGroupEvaluation(storedEvaluation);
+
+        const replacedGroupIds = groups.filter((group) => group.id !== evaluation.id).map((group) => group.id);
+        if (replacedGroupIds.length) await this.db.photoGroups.bulkDelete(replacedGroupIds);
+        await this.db.photoGroups.put(storedEvaluation);
+        if (storedPhotos.length) await this.db.photos.bulkPut(storedPhotos);
+        await this.db.entries.put({ ...entry, groupIds: [storedEvaluation.id] });
+        await this.db.inspections.update(inspection.id, {
+          status: "draft",
+          updatedAt: new Date().toISOString(),
+        });
+        const graph = await readGraphFromDb(this.db, inspection.id);
+        if (!graph) throw new GraphIntegrityError(`巡检记录 ${inspection.id} 不存在。`);
+        return graph;
+      },
+    );
   }
 
   async updatePhotoAnnotation(photoId: string, annotationJson: string | null): Promise<void> {

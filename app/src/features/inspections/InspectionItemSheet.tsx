@@ -40,6 +40,7 @@ export interface InspectionItemSheetProps {
   onSaveCheckSelections(selections: InspectionCheckSelection[]): Promise<void>;
   onCreatePhotoGroup(category: PhotoCategory): Promise<void>;
   onSavePhotoGroup(group: PhotoGroup): Promise<void>;
+  onReplaceEntryEvaluation(category: PhotoCategory): Promise<void>;
   onSplit(group: PhotoGroup, photoId: string, category: PhotoCategory): Promise<void>;
   onPhotoSave(photo: PhotoAsset): Promise<void>;
   onDeletePhoto(photoId: string): void;
@@ -61,6 +62,7 @@ export function InspectionItemSheet({
   onSaveCheckSelections,
   onCreatePhotoGroup,
   onSavePhotoGroup,
+  onReplaceEntryEvaluation,
   onSplit,
   onPhotoSave,
   onDeletePhoto,
@@ -234,6 +236,7 @@ export function InspectionItemSheet({
               onSaveCheckSelections={onSaveCheckSelections}
               onCreatePhotoGroup={onCreatePhotoGroup}
               onSavePhotoGroup={onSavePhotoGroup}
+              onReplaceEntryEvaluation={onReplaceEntryEvaluation}
               onSplit={onSplit}
               onPhotoSave={onPhotoSave}
               onDeletePhoto={onDeletePhoto}
