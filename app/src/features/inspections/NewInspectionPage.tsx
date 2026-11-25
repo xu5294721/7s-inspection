@@ -1,4 +1,4 @@
-import { CheckSquare, Play, Plus, Square } from "lucide-react";
+import { CheckSquare, ChevronRight, Play, Plus, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppDependencies } from "../../app/useAppDependencies";
@@ -253,7 +253,10 @@ export function NewInspectionPage() {
             {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
           </select>
         </label>
-        <Link to="/inspections/route-templates">管理路线模板</Link>
+        <Link to="/inspections/route-templates">
+          管理路线模板
+          <ChevronRight aria-hidden="true" size={16} />
+        </Link>
       </div>
       {templateWarning ? <p className="storage-warning" role="status">{templateWarning}</p> : null}
       <div className="route-selection-toolbar" aria-label="路线选择操作">

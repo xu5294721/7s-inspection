@@ -2,9 +2,11 @@
 
 面向现场 7S 日常巡检的离线移动端工具，服务于检查记录、通报复核和 Word 通报生成，减少现场拍照后再整理材料的工作量。
 
-当前版本：[v1.1.26](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.26)。支持网页/PWA 和 Android APK 两种使用方式。
+当前版本：[v1.1.27](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.27)。支持网页/PWA 和 Android APK 两种使用方式。
 
 ## 主要功能
+
+- 苹果风视觉与交互：采用 iOS 26 Liquid Glass 通透浅色设计语言，配备底部悬浮液态玻璃胶囊 Tab 栏、动态毛玻璃顶栏、二级页返回胶囊、原生分段控件与胶囊开关，以及浅色沉浸式 Android 状态栏。
 
 - 巡检路线模板：选择固定项点，也可新建模板、增加自定义项点并调整顺序。
 - 现场检查：每个项点可拍照或从相册选择照片；也可不拍照，直接填写检查内容和评价。
@@ -29,7 +31,7 @@
 
 ## Android 安装
 
-从 [v1.1.26 Release](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.26) 下载 APK，传至 Android 手机后，在“下载”目录中点击安装。如系统提示，请仅对所使用的文件管理器授权“允许安装未知应用”。
+从 [v1.1.27 Release](https://github.com/xu5294721/7s-inspection/releases/tag/v1.1.27) 下载 APK，传至 Android 手机后，在“下载”目录中点击安装。如系统提示，请仅对所使用的文件管理器授权“允许安装未知应用”。
 
 ### 签名与升级注意事项
 

@@ -810,11 +810,25 @@ export function InspectionPage() {
   if (graph === undefined) return <p className="status-message" role="status">正在读取巡检草稿...</p>;
   if (graph === null) return <p className="status-message" role="alert">未找到巡检记录。</p>;
 
+  const totalEntries = graph.inspection.entries.length;
+  const completedEntryIds = new Set(graph.groups.map((group) => group.entryId));
+  const completedEntries = graph.inspection.entries.filter((entry) => completedEntryIds.has(entry.id)).length;
+  const progressPercent = totalEntries > 0 ? Math.round((completedEntries / totalEntries) * 100) : 0;
+
   return (
     <section className="page-section inspection-page">
       <div className="section-heading inspection-title">
         <p className="eyebrow">巡检草稿</p>
         <h2>{graph.inspection.title}</h2>
+      </div>
+      <div className="inspection-progress-card" aria-label="巡检进度">
+        <div className="inspection-progress-card__stats">
+          <strong>已完成 {completedEntries} / {totalEntries} 项</strong>
+          <span>照片 {graph.photos.length} 张 · {progressPercent}%</span>
+        </div>
+        <div className="ios-progress-track" aria-hidden="true">
+          <div className="ios-progress-fill" style={{ width: `${progressPercent}%` }} />
+        </div>
       </div>
       <div className="inspection-search-toolbar">
         <label className="search-control">

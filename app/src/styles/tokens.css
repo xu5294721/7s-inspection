@@ -1,21 +1,100 @@
 :root {
   color-scheme: light;
-  --color-ink: #1c1c1e;
-  --color-muted: #8e8e93;
-  --color-surface: #ffffff;
+
+  /* iOS 26 Light Mode Canvas & Content Surfaces */
   --color-canvas: #f2f2f7;
-  --color-border: #d1d1d6;
-  --color-accent: #087456;
-  --color-good: #2f855a;
-  --color-reminder: #b7791f;
-  --color-assessment: #b23a3a;
-  --color-accent-soft: #e5f2ed;
-  --color-surface-secondary: #f8f8fa;
-  --color-border-strong: #c7c7cc;
   --color-bg: var(--color-canvas);
-  --radius-control: 12px;
-  --radius-group: 16px;
-  --radius-sheet: 24px;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f5f5f9;
+  --color-fill-tertiary: rgb(118 118 128 / 12%);
+  --color-fill-secondary: rgb(118 118 128 / 16%);
+  --color-fill-quaternary: rgb(118 118 128 / 8%);
+
+  /* iOS Typography & Ink Hierarchy */
+  --color-ink: #1c1c1e;
+  --color-label-secondary: rgb(60 60 67 / 68%);
+  --color-muted: #6e6e73;
+  --color-label-tertiary: rgb(60 60 67 / 38%);
+
+  /* iOS Hairline Separators */
+  --color-separator: rgb(60 60 67 / 14%);
+  --color-border: rgb(60 60 67 / 15%);
+  --color-border-strong: rgb(60 60 67 / 24%);
+
+  /* Apple System Palette (Light Mode) */
+  --color-accent: #007aff;
+  --color-accent-pressed: #0062cc;
+  --color-accent-soft: rgb(0 122 255 / 11%);
+  --color-accent-soft-strong: rgb(0 122 255 / 18%);
+
+  --color-good: #1f8e3d;
+  --color-good-vivid: #34c759;
+  --color-good-soft: rgb(52 199 89 / 13%);
+
+  --color-general: #5856d6;
+  --color-general-soft: rgb(88 86 214 / 11%);
+
+  --color-reminder: #b86500;
+  --color-reminder-vivid: #ff9500;
+  --color-reminder-soft: rgb(255 149 0 / 14%);
+
+  --color-assessment: #d70015;
+  --color-assessment-vivid: #ff3b30;
+  --color-assessment-soft: rgb(255 59 48 / 11%);
+
+  /* iOS 26 Liquid Glass Material Tokens (Navigation & Floating Controls Only) */
+  --glass-bg: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 84%) 0%,
+    rgb(255 255 255 / 68%) 100%
+  );
+  --glass-bg-dense: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 92%) 0%,
+    rgb(248 248 252 / 84%) 100%
+  );
+  --glass-bg-subtle: rgb(255 255 255 / 72%);
+  --glass-blur: blur(26px) saturate(185%);
+  --glass-border: rgb(255 255 255 / 86%);
+  --glass-specular: linear-gradient(
+    140deg,
+    rgb(255 255 255 / 95%) 0%,
+    rgb(255 255 255 / 32%) 42%,
+    rgb(255 255 255 / 6%) 75%,
+    rgb(255 255 255 / 45%) 100%
+  );
+  --glass-shadow:
+    0 12px 34px rgb(15 23 42 / 10%),
+    0 3px 10px rgb(15 23 42 / 5%),
+    inset 0 1px 0 rgb(255 255 255 / 94%),
+    inset 0 -0.5px 0 rgb(60 60 67 / 8%);
+  --glass-pill-shadow:
+    0 6px 20px rgb(15 23 42 / 8%),
+    0 1.5px 4px rgb(15 23 42 / 5%),
+    inset 0 1px 0 rgb(255 255 255 / 92%);
+
+  /* Content Card Shadow (Soft, Borderless Apple Elevation) */
+  --card-shadow:
+    0 1px 2px rgb(15 23 42 / 3.5%),
+    0 6px 20px rgb(15 23 42 / 3.5%);
+  --segment-shadow:
+    0 3px 8px rgb(0 0 0 / 10%),
+    0 1px 2px rgb(0 0 0 / 5%);
+
+  /* Concentric Radii */
+  --radius-control: 14px;
+  --radius-group: 22px;
+  --radius-sheet: 30px;
+  --radius-pill: 999px;
   --tap-size: 44px;
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+
+  /* Safe Area & Layout Rhythm */
+  --tabbar-height: 62px;
+  --tabbar-offset: 12px;
+  --tabbar-total-space: calc(var(--tabbar-height) + var(--tabbar-offset) + env(safe-area-inset-bottom));
+
+  /* Spring Motion */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
 }

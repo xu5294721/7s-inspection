@@ -10,6 +10,7 @@ export function ReviewRouteEditDialog({ routeName, children, onClose }: ReviewRo
   return (
     <div className="review-route-dialog-backdrop">
       <section className="review-route-edit-dialog" role="dialog" aria-modal="true" aria-label={`编辑 ${routeName}`}>
+        <div className="ios-sheet-grabber" aria-hidden="true" />
         <header className="review-route-dialog__header"><h3>编辑 {routeName}</h3></header>
         <div className="review-route-edit-dialog__body">{children}</div>
         <footer className="review-route-dialog__command">

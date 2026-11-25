@@ -240,7 +240,9 @@ export function BackupPage() {
 
       <section className="backup-section" aria-labelledby="backup-export-heading">
         <div className="backup-section__heading">
-          <DatabaseBackup aria-hidden="true" size={22} />
+          <span className="settings-link__badge is-blue backup-section__icon" aria-hidden="true">
+            <DatabaseBackup size={18} strokeWidth={2.1} />
+          </span>
           <div><h3 id="backup-export-heading">导出本地备份</h3><p>包含巡检记录、模板、设置及全部原图和缩略图。</p></div>
         </div>
         <button className="primary-action" type="button" disabled={disabled} onClick={() => void exportBackup()}>
@@ -250,7 +252,9 @@ export function BackupPage() {
 
       <section className="backup-section" aria-labelledby="backup-restore-heading">
         <div className="backup-section__heading">
-          <ArchiveRestore aria-hidden="true" size={22} />
+          <span className="settings-link__badge is-indigo backup-section__icon" aria-hidden="true">
+            <ArchiveRestore size={18} strokeWidth={2.1} />
+          </span>
           <div><h3 id="backup-restore-heading">从备份恢复</h3><p>先检查文件和数据数量，再选择替换或合并。</p></div>
         </div>
         <label className="backup-file-input">
@@ -284,18 +288,28 @@ export function BackupPage() {
 
       <section className="backup-section" role="region" aria-label="存储空间">
         <div className="backup-section__heading">
-          <HardDrive aria-hidden="true" size={22} />
+          <span className="settings-link__badge is-orange backup-section__icon" aria-hidden="true">
+            <HardDrive size={18} strokeWidth={2.1} />
+          </span>
           <div><h3>存储空间</h3><p>浏览器本地空间不足时，请先备份并删除不再需要的数据。</p></div>
         </div>
         {capacity.percentage === null ? (
           <p className="storage-unavailable">浏览器未提供完整的存储用量信息。</p>
         ) : (
-          <dl className="storage-metrics">
-            <div><dt>已使用</dt><dd>{formatBytes(capacity.usage ?? 0)}</dd></div>
-            <div><dt>总容量</dt><dd>{formatBytes(capacity.quota ?? 0)}</dd></div>
-            <div><dt>可用</dt><dd>{formatBytes(capacity.available ?? 0)}</dd></div>
-            <div><dt>使用率</dt><dd>{capacity.percentage.toFixed(1)}%</dd></div>
-          </dl>
+          <>
+            <div className="storage-bar" aria-hidden="true">
+              <div
+                className={`storage-bar__fill${capacity.photoWriteBlocked ? " is-danger" : capacity.warning ? " is-warn" : ""}`}
+                style={{ width: `${Math.min(100, Math.max(2, capacity.percentage))}%` }}
+              />
+            </div>
+            <dl className="storage-metrics">
+              <div><dt>已使用</dt><dd>{formatBytes(capacity.usage ?? 0)}</dd></div>
+              <div><dt>总容量</dt><dd>{formatBytes(capacity.quota ?? 0)}</dd></div>
+              <div><dt>可用</dt><dd>{formatBytes(capacity.available ?? 0)}</dd></div>
+              <div><dt>使用率</dt><dd>{capacity.percentage.toFixed(1)}%</dd></div>
+            </dl>
+          </>
         )}
         {capacity.warning ? (
           <p className="storage-warning" role="alert">
@@ -308,7 +322,9 @@ export function BackupPage() {
 
       <section className="backup-section" aria-labelledby="persistence-heading">
         <div className="backup-section__heading">
-          <ShieldCheck aria-hidden="true" size={22} />
+          <span className="settings-link__badge is-green backup-section__icon" aria-hidden="true">
+            <ShieldCheck size={18} strokeWidth={2.1} />
+          </span>
           <div><h3 id="persistence-heading">持久存储</h3><p>授权后，浏览器会尽量避免自动清理本应用的本地数据。</p></div>
         </div>
         <p className="persistence-status" role="status">

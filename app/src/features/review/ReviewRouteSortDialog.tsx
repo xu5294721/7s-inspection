@@ -54,6 +54,7 @@ export function ReviewRouteSortDialog({ routeNamesByCategory, onSave, onCancel }
   return (
     <div className="review-route-dialog-backdrop">
       <section className="review-route-sort-dialog" role="dialog" aria-modal="true" aria-label="项点排序">
+        <div className="ios-sheet-grabber" aria-hidden="true" />
         <header className="review-route-dialog__header"><h3>项点排序</h3></header>
         <div className="review-route-dialog__body">
           {PHOTO_CATEGORIES.map(({ id, label }) => (

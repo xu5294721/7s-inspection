@@ -201,6 +201,7 @@ export function InspectionItemSheet({
         aria-labelledby={titleId}
         tabIndex={-1}
       >
+        <div className="ios-sheet-grabber" aria-hidden="true" />
         <header className="inspection-item-sheet__header">
           <div>
             <p className="eyebrow">当前项点</p>

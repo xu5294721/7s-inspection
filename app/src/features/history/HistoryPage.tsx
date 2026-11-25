@@ -1,4 +1,4 @@
-import { Copy, Eye, FileOutput, Trash2 } from "lucide-react";
+import { ChevronRight, Copy, Eye, FileOutput, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppDependencies } from "../../app/useAppDependencies";
@@ -54,10 +54,15 @@ function HistoryRow({
   onDelete(id: string): void;
 }) {
   const isDraft = graph.inspection.status === "draft";
+  const statusLabel = isDraft ? "草稿" : graph.inspection.status === "reviewed" ? "已复核" : "已生成";
+  const badgeClass = isDraft ? "is-draft" : graph.inspection.status === "reviewed" ? "is-reviewed" : "is-generated";
   return <li className="history-row">
-    <div>
-      <strong>{graph.inspection.title}</strong>
-      <span>{toLocalInspectionDateTime(graph.inspection.inspectionDate, graph.inspection.updatedAt)} · {isDraft ? "草稿，已自动保存" : graph.inspection.status === "reviewed" ? "已复核" : "已生成"}</span>
+    <div className="history-row__head">
+      <div>
+        <strong>{graph.inspection.title}</strong>
+        <span className="history-row__meta">{toLocalInspectionDateTime(graph.inspection.inspectionDate, graph.inspection.updatedAt)} · {isDraft ? "草稿，已自动保存" : graph.inspection.status === "reviewed" ? "已复核" : "已生成"}</span>
+      </div>
+      <span className={`history-badge ${badgeClass}`} aria-hidden="true">{statusLabel}</span>
     </div>
     <HistorySummary graph={graph} />
     <div className="history-actions">
@@ -137,6 +142,11 @@ export function HistoryPage() {
       <ul className="history-list">{completed.map((graph) => <HistoryRow key={graph.inspection.id} graph={graph} pendingCopyId={pendingCopyId} pendingDeleteId={pendingDeleteId} onCopy={(item) => void copyInspection(item)} onDelete={(id) => void moveToTrash(id)} />)}</ul>
     </section> : null}
     {graphs.length === 0 ? <p className="empty-state">暂无巡检记录。</p> : null}
-    <Link className="secondary-action history-trash-link" to="/history/trash">查看回收站</Link>
+    <div className="history-trash-row">
+      <Link className="secondary-action history-trash-link" to="/history/trash">
+        <span>查看回收站</span>
+        <ChevronRight aria-hidden="true" size={18} />
+      </Link>
+    </div>
   </section>;
 }
